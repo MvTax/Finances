@@ -1,0 +1,15 @@
+# Données personnelles : JAMAIS dans le dépôt public
+*.prive.json
+*-prive.json
+*-prive.md
+prive/
+*.pdf
+*.csv
+!tests/fixtures/*-synthetique*.pdf
+!tests/fixtures/*-synthetique*.csv
+budget-sauvegarde-*.json
+
+# Divers
+node_modules/
+.DS_Store
+*.zip

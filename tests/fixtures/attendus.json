@@ -1,0 +1,46 @@
+{
+  "annee": [
+    {
+      "numero": 12,
+      "debits": 180079,
+      "credits": 163258,
+      "totD": 180079,
+      "totC": 178258,
+      "solde": -1821,
+      "nbOps": 17
+    },
+    {
+      "numero": 13,
+      "debits": 169055,
+      "credits": 139990,
+      "totD": 169055,
+      "totC": 139990,
+      "solde": -29065,
+      "nbOps": 7
+    },
+    {
+      "numero": 14,
+      "debits": 31644,
+      "credits": 152345,
+      "totD": 60709,
+      "totC": 152345,
+      "solde": 91636,
+      "nbOps": 3
+    }
+  ],
+  "negatif": [
+    {
+      "numero": 13,
+      "debits": 169055,
+      "credits": 139990,
+      "totD": 169055,
+      "totC": 139990,
+      "solde": -29065,
+      "nbOps": 7
+    }
+  ],
+  "revolut": {
+    "nbOps": 10,
+    "cloture": 15217
+  }
+}

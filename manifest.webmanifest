@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "Budget",
+  "short_name": "Budget",
+  "description": "Budget personnel : reste à dépenser du jour, saisie en 5 secondes, épargne par poches.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5f7",
+  "theme_color": "#3349c7",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "./icons/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icons/apple-touch-icon-180.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

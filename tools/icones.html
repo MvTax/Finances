@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Régénérer les icônes</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; line-height: 1.5; }
+    .grille { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; }
+    figure { margin: 0; text-align: center; }
+    canvas { border-radius: 16px; box-shadow: 0 2px 8px rgb(0 0 0 / 15%); max-width: 160px; height: auto; }
+    a { display: inline-block; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Icônes de Budget</h1>
+  <p>Cette page lit <code>../icons/icone.svg</code> et produit les PNG attendus par le manifeste et iOS. Remplace le SVG par le tien, recharge cette page, télécharge les fichiers puis place-les dans <code>icons/</code> (mêmes noms).</p>
+  <p><label>Ou choisis un autre SVG : <input type="file" id="fichier" accept=".svg,image/svg+xml"></label></p>
+  <div class="grille" id="grille"></div>
+  <script type="module">
+    const tailles = [['apple-touch-icon-180.png', 180], ['icone-192.png', 192], ['icone-512.png', 512], ['icone-maskable-512.png', 512]];
+    const grille = document.getElementById('grille');
+    async function produire(url) {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      grille.replaceChildren();
+      for (const [nom, t] of tailles) {
+        const c = document.createElement('canvas');
+        c.width = t; c.height = t;
+        c.getContext('2d').drawImage(img, 0, 0, t, t);
+        const a = document.createElement('a');
+        a.download = nom; a.href = c.toDataURL('image/png'); a.textContent = `Télécharger ${nom}`;
+        const f = document.createElement('figure');
+        f.append(c, document.createElement('br'), a);
+        grille.append(f);
+      }
+    }
+    produire('../icons/icone.svg');
+    document.getElementById('fichier').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) produire(URL.createObjectURL(f)); });
+  </script>
+</body>
+</html>

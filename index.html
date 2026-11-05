@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Budget</title>
+  <meta name="description" content="Budget personnel : reste à dépenser du jour, saisie en 5 secondes, épargne par poches.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Budget">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/composants.css">
+  <link rel="stylesheet" href="./css/pages.css">
+  <script type="module" src="./js/app.js"></script>
+</head>
+<body>
+  <a class="lien-evitement" href="#vue">Aller au contenu</a>
+  <div id="app">
+    <div id="maj" aria-live="polite"></div>
+    <main id="vue" class="vue" tabindex="-1" aria-live="off">
+      <div class="squelettes" aria-busy="true" aria-label="Chargement"><div class="squelette"></div><div class="squelette"></div><div class="squelette"></div></div>
+    </main>
+    <nav class="barre-onglets" aria-label="Navigation principale">
+      <a class="onglet" data-onglet="accueil" href="#accueil"><svg class="ic" aria-hidden="true"><use href="#i-accueil"/></svg><span>Accueil</span></a>
+      <a class="onglet" data-onglet="depenses" href="#depenses"><svg class="ic" aria-hidden="true"><use href="#i-liste"/></svg><span>Dépenses</span></a>
+      <button id="bouton-plus" class="onglet-plus" type="button" aria-label="Ajouter une dépense ou une entrée"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
+      <a class="onglet" data-onglet="epargne" href="#epargne"><svg class="ic" aria-hidden="true"><use href="#i-tirelire"/></svg><span>Épargne</span></a>
+      <a class="onglet" data-onglet="reglages" href="#reglages"><svg class="ic" aria-hidden="true"><use href="#i-reglages"/></svg><span>Réglages</span></a>
+    </nav>
+  </div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="annonces" class="sr" aria-live="assertive"></div>
+  <div class="ecran-confidentialite" aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-cadenas"/></svg><span>Budget</span></div>
+  <noscript><p class="noscript">Budget a besoin de JavaScript pour fonctionner.</p></noscript>
+</body>
+</html>

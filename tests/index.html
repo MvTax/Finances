@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tests de Budget</title>
+  <link rel="stylesheet" href="../css/variables.css">
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; background: var(--fond); color: var(--texte); margin: 0; padding: calc(env(safe-area-inset-top) + 16px) 16px 32px; line-height: 1.4; }
+    h1 { font-size: 26px; margin: 0 0 8px; }
+    #resume { font-weight: 700; margin: 8px 0 16px; }
+    .ok { color: var(--vert); } .ko { color: var(--rouge); }
+    li { margin: 6px 0; font-size: 15px; } pre { white-space: pre-wrap; font-size: 13px; background: var(--surface-2); padding: 8px; border-radius: 8px; }
+    button { font: inherit; font-size: 17px; min-height: 44px; padding: 8px 16px; border-radius: 12px; border: 0; background: var(--accent); color: var(--accent-texte); }
+  </style>
+</head>
+<body>
+  <h1>Tests de Budget</h1>
+  <p>Mêmes cas que <code>node --test tests/node.test.mjs</code>, exécutés dans ce navigateur (Safari iOS compris). Rien n'est envoyé.</p>
+  <button id="lancer" type="button">Lancer les tests</button>
+  <p id="resume" aria-live="polite"></p>
+  <ol id="liste"></ol>
+  <script type="module">
+    import { CAS } from './liste.mjs';
+    const liste = document.getElementById('liste');
+    const resume = document.getElementById('resume');
+    async function lancer() {
+      liste.replaceChildren(); let ok = 0; let ko = 0;
+      for (const [fichier, charger] of CAS) {
+        let cas;
+        try { cas = (await charger()).default; } catch (e) { ko++; const li = document.createElement('li'); li.className = 'ko'; li.textContent = `✗ ${fichier} : chargement impossible — ${e.message}`; liste.append(li); continue; }
+        for (const c of cas) {
+          const li = document.createElement('li');
+          try { await c.fn(); ok++; li.className = 'ok'; li.textContent = `✓ ${fichier} › ${c.nom}`; }
+          catch (e) { ko++; li.className = 'ko'; li.textContent = `✗ ${fichier} › ${c.nom}`; const pre = document.createElement('pre'); pre.textContent = e.message; li.append(pre); }
+          liste.append(li);
+          resume.textContent = `${ok} réussis, ${ko} en échec…`;
+        }
+      }
+      resume.textContent = ko ? `${ok} réussis, ${ko} en échec.` : `Tous les tests réussissent (${ok}).`;
+      resume.className = ko ? 'ko' : 'ok';
+    }
+    document.getElementById('lancer').addEventListener('click', lancer);
+  </script>
+</body>
+</html>

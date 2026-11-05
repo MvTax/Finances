@@ -1,0 +1,13 @@
+{
+  "name": "budget",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PWA de budget personnel (HTML, CSS, JavaScript en modules ES, sans build).",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/node.test.mjs",
+    "verif": "node tools/verif-statique.mjs && node tools/verif-confidentialite.mjs",
+    "fixtures": "node tests/outils/generer-fixtures.mjs"
+  },
+  "license": "MIT"
+}
