@@ -50,8 +50,8 @@ function vuePoches() {
     return h('article', { class: 'poche' },
       h('div', { class: 'poche-tete' }, h('h3', {}, p.nom), h('span', { class: 'poche-solde' }, mt(s))),
       p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: s >= p.cibleCentimes ? 'vert' : 'bleu', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
-      h('p', { class: 'petit' }, p.cibleCentimes ? ['Cible ', mt(p.cibleCentimes), dateAtt ? ` · atteinte projetée : ${formatMois(dateAtt)}` : ' · date d’atteinte non projetable'] : 'Sans cible',
-        ` · ${p.compteSupport || 'livret'}${p.tauxAnnuel ? ` ${String(p.tauxAnnuel).replace('.', ',')} %` : ''}`),
+      h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)} au rythme prévu.` : '. Date d’atteinte impossible à projeter pour l’instant.'] : 'Sans objectif chiffré.'),
+      h('p', { class: 'petit' }, `Placé sur ${p.compteSupport ? (/^(livret|lep|ldds)/i.test(p.compteSupport) ? `le ${p.compteSupport}` : p.compteSupport) : 'le livret'}${p.tauxAnnuel ? ` à ${String(p.tauxAnnuel).replace('.', ',')} %` : ''}.`),
       h('p', { class: 'petit' }, 'Épargne nette : ', mt(n.nette), n.reprises ? ` (versé ${formatEuros(n.versements)}, repris ${formatEuros(n.reprises)})` : ''),
       p.type === 'coussin' ? h('p', { class: 'petit' }, 'Uniquement pour les vrais imprévus. Le reprendre pour une dépense courante déclenche l’alerte « épargne reprise ».') : null,
       p.type === 'projet' && /voiture/i.test(p.nom) ? h('p', { class: 'petit info-texte' }, icone('info'), ' Avant l’achat, prévois le coût mensuel d’une voiture (assurance, carburant, entretien, contrôle technique, stationnement) et ajoute-le aux charges fixes simulées.') : null,
@@ -71,7 +71,7 @@ function vuePoches() {
   // Sources et objectif
   const progression = planMois ? planMois.allocationsPoches.reduce((s, a) => s + a.montantCentimes, 0) + (planMois.arrondisEstimesCentimes || 0) : 0;
   const sources = carte(`Épargne de ${formatMois(per.mois)}`, h('div', {},
-    statistique('Épargne nette réelle', mt(nette.nette), { detail: `versé ${formatEuros(nette.versements)} · repris ${formatEuros(nette.reprises)}` }),
+    statistique('Épargne nette réelle', mt(nette.nette), { detail: `${formatEuros(nette.versements)} versés, ${formatEuros(nette.reprises)} repris` }),
     h('div', { class: 'liste-cles' },
       ligne('Virements vers le livret', nette.parType.virementLivret || 0),
       ligne("Arrondi System'Épargne (banque)", nette.parType.arrondiBanque || 0),
@@ -152,7 +152,7 @@ function vuePlan() {
       cur.arrondisEstimesCentimes ? ligne('Arrondis estimés', cur.arrondisEstimesCentimes) : null,
       ligne('Vie courante', cur.vieCouranteCentimes),
       h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Marge'), mt(cur.margeCentimes))),
-    cur.vieDetail ? h('p', { class: 'petit' }, 'Vie courante : ', cur.vieDetail.map((v) => `${v.libelle} ${formatEuros(v.montantCentimes)}`).join(' · '), ` (≈ ${formatEuros(Math.round(cur.vieCouranteCentimes / (cur.periode ? 30 : 30)))} par jour)`) : null,
+    cur.vieDetail ? h('p', { class: 'petit' }, 'Vie courante : ', cur.vieDetail.map((v) => `${v.libelle} ${formatEuros(v.montantCentimes)}`).join(', '), ` (≈ ${formatEuros(Math.round(cur.vieCouranteCentimes / (cur.periode ? 30 : 30)))} par jour)`) : null,
     cur.objectif ? h('p', { class: 'objectif' }, icone('etoile'), ` Objectif n° 1 du mois : ${cur.objectif}.`) : null,
     h('p', { class: 'petit' }, 'Le plan se recalcule quand tu saisis tes revenus exacts ou qu’une enveloppe déborde. Les montants proposés ne créent jamais de découvert projeté.'),
     proj[0].stocke && cur.statut !== 'accepte' ? bouton('Accepter ce plan', () => accepterPlan(cur), { classe: 'btn-principal' }) : !proj[0].stocke ? bouton('Accepter ce plan', () => accepterPlan(cur), { classe: 'btn-principal' }) : h('p', { class: 'vert-texte' }, icone('ok'), ' Plan accepté.')), { id: 'allocation' });
@@ -170,13 +170,13 @@ function vuePlan() {
 
   const sc = scenariosPret(etat, mois, 60);
   const scen = sc ? carte('Effet sur la fin du prêt', h('div', {},
-    h('table', { class: 'tableau' }, h('caption', { class: 'sr' }, 'Scénarios de remboursement anticipé'),
-      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Scénario'), h('th', { scope: 'col' }, 'Fin du prêt'), h('th', { scope: 'col' }, 'Intérêts économisés'))),
-      h('tbody', {},
-        h('tr', {}, h('th', { scope: 'row' }, 'Sans remboursement anticipé'), h('td', {}, formatDate(sc.sansAnticipe.finLe)), h('td', {}, '—')),
-        h('tr', {}, h('th', { scope: 'row' }, 'Tout sur le projet, puis le prêt'), h('td', {}, formatDate(sc.projet.finLe)), h('td', {}, mt(sc.sansAnticipe.interetsCentimes - sc.projet.interetsCentimes))),
-        h('tr', {}, h('th', { scope: 'row' }, 'Répartition (réglable)'), h('td', {}, formatDate(sc.repartition.finLe)), h('td', {}, mt(sc.sansAnticipe.interetsCentimes - sc.repartition.interetsCentimes))),
-        h('tr', {}, h('th', { scope: 'row' }, 'Tout sur le remboursement anticipé'), h('td', {}, formatDate(sc.pret.finLe)), h('td', {}, mt(sc.sansAnticipe.interetsCentimes - sc.pret.interetsCentimes))))),
+    h('div', { class: 'liste-cles', role: 'list', 'aria-label': 'Scénarios de remboursement anticipé' },
+      [['Sans remboursement anticipé', sc.sansAnticipe], ['Tout sur le projet, puis le prêt', sc.projet], ['Répartition (réglable)', sc.repartition], ['Tout sur le remboursement anticipé', sc.pret]].map(([nom, x]) => {
+        const gain = sc.sansAnticipe.interetsCentimes - x.interetsCentimes;
+        return h('div', { class: 'ligne-cle', role: 'listitem' },
+          h('span', { class: 'ligne-scenario' }, nom, h('small', {}, `Prêt soldé le ${formatDate(x.finLe)}`)),
+          gain > 0 ? h('span', { class: 'ligne-cle-valeur' }, mt(gain, { classe: 'vert-texte' }), h('small', {}, ' d’intérêts en moins')) : h('span', { class: 'ligne-cle-valeur' }, 'référence'));
+      })),
     h('p', { class: 'petit' }, `Chaque euro remboursé par anticipation rapporte le taux du prêt (${String(sc.credit.tauxPourcent).replace('.', ',')} % saisi) contre ${String(etat.parametres.tauxLivretA).replace('.', ',')} % sur le Livret A.`),
     reglageRepartition())) : null;
   return h('div', {}, allocation, tableau, scen);

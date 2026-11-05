@@ -5,7 +5,7 @@ import { ligneTransaction, etatVide, segment, champ, champMontant, pastillesCate
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import { etat } from '../store.js';
-import { CATEGORIES, categorie, natureTransaction, contributionDepense, categoriesDepense, categoriesEntree } from '../categories.js';
+import { CATEGORIES, FAMILLES, categorie, famille, natureTransaction, contributionDepense, categoriesDepense, categoriesEntree } from '../categories.js';
 import { libelleRelatif, formatDate, aujourdhui, ajouterJours, estIso } from '../dates.js';
 import { formatEuros } from '../money.js';
 import { normaliserTexte } from '../rules.js';
@@ -15,11 +15,12 @@ import { coutAnnuelRecurrent } from '../detecteurs.js';
 export const titre = 'Dépenses';
 
 const filtres = { texte: '', type: 'tout', categorie: '', periode: '90', compte: '', source: '', internes: false };
+let affichage = 'jours'; // 'jours' | 'categories'
 const TAILLE_LOT = 120;
 
 export function rendre(vue) {
-  const recherche = h('input', { type: 'search', class: 'input input-recherche', placeholder: 'Rechercher un marchand, un montant…', 'aria-label': 'Rechercher', value: filtres.texte, enterkeyhint: 'search' });
-  const liste = h('div', { class: 'liste-jours', role: 'list' });
+  const recherche = h('input', { type: 'search', class: 'input input-recherche', placeholder: 'Marchand ou montant', 'aria-label': 'Rechercher', value: filtres.texte, enterkeyhint: 'search' });
+  const liste = h('div', { class: 'liste-jours' });
   const resume = h('p', { class: 'resume-filtres', 'aria-live': 'polite' });
   let attente;
   recherche.addEventListener('input', () => { clearTimeout(attente); attente = setTimeout(() => { filtres.texte = recherche.value; dessiner(); }, 180); });
@@ -27,20 +28,29 @@ export function rendre(vue) {
   const typeSeg = segment([['tout', 'Tout'], ['debit', 'Dépenses'], ['credit', 'Entrées']], filtres.type, (v) => { filtres.type = v; dessiner(); }, 'Type');
   const boutonFiltres = h('button', { class: 'btn btn-secondaire btn-petit', type: 'button', onclick: () => feuilleFiltres(dessiner) }, icone('filtre'), h('span', {}, 'Filtres'));
 
+  const zoneAffichage = h('div');
+  const rendreAffichage = () => zoneAffichage.replaceChildren(segment([['jours', 'Par jour'], ['categories', 'Par catégorie']], affichage, (v) => { affichage = v; dessiner(); }, 'Affichage'));
+  rendreAffichage();
+  const puceFiltre = h('div', { class: 'filtre-actif' });
+
   vue.replaceChildren(
-    h('h1', { class: 'titre-page' }, 'Dépenses et entrées'),
+    h('h1', { class: 'titre-page' }, 'Dépenses'),
+    zoneAffichage,
     h('div', { class: 'barre-recherche' }, icone('recherche'), recherche),
     h('div', { class: 'barre-filtres' }, typeSeg, boutonFiltres),
-    resume, liste);
+    puceFiltre, resume, liste);
 
   function dessiner() {
     const tx = filtrer();
     const total = tx.reduce((s, t) => s + contributionDepense(t), 0);
-    resume.textContent = `${tx.length.toLocaleString('fr-FR')} opération${tx.length > 1 ? 's' : ''}${filtres.internes ? '' : ' (virements internes masqués)'} · dépenses nettes ${formatEuros(total)}`;
+    resume.textContent = `${tx.length.toLocaleString('fr-FR')} opération${tx.length > 1 ? 's' : ''}, ${formatEuros(total)} dépensés${filtres.internes ? '' : ' hors virements internes'}`;
+    puceFiltre.replaceChildren(...(filtres.categorie ? [h('button', { type: 'button', class: 'pastille active', style: { '--c': categorie(filtres.categorie).couleur }, 'aria-label': `Retirer le filtre ${categorie(filtres.categorie).nom}`, onclick: () => { filtres.categorie = ''; dessiner(); } },
+      icone(categorie(filtres.categorie).icone), h('span', {}, categorie(filtres.categorie).nom), icone('fermer'))] : []));
     if (!tx.length) {
       liste.replaceChildren(etatVide('liste', 'Aucune opération', etat.transactions.length ? 'Aucun résultat avec ces filtres.' : 'Ajoute une dépense avec le bouton + ou importe un relevé dans Réglages.'));
       return;
     }
+    if (affichage === 'categories') { liste.replaceChildren(vueCategories(tx, (id) => { filtres.categorie = id; affichage = 'jours'; rendreAffichage(); dessiner(); window.scrollTo({ top: 0 }); })); return; }
     // Groupement par jour, rendu par lots (fluide même avec plusieurs milliers de lignes)
     const jours = new Map();
     for (const t of tx) { if (!jours.has(t.date)) jours.set(t.date, []); jours.get(t.date).push(t); }
@@ -55,9 +65,9 @@ export function rendre(vue) {
         const [date, lignes] = entrees[i++];
         n += lignes.length;
         const totalJour = lignes.reduce((s, t) => s + contributionDepense(t), 0);
-        frag.append(h('section', { class: 'groupe-jour', role: 'listitem', 'aria-label': libelleRelatif(date) },
+        frag.append(h('section', { class: 'groupe-jour', 'aria-label': libelleRelatif(date) },
           h('h2', { class: 'groupe-jour-entete' }, h('span', {}, libelleRelatif(date)), h('span', { class: 'groupe-jour-total' }, totalJour ? mt(totalJour) : '')),
-          lignes.map((t) => glissable(ligneTransaction(t, ouvrirDetail), t, dessiner))));
+          h('div', { class: 'groupe-jour-corps' }, lignes.map((t) => glissable(ligneTransaction(t, ouvrirDetail), t, dessiner)))));
       }
       sentinelle.remove();
       liste.append(frag);
@@ -67,6 +77,41 @@ export function rendre(vue) {
     lot();
   }
   dessiner();
+}
+
+/** Vue « Par catégorie » : une barre de répartition, puis chaque famille avec ses catégories. */
+function vueCategories(tx, onCategorie) {
+  const parCat = new Map();
+  for (const t of tx) {
+    const v = contributionDepense(t);
+    if (!v) continue;
+    const e = parCat.get(t.categorie) || { montant: 0, nb: 0 };
+    e.montant += v; e.nb += 1;
+    parCat.set(t.categorie, e);
+  }
+  const familles = FAMILLES.map((f) => {
+    const cats = [...parCat.entries()].filter(([id]) => categorie(id).famille === f.id).map(([id, e]) => ({ id, ...e })).sort((a, b) => b.montant - a.montant);
+    return { f, cats, total: cats.reduce((s, c) => s + c.montant, 0) };
+  }).filter((x) => x.total > 0).sort((a, b) => b.total - a.total);
+  const total = familles.reduce((s, x) => s + x.total, 0);
+  if (!total) return etatVide('liste', 'Aucune dépense', 'Pas de dépense sur cette période avec ces filtres.');
+  const pct = (v) => Math.max(0, Math.round((v / total) * 1000) / 10);
+  const repartition = h('section', { class: 'repartition', 'aria-label': 'Répartition des dépenses par famille' },
+    h('div', { class: 'repartition-total' }, h('span', { class: 'repartition-libelle' }, 'Total dépensé'), h('span', { class: 'repartition-montant' }, mt(total))),
+    h('div', { class: 'repartition-barre', 'aria-hidden': 'true' }, familles.map((x) => h('span', { style: { width: `${pct(x.total)}%`, background: x.f.couleur } }))),
+    h('ul', { class: 'repartition-legende' }, familles.map((x) => h('li', { style: { '--c': x.f.couleur } }, h('span', { class: 'point-famille', 'aria-hidden': 'true' }), `${x.f.nom} `, h('span', { class: 'repartition-pct' }, `${String(Math.round(pct(x.total))).replace('.', ',')} %`)))));
+  const blocs = familles.map((x) => h('section', { class: 'famille-bloc', style: { '--c': x.f.couleur }, 'aria-label': x.f.nom },
+    h('h2', { class: 'famille-entete' }, h('span', { class: 'point-famille', 'aria-hidden': 'true' }), h('span', { class: 'famille-nom' }, x.f.nom), h('span', { class: 'famille-total' }, mt(x.total))),
+    h('div', { class: 'famille-corps' }, x.cats.map((c) => {
+      const cat = categorie(c.id);
+      return h('button', { type: 'button', class: 'ligne-categorie', onclick: () => onCategorie(c.id) },
+        h('span', { class: 'puce-cat', style: { '--c': cat.couleur }, 'aria-hidden': 'true' }, icone(cat.icone)),
+        h('span', { class: 'ligne-categorie-texte' },
+          h('span', { class: 'ligne-categorie-haut' }, h('span', { class: 'ligne-categorie-nom' }, cat.nom), mt(c.montant, { classe: 'ligne-categorie-montant' })),
+          h('span', { class: 'ligne-categorie-bas' }, h('span', { class: 'jauge-fine', 'aria-hidden': 'true' }, h('span', { style: { width: `${Math.min(100, Math.max(0, (c.montant / x.total) * 100))}%` } })),
+            h('span', { class: 'ligne-categorie-nb' }, `${c.nb} opération${c.nb > 1 ? 's' : ''}`))));
+    }))));
+  return h('div', { class: 'vue-categories' }, repartition, blocs);
 }
 
 function filtrer() {
@@ -90,11 +135,13 @@ function filtrer() {
 }
 
 function feuilleFiltres(apres) {
-  const cats = [['', 'Toutes les catégories'], ...CATEGORIES.map((c) => [c.id, c.nom])];
+  const selCat = h('select', { class: 'input', onchange: (e) => { filtres.categorie = e.target.value; } },
+    h('option', { value: '', selected: !filtres.categorie || null }, 'Toutes les catégories'),
+    FAMILLES.map((fa) => h('optgroup', { label: fa.nom }, CATEGORIES.filter((c) => c.famille === fa.id && c.id !== 'ajustement').map((c) => h('option', { value: c.id, selected: c.id === filtres.categorie || null }, c.nom)))));
   const f = ouvrirFeuille({
     titre: 'Filtres',
     contenu: h('div', { class: 'formulaire' },
-      champ('Catégorie', selectionner(cats, filtres.categorie, (v) => { filtres.categorie = v; })),
+      champ('Catégorie', selCat),
       champ('Période', selectionner([['30', '30 derniers jours'], ['90', '3 derniers mois'], ['365', '12 derniers mois'], ['tout', 'Tout']], filtres.periode, (v) => { filtres.periode = v; })),
       champ('Compte', selectionner([['', 'Tous les comptes'], ...etat.comptes.map((c) => [c.id, c.nom])], filtres.compte, (v) => { filtres.compte = v; })),
       champ('Source', selectionner([['', 'Toutes'], ['import', 'Relevé importé'], ['texte', 'Clavier'], ['voix', 'Voix'], ['photo', 'Ticket photo'], ['confirmation', 'Confirmation']], filtres.source, (v) => { filtres.source = v; })),
@@ -142,7 +189,7 @@ async function suppression(tx, apres) {
 
 function feuilleCategorie(tx) {
   const ids = (tx.sens === 'credit' ? [...categoriesEntree(), ...categoriesDepense()] : categoriesDepense()).map((c) => c.id);
-  const f = ouvrirFeuille({ titre: `Catégorie : ${tx.libelle}`, contenu: pastillesCategories(ids, tx.categorie, async (id) => { f.fermer(); await appliquerCategorie(tx, id); }) });
+  const f = ouvrirFeuille({ titre: `Catégorie : ${tx.libelle}`, contenu: pastillesCategories(ids, tx.categorie, async (id) => { f.fermer(); await appliquerCategorie(tx, id); }, { grouper: true }) });
 }
 
 async function appliquerCategorie(tx, id) {
@@ -182,7 +229,7 @@ export function ouvrirDetail(tx) {
   const f = ouvrirFeuille({
     titre: tx.libelle,
     contenu: h('div', {},
-      h('div', { class: 'detail-entete' }, h('span', { class: 'puce-cat grande', style: { '--c': c.couleur } }, icone(c.icone)), h('p', { class: `detail-montant ${tx.sens}` }, tx.sens === 'credit' ? '+' : '−', mt(tx.montantCentimes)), h('p', { class: 'petit' }, `${c.nom} · ${libelleRelatif(tx.date)}`)),
+      h('div', { class: 'detail-entete' }, h('span', { class: 'puce-cat grande', style: { '--c': c.couleur } }, icone(c.icone)), h('p', { class: `detail-montant ${tx.sens}` }, tx.sens === 'credit' ? '+' : '−', mt(tx.montantCentimes)), h('p', { class: 'detail-cat', style: { '--c': c.couleur } }, c.nom), h('p', { class: 'petit' }, libelleRelatif(tx.date))),
       recurrent ? h('p', { class: 'cout-annuel' }, icone('boucle'), ` ${recurrent.passages} fois en 30 jours : ${formatEuros(recurrent.moyenCentimes)} × ${String(recurrent.parSemaine).replace('.', ',')} fois/semaine ≈ ${formatEuros(recurrent.annuelCentimes)} par an`) : null,
       infos, articles, champs,
       n === 'epargne' && tx.sens === 'credit' ? bouton('Signaler comme reprise d’épargne', async () => { await enregistrerReprise(tx); toast('Reprise enregistrée.'); }) : null),

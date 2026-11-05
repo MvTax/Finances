@@ -155,7 +155,7 @@ function revueImport(resultats) {
     const fc = ouvrirFeuille({ titre: t.libelle, contenu: pastillesCategories(ids, corrections[t.id] || t.categorie, (id) => {
       for (const x of aConfirmer.filter((y) => y.marchand === t.marchand && y.sens === t.sens)) corrections[x.id] = id; // un geste = tout le marchand
       fc.fermer(); dessinerConfirm();
-    }) });
+    }, { grouper: true }) });
   };
   dessinerConfirm();
   const ia = iaDisponible();

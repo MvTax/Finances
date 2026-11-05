@@ -8,6 +8,6 @@ export function appliquerTheme(theme = 'auto') {
   const sombre = theme === 'sombre' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
     if (theme === 'auto') m.setAttribute('content', m.dataset.origine || m.getAttribute('content'));
-    else { if (!m.dataset.origine) m.dataset.origine = m.getAttribute('content'); m.setAttribute('content', sombre ? '#0e1116' : '#f4f5f7'); }
+    else { if (!m.dataset.origine) m.dataset.origine = m.getAttribute('content'); m.setAttribute('content', sombre ? '#0e1412' : '#f2f3ef'); }
   }
 }

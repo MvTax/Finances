@@ -1,91 +1,127 @@
-/* variables.css — jetons de design, thèmes clair et sombre (sombre réellement travaillé, pas une inversion).
-   Contrastes vérifiés AA : texte normal ≥ 4,5:1, texte secondaire ≥ 4,5:1 sur la surface. */
+/* variables.css — identité « sapin & laiton » : fond porcelaine, encre vert-noir, accent sapin, laiton pour l'épargne.
+   Chiffres en SF Pro Rounded (ui-rounded, natif iOS), texte en SF Pro. Contrastes AA vérifiés. */
 
 :root {
-  --police: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
-  --rayon: 18px;
+  --police: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --police-chiffres: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --rayon: 16px;
   --rayon-petit: 12px;
   --rayon-pastille: 999px;
-  --espace: 16px;
-  --barre-onglets: 64px;
-  --ombre: 0 1px 2px rgb(16 24 40 / 6%), 0 4px 16px rgb(16 24 40 / 6%);
-  --ombre-forte: 0 10px 40px rgb(16 24 40 / 18%);
+  --espace: 20px;
+  --barre-onglets: 62px;
+  --ombre: none;
+  --ombre-forte: 0 12px 40px rgb(20 35 30 / 18%);
   --ressort: cubic-bezier(.32, 1.25, .5, 1);
   --sortie: cubic-bezier(.2, .8, .2, 1);
   --duree: 320ms;
 
   /* Clair */
-  --fond: #f4f5f7;
+  --fond: #f2f3ef;          /* porcelaine */
   --surface: #ffffff;
-  --surface-2: #eef0f4;
-  --surface-3: #e3e6ec;
-  --texte: #14171c;
-  --texte-2: #5a6170;     /* 5,9:1 sur blanc */
-  --texte-3: #6b7280;     /* 4,8:1 sur blanc */
-  --separateur: #e3e6ec;
-  --accent: #3349c7;       /* 6,6:1 sur blanc */
-  --accent-doux: #e8ecff;
+  --surface-2: #e9ebe5;
+  --surface-3: #dadfd6;
+  --texte: #1c2321;         /* encre vert-noir : 15:1 sur blanc */
+  --texte-2: #55605b;       /* 6,4:1 */
+  --texte-3: #6e7873;       /* 4,6:1 */
+  --separateur: #e2e5de;
+  --accent: #1f4d43;        /* sapin : 9,6:1 */
+  --accent-doux: #e1ebe6;
   --accent-texte: #ffffff;
-  --vert: #157a43;         /* 5,4:1 */
-  --vert-doux: #e3f5ea;
-  --orange: #a85a00;       /* 5,0:1 */
-  --orange-doux: #fff1dc;
-  --rouge: #c0262d;        /* 5,6:1 */
-  --rouge-doux: #fde8e8;
-  --bleu: #3349c7;
-  --voile: rgb(10 14 22 / 38%);
+  --laiton: #8a6a2f;        /* 5,2:1 */
+  --laiton-doux: #f3ead9;
+  --vert: #2b6e50;
+  --vert-doux: #e0efe7;
+  --orange: #9a5f12;
+  --orange-doux: #f8ecd7;
+  --rouge: #a8352f;
+  --rouge-doux: #f7e3e1;
+  --bleu: #1f4d43;
+  --hero-fond: #1f4d43;
+  --hero-texte: #f2f3ef;
+  --hero-texte-2: #b9cfc6;
+  --voile: rgb(15 25 22 / 40%);
+  /* Familles de catégories */
+  --f-vivre: #5f7f68;
+  --f-dehors: #8a5a78;
+  --f-bouger: #4f6d8a;
+  --f-plaisirs: #a07a3c;
+  --f-banque: #8a4a44;
+  --f-flux: #7b837f;
+  --f-entrees: #2b6e50;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="clair"]) {
-    --fond: #0e1116;
-    --surface: #171b22;
-    --surface-2: #1f242d;
-    --surface-3: #2a303b;
-    --texte: #eef1f6;
-    --texte-2: #b3bac7;   /* 9:1 sur surface */
-    --texte-3: #9aa3b2;   /* 6,9:1 */
-    --separateur: #2a303b;
-    --accent: #8c9dff;    /* 7,1:1 sur surface */
-    --accent-doux: #222a4d;
-    --accent-texte: #0e1116;
-    --vert: #4cc37e;
-    --vert-doux: #15301f;
-    --orange: #f2a33a;
-    --orange-doux: #34260f;
-    --rouge: #ff6b6b;
-    --rouge-doux: #3a1a1c;
-    --bleu: #8c9dff;
+    --fond: #0e1412;
+    --surface: #161e1b;
+    --surface-2: #1e2824;
+    --surface-3: #2a3631;
+    --texte: #e9eee9;
+    --texte-2: #aab8b1;
+    --texte-3: #8f9d96;
+    --separateur: #25302b;
+    --accent: #8cc4ae;
+    --accent-doux: #1d2f29;
+    --accent-texte: #0e1412;
+    --laiton: #d4b47a;
+    --laiton-doux: #2e2719;
+    --vert: #7cc79f;
+    --vert-doux: #16291f;
+    --orange: #e6b064;
+    --orange-doux: #30240f;
+    --rouge: #f08b80;
+    --rouge-doux: #351b19;
+    --bleu: #8cc4ae;
+    --hero-fond: #18352e;
+    --hero-texte: #edf3ef;
+    --hero-texte-2: #a3c2b6;
     --voile: rgb(0 0 0 / 60%);
-    --ombre: 0 1px 2px rgb(0 0 0 / 40%);
-    --ombre-forte: 0 10px 40px rgb(0 0 0 / 55%);
+    --ombre-forte: 0 12px 40px rgb(0 0 0 / 55%);
+    --f-vivre: #8fb39a;
+    --f-dehors: #c494b3;
+    --f-bouger: #8eabc6;
+    --f-plaisirs: #d4b47a;
+    --f-banque: #e0948b;
+    --f-flux: #a3aca7;
+    --f-entrees: #7cc79f;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="sombre"] {
-  --fond: #0e1116;
-  --surface: #171b22;
-  --surface-2: #1f242d;
-  --surface-3: #2a303b;
-  --texte: #eef1f6;
-  --texte-2: #b3bac7;
-  --texte-3: #9aa3b2;
-  --separateur: #2a303b;
-  --accent: #8c9dff;
-  --accent-doux: #222a4d;
-  --accent-texte: #0e1116;
-  --vert: #4cc37e;
-  --vert-doux: #15301f;
-  --orange: #f2a33a;
-  --orange-doux: #34260f;
-  --rouge: #ff6b6b;
-  --rouge-doux: #3a1a1c;
-  --bleu: #8c9dff;
+  --fond: #0e1412;
+  --surface: #161e1b;
+  --surface-2: #1e2824;
+  --surface-3: #2a3631;
+  --texte: #e9eee9;
+  --texte-2: #aab8b1;
+  --texte-3: #8f9d96;
+  --separateur: #25302b;
+  --accent: #8cc4ae;
+  --accent-doux: #1d2f29;
+  --accent-texte: #0e1412;
+  --laiton: #d4b47a;
+  --laiton-doux: #2e2719;
+  --vert: #7cc79f;
+  --vert-doux: #16291f;
+  --orange: #e6b064;
+  --orange-doux: #30240f;
+  --rouge: #f08b80;
+  --rouge-doux: #351b19;
+  --bleu: #8cc4ae;
+  --hero-fond: #18352e;
+  --hero-texte: #edf3ef;
+  --hero-texte-2: #a3c2b6;
   --voile: rgb(0 0 0 / 60%);
-  --ombre: 0 1px 2px rgb(0 0 0 / 40%);
-  --ombre-forte: 0 10px 40px rgb(0 0 0 / 55%);
+  --ombre-forte: 0 12px 40px rgb(0 0 0 / 55%);
+  --f-vivre: #8fb39a;
+  --f-dehors: #c494b3;
+  --f-bouger: #8eabc6;
+  --f-plaisirs: #d4b47a;
+  --f-banque: #e0948b;
+  --f-flux: #a3aca7;
+  --f-entrees: #7cc79f;
   color-scheme: dark;
 }
 

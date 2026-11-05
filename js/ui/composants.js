@@ -1,21 +1,22 @@
 // composants.js — briques d'interface réutilisables.
 
 import { h, icone, mt } from './dom.js';
-import { categorie, natureTransaction } from '../categories.js';
+import { categorie, natureTransaction, FAMILLES } from '../categories.js';
 import { parseMontant, versChamp } from '../money.js';
 import { libelleRelatif } from '../dates.js';
 
+/** Section groupée façon iOS : titre posé sur le fond, contenu dans un bloc blanc. */
 export function carte(titre, contenu, o = {}) {
   return h('section', { class: `carte ${o.classe || ''}`.trim(), 'aria-labelledby': o.id ? `${o.id}-t` : null },
     titre ? h('div', { class: 'carte-entete' }, h('h2', { class: 'carte-titre', id: o.id ? `${o.id}-t` : null }, titre), o.action || null) : null,
-    contenu);
+    h('div', { class: 'carte-corps' }, contenu));
 }
 
 /** Barre de progression : vert, orange au-delà de 80 %, rouge au-delà de 100 %. */
 export function barre(valeur, max, o = {}) {
   const pct = max > 0 ? Math.round((valeur / max) * 100) : 0;
   const etat = o.etat || (pct > 100 ? 'rouge' : pct >= 80 ? 'orange' : 'vert');
-  return h('div', { class: `barre barre-${etat}`, role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.min(100, Math.max(0, pct))), 'aria-label': o.label || `${pct} %` },
+  return h('div', { class: `barre barre-${etat}`, style: o.couleur ? { '--c': o.couleur } : null, role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.min(100, Math.max(0, pct))), 'aria-label': o.label || `${pct} %` },
     h('div', { class: 'barre-remplie', style: { width: `${Math.min(100, Math.max(0, pct))}%` } }));
 }
 
@@ -78,14 +79,24 @@ export function segment(options, valeur, onChange, label) {
   return groupe;
 }
 
-/** Pastilles de catégories (les plus utilisées d'abord). */
-export function pastillesCategories(ids, choisie, onChoix) {
-  const conteneur = h('div', { class: 'pastilles', role: 'radiogroup', 'aria-label': 'Catégorie' });
-  const rendre = (sel) => conteneur.replaceChildren(...ids.map((id) => {
+/** Pastilles de catégories. Avec { grouper: true }, elles sont rangées par famille sous un intitulé coloré. */
+export function pastillesCategories(ids, choisie, onChoix, o = {}) {
+  const conteneur = h('div', { class: o.grouper ? 'pastilles-familles' : 'pastilles', role: 'radiogroup', 'aria-label': 'Catégorie' });
+  const pastille = (id, sel) => {
     const c = categorie(id);
     return h('button', { type: 'button', role: 'radio', 'aria-checked': String(id === sel), class: `pastille ${id === sel ? 'active' : ''}`, style: { '--c': c.couleur }, onclick: () => { rendre(id); onChoix(id); } },
       icone(c.icone), h('span', {}, c.nom));
-  }));
+  };
+  const rendre = (sel) => {
+    if (!o.grouper) { conteneur.replaceChildren(...ids.map((id) => pastille(id, sel))); return; }
+    conteneur.replaceChildren(...FAMILLES.map((f) => {
+      const membres = ids.filter((id) => categorie(id).famille === f.id);
+      if (!membres.length) return null;
+      return h('div', { class: 'famille-pastilles', style: { '--c': f.couleur } },
+        h('p', { class: 'famille-intitule' }, h('span', { class: 'point-famille', 'aria-hidden': 'true' }), f.nom),
+        h('div', { class: 'pastilles' }, membres.map((id) => pastille(id, sel))));
+    }).filter(Boolean));
+  };
   rendre(choisie);
   return conteneur;
 }
@@ -95,17 +106,20 @@ export function puceCategorie(id) {
   return h('span', { class: 'puce-cat', style: { '--c': c.couleur }, 'aria-hidden': 'true' }, icone(c.icone));
 }
 
-/** Ligne de transaction dans une liste. */
+/** Ligne de transaction : marchand et catégorie à gauche, montant (et date si demandée) à droite. */
 export function ligneTransaction(tx, onClick, o = {}) {
   const n = natureTransaction(tx);
   const neutre = ['interne', 'epargne', 'ajustement', 'pret', 'deblocage'].includes(n);
   const signe = tx.sens === 'credit' ? '+' : '−';
   const c = categorie(tx.categorie);
-  const sous = [c.nom, tx.sousLibelle && tx.sousLibelle !== tx.libelle ? tx.sousLibelle : null, o.avecDate ? libelleRelatif(tx.date) : null, tx.aQualifier ? 'à qualifier' : null].filter(Boolean).join(' · ');
   return h('button', { type: 'button', class: `ligne-tx ${neutre ? 'neutre' : ''} ${tx.sens}`, onclick: () => onClick?.(tx), dataset: { id: tx.id } },
     puceCategorie(tx.categorie),
-    h('span', { class: 'ligne-tx-texte' }, h('span', { class: 'ligne-tx-titre' }, tx.libelle || tx.marchand || 'Sans libellé'), h('span', { class: 'ligne-tx-sous' }, sous)),
-    h('span', { class: 'ligne-tx-montant' }, h('span', { class: 'signe', 'aria-hidden': 'true' }, signe), mt(tx.montantCentimes), h('span', { class: 'sr' }, tx.sens === 'credit' ? ' en entrée' : ' en sortie')));
+    h('span', { class: 'ligne-tx-texte' },
+      h('span', { class: 'ligne-tx-titre' }, tx.libelle || tx.marchand || 'Sans libellé'),
+      h('span', { class: 'ligne-tx-sous' }, tx.aQualifier ? h('span', { class: 'a-qualifier' }, 'À vérifier') : null, c.nom)),
+    h('span', { class: 'ligne-tx-droite' },
+      h('span', { class: 'ligne-tx-montant' }, h('span', { class: 'signe', 'aria-hidden': 'true' }, signe), mt(tx.montantCentimes), h('span', { class: 'sr' }, tx.sens === 'credit' ? ' en entrée' : ' en sortie')),
+      o.avecDate ? h('span', { class: 'ligne-tx-date' }, libelleRelatif(tx.date)) : null));
 }
 
 export function statistique(libelle, valeur, o = {}) {

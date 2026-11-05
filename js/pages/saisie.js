@@ -90,10 +90,18 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
     const pas = (delta) => { montant = Math.max(0, (montant || 0) + delta); champM.value = versChamp(montant); maj(); };
     const ajusteurs = h('div', { class: 'ajusteurs' }, [[-100, '−1'], [-10, '−0,10'], [10, '+0,10'], [100, '+1']].map(([v, l]) => h('button', { type: 'button', class: 'ajusteur', onclick: () => pas(v), 'aria-label': `${v > 0 ? 'Ajouter' : 'Retirer'} ${formatEuros(Math.abs(v))}` }, l)));
     const libInput = h('input', { class: 'input', value: libelle, placeholder: sens === 'debit' ? 'Où ? (Lidl, boulangerie…)' : 'De qui ? (vente, remboursement…)', autocomplete: 'off', enterkeyhint: 'done', oninput: (e) => { libelle = e.target.value; devinerCategorie(); majRecurrent(); } });
-    const zoneCats = h('div');
+    // Les plus utilisées d'abord, puis toutes les catégories rangées par famille
+    const zoneFrequentes = h('div');
+    const zoneToutes = h('div');
+    const zoneCats = h('div', { class: 'zone-categories' }, zoneFrequentes,
+      h('details', { class: 'toutes-categories' }, h('summary', {}, 'Toutes les catégories'), zoneToutes));
     const rendreCats = () => {
-      const ids = categoriesFrequentes(sens, (sens === 'debit' ? categoriesDepense() : categoriesEntree()).map((c) => c.id));
-      zoneCats.replaceChildren(pastillesCategories(ids, cat, (id) => { cat = id; }));
+      const toutes = (sens === 'debit' ? categoriesDepense() : categoriesEntree()).map((c) => c.id);
+      const freq = categoriesFrequentes(sens, toutes).slice(0, 6);
+      if (cat && !freq.includes(cat)) freq[freq.length - 1] = cat;
+      const choisir = (id) => { cat = id; rendreCats(); };
+      zoneFrequentes.replaceChildren(pastillesCategories(freq, cat, choisir));
+      zoneToutes.replaceChildren(pastillesCategories(toutes, cat, choisir, { grouper: true }));
     };
     const devinerCategorie = () => {
       if (d.categorie || !libelle) return;

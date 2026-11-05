@@ -28,45 +28,50 @@ export function rendre(vue) {
   document.documentElement.classList.toggle('mode-critique', critique);
   const th = tauxHoraire(etat, r.periode.mois);
 
-  const prenom = etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour';
-  const entete = h('div', { class: 'accueil-entete' },
-    h('div', {}, h('p', { class: 'surtitre' }, formatJourLong(auj)), h('h1', { class: 'grand-titre' }, prenom)),
-    h('div', { class: 'accueil-boutons' },
-      h('button', { class: 'btn-icone', type: 'button', 'aria-label': 'Historique et bilan', onclick: () => aller('historique') }, icone('graphique'))));
+  const jour = formatJourLong(auj);
+  const entete = h('header', { class: 'accueil-entete' },
+    h('div', {}, h('p', { class: 'accueil-date' }, jour.charAt(0).toUpperCase() + jour.slice(1)), h('h1', { class: 'grand-titre' }, etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour')),
+    h('button', { class: 'btn-icone', type: 'button', 'aria-label': 'Historique et bilan', onclick: () => aller('historique') }, icone('graphique')));
 
-  // ---- Chiffre principal
-  const chiffre = h('p', { class: `chiffre-principal ${r.resteCentimes < 0 ? 'negatif' : ''}`, 'aria-live': 'polite' }, estMasque() ? '•••,•• €' : formatEuros(r.resteCentimes));
-  if (!estMasque() && dernierReste !== null && dernierReste !== r.resteCentimes) animerMontant(chiffre, dernierReste, r.resteCentimes, (c) => formatEuros(c));
-  dernierReste = r.resteCentimes;
-  const travail = r.resteCentimes > 0 ? equivalentTravail(r.resteCentimes, th) : null;
-  const hero = h('section', { class: `hero ${critique ? 'hero-critique' : ''}`, 'aria-labelledby': 'hero-t' },
-    h('h2', { id: 'hero-t', class: 'hero-libelle' }, 'Reste à dépenser ce mois-ci'),
-    chiffre,
-    h('p', { class: 'hero-sous' }, `du ${formatDateCourte(r.periode.debut)} au ${formatDateCourte(r.periode.fin)}`, travail ? ` · ≈ ${travail} de travail` : '',
-      r.revenus.statut === 'attendu' && r.revenus.totalCentimes ? h('span', { class: 'etiquette' }, 'revenus attendus') : null),
-    jaugeBloc(jauge, th, critique));
-
-  const blocs = [entete, hero, ...bandeaux(r, auj)];
+  const blocs = [entete, hero(r, jauge, th, critique)];
+  const rappels = bandeaux(r, auj);
+  if (rappels) blocs.push(carte('À faire', rappels, { id: 'a-faire' }));
   if (!r.revenus.totalCentimes && !etat.transactions.length) {
-    blocs.push(etatVide('importer', 'Commence par tes revenus', 'Saisis ton salaire et ta prime du mois, ou importe un relevé : l’app calcule ensuite ce que tu peux dépenser chaque jour.',
+    blocs.push(etatVide('importer', 'Commence par tes revenus', 'Saisis ton salaire et ta prime du mois, ou importe un relevé. L’app calcule ensuite ce que tu peux dépenser chaque jour.',
       h('div', { class: 'groupe-boutons' }, bouton('Saisir mes revenus', () => feuilleRevenus(r.periode.mois), { classe: 'btn-principal' }), bouton('Importer un relevé', () => aller('reglages/import')))));
   }
   blocs.push(risqueDecouvert(auj));
   blocs.push(positionGlobale(auj));
-  blocs.push(epargneBloc(auj));
   blocs.push(enveloppesBloc(r, critique));
+  blocs.push(epargneBloc(auj));
   blocs.push(dernieres());
   vue.replaceChildren(...blocs.filter(Boolean));
 }
 
-function jaugeBloc(j, th, critique) {
+/** Le bloc sapin : ce que tu peux dépenser aujourd'hui, puis le reste du mois. */
+function hero(r, j, th, critique) {
   const dispo = j.restantAujourdhuiCentimes;
-  return h('div', { class: `jauge-jour ${dispo < 0 ? 'depassee' : critique ? 'critique' : ''}` },
-    h('div', { class: 'jauge-ligne' },
-      h('span', { class: 'jauge-libelle' }, icone('sablier'), "Aujourd'hui"),
-      h('span', { class: 'jauge-valeur' }, mt(Math.max(dispo, -999999)), h('span', { class: 'jauge-sur' }, ' / ', mt(j.parJourCentimes)))),
-    barre(j.depensesDuJourCentimes, Math.max(1, j.parJourCentimes), { label: `Dépensé aujourd'hui : ${formatEuros(j.depensesDuJourCentimes)} sur ${formatEuros(j.parJourCentimes)}` }),
-    h('p', { class: 'jauge-aide' }, critique ? 'Fin de mois critique : seules les enveloppes vitales sont affichées.' : `${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''} jusqu'au prochain salaire${th ? ` · 1 h de travail = ${formatEuros(th)}` : ''}`));
+  const depasse = dispo < 0;
+  const valeur = h('p', { class: `jauge-valeur ${depasse ? 'depassee' : ''}`, 'aria-live': 'polite' }, estMasque() ? '•••,•• €' : formatEuros(depasse ? -dispo : dispo));
+  const chiffre = h('span', { class: `chiffre-principal ${r.resteCentimes < 0 ? 'negatif' : ''}` }, estMasque() ? '•••,•• €' : formatEuros(r.resteCentimes));
+  if (!estMasque() && dernierReste !== null && dernierReste !== r.resteCentimes) animerMontant(chiffre, dernierReste, r.resteCentimes, (c) => formatEuros(c));
+  dernierReste = r.resteCentimes;
+  const travail = r.resteCentimes > 0 ? equivalentTravail(r.resteCentimes, th) : null;
+  const pct = j.parJourCentimes > 0 ? Math.min(100, Math.max(0, Math.round((j.depensesDuJourCentimes / j.parJourCentimes) * 100))) : 0;
+  return h('section', { class: `hero ${critique ? 'hero-critique' : ''}`, 'aria-labelledby': 'hero-t' },
+    h('h2', { id: 'hero-t', class: 'hero-libelle' }, depasse ? 'Budget du jour dépassé de' : 'Tu peux dépenser aujourd’hui'),
+    valeur,
+    h('div', { class: 'hero-jauge', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `Dépensé aujourd'hui : ${formatEuros(j.depensesDuJourCentimes)} sur ${formatEuros(j.parJourCentimes)}` },
+      h('span', { style: { width: `${pct}%` } })),
+    h('p', { class: 'hero-aide' }, 'Dépensé aujourd’hui ', mt(j.depensesDuJourCentimes), ' sur ', mt(j.parJourCentimes)),
+    h('div', { class: 'hero-mois' },
+      h('div', {}, h('p', { class: 'hero-aide' }, 'Reste ce mois-ci'), chiffre),
+      h('div', { class: 'hero-mois-droite' },
+        h('p', {}, `${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`),
+        h('p', { class: 'hero-aide' }, `jusqu’au ${formatDateCourte(r.periode.fin)}`))),
+    travail ? h('p', { class: 'hero-aide' }, `Soit environ ${travail} de travail.`) : null,
+    critique ? h('p', { class: 'hero-note' }, 'Fin de mois serrée : seules les enveloppes vitales sont affichées.') : null,
+    r.revenus.statut === 'attendu' && r.revenus.totalCentimes ? h('p', { class: 'hero-note' }, 'Calcul fait avec tes revenus attendus, à confirmer.') : null);
 }
 
 function bandeaux(r, auj) {
@@ -119,7 +124,7 @@ function bandeaux(r, auj) {
   const proj3 = projectionDecouvert(etat, auj, { inclureRythme: false, jours: 3 });
   if (proj3?.evenements.length) {
     const evs = proj3.evenements.filter((e) => e.type === 'charge' || e.type === 'credit');
-    if (evs.length) res.push(bandeau({ type: 'info', icone: 'calendrier', titre: 'Prélèvements dans les 3 jours', texte: evs.map((e) => `${formatDateCourte(e.date)} ${e.libelle} ${formatEuros(-e.montantCentimes)}`).join(' · ') }));
+    if (evs.length) res.push(bandeau({ type: 'info', icone: 'calendrier', titre: 'Prélèvements dans les 3 jours', texte: evs.map((e) => h('span', { class: 'ligne-mini' }, h('span', {}, `${formatDateCourte(e.date)}  ${e.libelle}`), mt(-e.montantCentimes))) }));
   }
   // Questions en attente
   const q = etat.questions.filter((x) => x.statut === 'ouverte').length;
@@ -129,11 +134,11 @@ function bandeaux(r, auj) {
   if (etat.transactions.length && (!der || diffJours(der.slice(0, 10), auj) >= 7)) {
     res.push(bandeau({ type: 'info', icone: 'telecharger', titre: 'Sauvegarde de la semaine', texte: der ? `Dernière sauvegarde le ${formatDate(der.slice(0, 10))}.` : 'Aucune sauvegarde : tes données ne vivent que sur cet iPhone.', actions: [bouton('Sauvegarder', () => exporterSauvegarde(), { classe: 'btn-petit' })] }));
   }
-  if (!res.length) return [];
+  if (!res.length) return null;
   // Trois rappels visibles au plus : l'écran doit se comprendre en 2 secondes
   const visibles = res.slice(0, 3);
   const autres = res.slice(3);
-  return [h('div', { class: 'bandeaux' }, visibles, autres.length ? h('details', { class: 'autres-rappels' }, h('summary', {}, `${autres.length} autre${autres.length > 1 ? 's' : ''} rappel${autres.length > 1 ? 's' : ''}`), h('div', { class: 'bandeaux' }, autres)) : null)];
+  return h('div', { class: 'bandeaux' }, visibles, autres.length ? h('details', { class: 'autres-rappels' }, h('summary', {}, `Voir ${autres.length} autre${autres.length > 1 ? 's' : ''} rappel${autres.length > 1 ? 's' : ''}`), h('div', { class: 'bandeaux' }, autres)) : null);
 }
 
 function risqueDecouvert(auj) {
@@ -144,18 +149,20 @@ function risqueDecouvert(auj) {
   if (p.chargeNonCouverte || p.premierNegatif) {
     const cible = p.loyerNonCouvert || p.chargeNonCouverte;
     const titreAlerte = cible ? `${p.compte.nom} ne couvre pas ${cible.estLoyer ? 'le loyer' : cible.libelle} du ${formatDateCourte(cible.date)}` : `${p.compte.nom} passe sous 0 € le ${formatDateCourte(p.premierNegatif.date)}`;
+    const lignesNC = p.nonCouverts.map((e) => h('div', { class: 'ligne-mini' }, h('span', {}, h('span', { class: 'ligne-mini-date' }, formatDateCourte(e.date)), e.libelle), mt(-e.montantCentimes)));
     contenu = h('div', { class: 'alerte-decouvert', role: 'alert' },
       h('p', { class: 'alerte-titre' }, icone('alerte'), titreAlerte),
-      h('p', {}, cible ? `Solde projeté après ${cible.estLoyer ? 'le loyer' : 'ce prélèvement'} : ` : 'Solde projeté : ', mt(cible ? cible.soldeApresCentimes : p.premierNegatif.soldeCentimes, { classe: 'negatif' }),
-        `. Solde actuel : `, mt(p.soldeActuelCentimes), '.'),
-      p.nonCouverts.length > 1 ? h('p', { class: 'petit' }, 'Non couverts : ', p.nonCouverts.map((e) => `${formatDateCourte(e.date)} ${e.libelle} (${formatEuros(-e.montantCentimes)})`).join(', '), '.') : null,
-      h('p', { class: 'petit' }, `Chaque opération passée à découvert peut coûter une commission d'intervention de ${formatEuros(pc)}.`, revenusNonConfirmes() ? ' Ton salaire n’est pas encore confirmé : il n’est pas compté.' : ''));
+      h('div', { class: 'liste-cles' },
+        h('div', { class: 'ligne-cle' }, h('span', {}, 'Solde actuel'), mt(p.soldeActuelCentimes)),
+        h('div', { class: 'ligne-cle' }, h('span', {}, cible ? (cible.estLoyer ? 'Après le loyer' : 'Après ce prélèvement') : 'Solde projeté'), mt(cible ? cible.soldeApresCentimes : p.premierNegatif.soldeCentimes, { classe: 'negatif' }))),
+      p.nonCouverts.length > 1 ? h('details', { class: 'non-couverts' }, h('summary', {}, `${p.nonCouverts.length} prélèvements non couverts`), h('div', { class: 'liste-mini' }, lignesNC)) : null,
+      h('p', { class: 'petit' }, `Chaque opération passée à découvert peut coûter ${formatEuros(pc)} de commission.`, revenusNonConfirmes() ? ' Ton salaire n’est pas encore confirmé, il n’est donc pas compté.' : ''));
   } else {
     contenu = h('div', { class: 'ok-decouvert' },
-      h('p', {}, icone('ok'), `${p.compte.nom} couvre les 7 prochains jours.`),
-      p.loyer ? h('p', { class: 'petit' }, 'Solde restant après le loyer du ', formatDateCourte(p.loyer.date), ' et les prélèvements : ', mt(p.soldeApresChargesCentimes), '.') : h('p', { class: 'petit' }, 'Solde après prélèvements connus : ', mt(p.soldeApresChargesCentimes), `, avec ${formatEuros(p.rythmeCentimes)} de dépenses par jour.`));
+      h('p', {}, icone('ok'), `${p.compte.nom} couvre les 7 prochains jours`),
+      p.loyer ? h('p', { class: 'petit' }, 'Il restera ', mt(p.soldeApresChargesCentimes), ` après le loyer du ${formatDateCourte(p.loyer.date)} et les prélèvements.`) : h('p', { class: 'petit' }, 'Il restera ', mt(p.soldeApresChargesCentimes), ` après les prélèvements connus, à ${formatEuros(p.rythmeCentimes)} de dépenses par jour.`));
   }
-  return carte('Risque de découvert', contenu, { id: 'decouvert', classe: p.risque ? 'carte-alerte' : '' });
+  return carte(p.risque || p.chargeNonCouverte || p.premierNegatif ? 'À surveiller' : 'Découvert', contenu, { id: 'decouvert', classe: p.risque ? 'carte-alerte' : '' });
 }
 
 function revenusNonConfirmes() {
@@ -172,27 +179,24 @@ function positionGlobale(auj) {
   if (s.alerteAbri) {
     const cout = coutDecouvert(etat, ajouterJours(auj, -365), auj);
     abri = h('div', { class: 'alerte-abri' },
-      h('p', {}, icone('info'), ` Ton compte courant est à `, mt(s.alerteAbri.courantCentimes, { classe: 'negatif' }), ' alors que ', mt(s.alerteAbri.abriCentimes), ' sont sur ta néobanque.'),
-      h('p', { class: 'petit' }, `Rapatrier ${formatEuros(s.alerteAbri.rapatriableCentimes)} ramène le compte à 0 €. Le découvert t'a coûté ${formatEuros(cout.fraisCentimes)} de frais sur 12 mois, et chaque prélèvement passé à découvert peut déclencher une commission de ${formatEuros(etat.parametres.commissionInterventionCentimes || 800)}.`));
+      h('p', {}, 'Ton compte courant est à ', mt(s.alerteAbri.courantCentimes, { classe: 'negatif' }), ' alors que ', mt(s.alerteAbri.abriCentimes), ' sont sur ta néobanque.'),
+      h('p', { class: 'petit' }, `Rapatrier ${formatEuros(s.alerteAbri.rapatriableCentimes)} ramène le compte à 0 €. Le découvert t'a coûté ${formatEuros(cout.fraisCentimes)} de frais en 12 mois.`));
   }
-  return carte('Position globale', h('div', {}, h('p', { class: 'total-global' }, mt(s.globalCentimes, { classe: s.globalCentimes < 0 ? 'negatif' : '' })), h('div', { class: 'liste-cles' }, lignes), abri), { id: 'position' });
+  return carte('Tes comptes', h('div', { class: 'liste-cles' },
+    h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Au total'), mt(s.globalCentimes, { classe: `total-global ${s.globalCentimes < 0 ? 'negatif' : ''}` })), lignes, abri), { id: 'position' });
 }
 
 function epargneBloc(auj) {
   const e = epargneDuMois(etat, auj);
   const cible = e.cibleCentimes;
-  const sources = [
-    ['Virements vers le livret', e.nette.parType.virementLivret || 0],
-    ["Arrondi de la banque", e.nette.parType.arrondiBanque || 0],
-    ["Arrondis de l'app virés", e.nette.parType.arrondiApp || 0],
-  ].filter(([, v]) => v);
-  return carte('Épargne du mois', h('div', {},
-    h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Épargne nette réelle'), mt(e.nette.nette, { classe: e.nette.nette < 0 ? 'negatif' : '' })),
-    e.nette.reprises ? h('p', { class: 'petit negatif-texte' }, `dont ${formatEuros(e.nette.reprises)} repris (${e.nette.nbReprises} retrait${e.nette.nbReprises > 1 ? 's' : ''})`) : null,
-    sources.length ? h('p', { class: 'petit' }, sources.map(([l, v]) => `${l} ${formatEuros(v)}`).join(' · ')) : null,
+  return carte('Épargne', h('div', { class: 'liste-cles' },
+    h('div', { class: 'ligne-cle' }, h('span', {}, 'Épargné ce mois-ci'), mt(e.nette.nette, { classe: e.nette.nette < 0 ? 'negatif' : 'laiton-texte' })),
+    e.nette.reprises ? h('div', { class: 'ligne-cle' }, h('span', {}, `Repris (${e.nette.nbReprises} retrait${e.nette.nbReprises > 1 ? 's' : ''})`), mt(e.nette.reprises, { classe: 'negatif' })) : null,
     h('div', { class: 'ligne-cle' }, h('span', {}, 'Arrondis à virer'), mt(e.cagnotteCentimes)),
-    cible ? h('div', {}, barre(Math.max(0, e.projectionCentimes), cible, { etat: e.projectionCentimes >= cible ? 'vert' : 'bleu', label: `Épargne projetée ${formatEuros(e.projectionCentimes)} sur ${formatEuros(cible)}` }), h('p', { class: 'petit' }, 'Objectif du mois : ', mt(cible), ' · projeté : ', mt(e.projectionCentimes))) : null,
-    h('button', { class: 'lien', type: 'button', onclick: () => aller('epargne') }, 'Mes poches et mon plan', icone('suivant'))), { id: 'epargne-mois' });
+    cible ? h('div', { class: 'ligne-objectif' },
+      h('div', { class: 'ligne-cle-sans' }, h('span', {}, 'Objectif du mois'), h('span', {}, mt(Math.max(0, e.projectionCentimes)), ' sur ', mt(cible))),
+      barre(Math.max(0, e.projectionCentimes), cible, { etat: 'laiton', label: `Épargne projetée ${formatEuros(e.projectionCentimes)} sur ${formatEuros(cible)}` })) : null,
+    h('button', { class: 'ligne-lien', type: 'button', onclick: () => aller('epargne') }, h('span', { class: 'ligne-lien-texte' }, 'Mes poches, mon plan et mes dettes'), icone('suivant'))), { id: 'epargne-mois' });
 }
 
 function enveloppesBloc(r, critique) {
@@ -204,10 +208,10 @@ function enveloppesBloc(r, critique) {
     const depense = depensesVariables(etat, r.periode.debut, r.periode.fin, (t) => cats.includes(t.categorie));
     const plafond = plafondEffectif(e, r.periode.mois);
     return h('button', { class: 'ligne-enveloppe', type: 'button', onclick: () => aller('budgets') },
-      h('span', { class: 'ligne-enveloppe-haut' }, h('span', {}, e.nom, e.sanctuarisee ? h('span', { class: 'etiquette' }, 'sans culpabilité') : null), h('span', {}, mt(depense), ' / ', mt(plafond))),
-      barre(depense, plafond, { label: `${e.nom} : ${formatEuros(depense)} sur ${formatEuros(plafond)}` }));
+      h('span', { class: 'ligne-enveloppe-haut' }, h('span', { class: 'ligne-enveloppe-nom' }, e.nom), h('span', { class: 'ligne-enveloppe-valeur' }, mt(depense), h('span', { class: 'sur' }, ' sur '), mt(plafond))),
+      barre(depense, plafond, { couleur: categorie(cats[0]).couleur, label: `${e.nom} : ${formatEuros(depense)} sur ${formatEuros(plafond)}` }));
   });
-  return carte(critique ? 'Enveloppes vitales' : 'Enveloppes', h('div', { class: 'enveloppes' }, lignes), { id: 'enveloppes' });
+  return carte(critique ? 'Enveloppes vitales' : 'Enveloppes du mois', h('div', { class: 'enveloppes' }, lignes), { id: 'enveloppes', action: h('button', { class: 'lien', type: 'button', onclick: () => aller('budgets') }, 'Modifier') });
 }
 
 function dernieres() {

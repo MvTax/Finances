@@ -12,7 +12,10 @@ export function h(tag, attrs = {}, ...enfants) {
     if (v === false || v === null || v === undefined) continue;
     if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
     else if (k === 'class') el.className = v;
-    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'style' && typeof v === 'object') {
+      // Les propriétés personnalisées (--c…) exigent setProperty : Object.assign les ignore
+      for (const [p, val] of Object.entries(v)) if (val !== null && val !== undefined) { if (p.startsWith('--')) el.style.setProperty(p, val); else el.style[p] = val; }
+    }
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k === 'value' || k === 'textContent') el[k] = v;
     else if (k in el && typeof v !== 'string' && k !== 'list') el[k] = v;

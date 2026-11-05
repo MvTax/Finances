@@ -53,10 +53,10 @@ export function barresHorizontales(o) {
   const svg = s('svg', { viewBox: `0 0 ${L} ${H}`, class: 'graphique', role: 'img', 'aria-labelledby': `${id}-t ${id}-d` }, s('title', { id: `${id}-t` }, o.titre), s('desc', { id: `${id}-d` }, o.description || ''));
   o.donnees.forEach((d, i) => {
     const y = i * hauteurLigne + 2;
-    const w = Math.max(2, ((L - 150) * d.valeur) / max);
+    const w = Math.max(2, ((L - 215) * d.valeur) / max); // laisse ~90 px au libellé de valeur
     svg.append(
       s('text', { x: 0, y: y + 16, class: 'etiquette-axe' }, d.libelle.length > 18 ? d.libelle.slice(0, 17) + '…' : d.libelle),
-      s('rect', { x: 120, y: y + 4, width: w, height: 16, rx: 4, class: 'barre-h', style: d.couleur ? `fill:${d.couleur}` : null }, s('title', {}, `${d.libelle} : ${formatEuros(d.valeur)}`)),
+      s('rect', { x: 120, y: y + 5, width: w, height: 14, rx: 3, class: 'barre-h', style: d.couleur ? `fill:${d.couleur}` : null }, s('title', {}, `${d.libelle} : ${formatEuros(d.valeur)}`)),
       s('text', { x: 124 + w, y: y + 16, class: 'etiquette-valeur' }, d.texte || formatEuros(d.valeur, { sansCentimes: true })));
   });
   return h('figure', { class: 'figure' }, svg, tableauAlternatif(o.titre, [o.colonne || 'Libellé', 'Montant'], o.donnees.map((d) => [d.libelle, d.texte || formatEuros(d.valeur)])));
