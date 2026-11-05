@@ -23,7 +23,7 @@ const PAGES = {
   reglages: () => import('./pages/reglages.js'),
   onboarding: () => import('./pages/onboarding.js'),
 };
-const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'accueil', historique: 'accueil', abonnements: 'accueil', epargne: 'epargne', reglages: 'reglages' };
+const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'depenses', historique: 'depenses', abonnements: 'accueil', epargne: 'epargne', reglages: 'reglages' };
 
 let pageCourante = null;
 let paramsCourants = [];

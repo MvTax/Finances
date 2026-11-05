@@ -41,7 +41,7 @@ export function rendre(vue) {
     return;
   }
   const rappels = bandeaux(r, auj);
-  vue.replaceChildren(...[entete, hero(r, jauge), ajout, essentiel(auj, rappels), epargneResume(auj), rubriques(r, auj, rappels, critique)].filter(Boolean));
+  vue.replaceChildren(...[entete, hero(r, jauge), ajout, essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
 }
 
 /** Le bloc sapin : ce que tu peux dépenser aujourd'hui, et le reste du mois. Rien d'autre. */
@@ -56,15 +56,14 @@ function hero(r, j) {
   dernierReste = r.resteCentimes;
   const pct = j.parJourCentimes > 0 ? Math.min(100, Math.max(0, Math.round((j.depensesDuJourCentimes / j.parJourCentimes) * 100))) : 0;
   return h('section', { class: `hero ${j.critique && r.revenus.totalCentimes > 0 ? 'hero-critique' : ''}`, 'aria-labelledby': 'hero-t' },
-    h('h2', { id: 'hero-t', class: 'hero-libelle' }, moisDepasse ? 'Budget du mois dépassé de' : depasse ? 'Budget du jour dépassé de' : 'Tu peux dépenser aujourd’hui'),
+    h('h2', { id: 'hero-t', class: 'hero-libelle' }, moisDepasse ? 'Ce mois-ci, tu as dépassé de' : depasse ? 'Aujourd’hui, tu as dépassé de' : 'Aujourd’hui, tu peux dépenser'),
     valeur,
     h('div', { class: 'hero-jauge', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `Dépensé aujourd'hui : ${formatEuros(j.depensesDuJourCentimes)} sur ${formatEuros(j.parJourCentimes)}` },
       h('span', { style: { width: `${pct}%` } })),
     h('div', { class: 'hero-mois' },
-      h('p', { class: 'hero-aide' }, 'Reste jusqu’au salaire ', chiffre),
-      h('p', { class: 'hero-aide' }, `${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`)),
-    h('p', { class: 'hero-aide hero-periode' }, `Mois du ${formatDateCourte(r.periode.debut)} (salaire) au ${formatDateCourte(r.periode.fin)}`),
-    h('button', { type: 'button', class: 'hero-lien', onclick: () => feuilleCalcul(r, j) }, 'Comment c’est calculé', icone('suivant')));
+      h('p', { class: 'hero-aide' }, 'Pour tenir jusqu’au salaire ', chiffre)),
+    h('p', { class: 'hero-aide hero-periode' }, `Prochain salaire vers le ${formatDateCourte(r.periode.salaireAttenduLe || ajouterJours(r.periode.fin, 1))}, dans ${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`),
+    h('button', { type: 'button', class: 'hero-lien', onclick: () => feuilleCalcul(r, j) }, 'Voir le détail', icone('suivant')));
 }
 
 /** Détail ligne par ligne du reste jusqu'au salaire et du budget du jour, avec un lien pour corriger chaque poste. */
@@ -108,7 +107,7 @@ function feuilleCalcul(r, j) {
   });
 }
 
-/** L'essentiel : l'alerte de découvert et les deux rappels les plus urgents, une ligne chacun. */
+/** À faire : deux lignes au plus (alerte de découvert d'abord, puis les rappels les plus urgents). */
 function essentiel(auj, rappels) {
   const lignes = [];
   const p = projectionDecouvert(etat, auj, { jours: 7 });
@@ -124,9 +123,11 @@ function essentiel(auj, rappels) {
     const abo = listerAbonnements(etat, auj, { resilies: etat.meta.abonnementsResilies || {} });
     if (abo.aLimiterMensuelCentimes > plafondAbo) lignes.push(ligneEssentiel({ type: 'alerte', icone: 'boucle', titre: `Abonnements au-dessus de ta limite de ${formatEuros(plafondAbo)}`, valeur: mt(abo.aLimiterMensuelCentimes - plafondAbo, { classe: 'negatif' }), onclick: () => aller('abonnements') }));
   }
-  for (const b of rappels.slice(0, 2)) lignes.push(ligneEssentiel({ ...b, onclick: () => feuilleRappel(b) }));
+  const montres = rappels.slice(0, Math.max(0, 2 - lignes.length));
+  for (const b of montres) lignes.push(ligneEssentiel({ ...b, onclick: () => feuilleRappel(b) }));
   if (!lignes.length) return null;
-  return carte('L’essentiel', h('div', { class: 'liste' }, lignes), { id: 'essentiel' });
+  const action = rappels.length > montres.length ? h('button', { class: 'lien', type: 'button', onclick: () => feuilleRappels(rappels) }, `Tout voir (${rappels.length})`) : null;
+  return carte('À faire', h('div', { class: 'liste' }, lignes), { id: 'essentiel', action });
 }
 
 function ligneEssentiel({ type = 'info', icone: ic, titre, valeur, onclick }) {
@@ -146,36 +147,19 @@ function feuilleRappels(rappels) {
   const f = ouvrirFeuille({ titre: 'Rappels', contenu: h('div', { class: 'bandeaux', onclick: (e) => { if (e.target.closest('.bandeau-actions button, .bandeau-fermer')) setTimeout(() => f.fermer(), 50); } }, rappels.map((b) => bandeau(b))) });
 }
 
-/** Résumé de l'épargne en une ligne : ce mois-ci et le total des poches. */
-function epargneResume(auj) {
-  const e = epargneDuMois(etat, auj);
-  const cible = e.cibleCentimes;
-  const poches = etat.poches.filter((p) => p.actif !== false).reduce((s, p) => s + soldePoche(p), 0);
-  return h('button', { type: 'button', class: 'resume-epargne', onclick: () => aller('epargne') },
-    h('span', { class: 'resume-epargne-haut' }, h('span', { class: 'resume-epargne-titre' }, 'Épargne'),
-      h('span', { class: 'resume-epargne-valeur' }, mt(Math.max(0, e.nette.nette)), cible ? h('span', { class: 'sur' }, ' sur ') : null, cible ? mt(cible) : null)),
-    cible ? barre(Math.max(0, e.nette.nette), cible, { etat: 'laiton', label: `Épargne du mois : ${formatEuros(e.nette.nette)} sur ${formatEuros(cible)}` }) : null,
-    h('span', { class: 'resume-epargne-bas' }, 'Ce mois-ci. Dans tes poches : ', mt(poches), icone('suivant', 'chevron')));
-}
-
-/** Une rubrique par sujet : un bouton chacun, le détail s'ouvre à la demande. */
+/** Quatre raccourcis : mon argent, mes dépenses, mon épargne, mes abonnements. */
 function rubriques(r, auj, rappels, critique) {
   const s = soldes(etat, auj);
   const depMois = depensesVariables(etat, r.periode.debut, r.periode.fin);
-  const envTotal = etat.enveloppes.reduce((t, e) => t + plafondEffectif(e, r.periode.mois), 0);
   const abo = listerAbonnements(etat, auj, { resilies: etat.meta.abonnementsResilies || {} });
-  const nbDettes = etat.creditsBancaires.filter((c) => c.actif !== false).length + etat.prets.filter((x) => x.statut !== 'solde' && x.sens === 'empruntéParMoi').length;
   const tuile = (ic, nom, valeur, onclick) => h('button', { type: 'button', class: 'tuile', onclick }, h('span', { class: 'tuile-icone', 'aria-hidden': 'true' }, icone(ic)), h('span', { class: 'tuile-nom' }, nom), h('span', { class: 'tuile-valeur' }, valeur));
-  return h('section', { class: 'rubriques', 'aria-labelledby': 'rubriques-t' },
-    h('h2', { id: 'rubriques-t', class: 'carte-titre rubriques-titre' }, 'Détails'),
+  const poches = etat.poches.filter((p) => p.actif !== false).reduce((t, p) => t + soldePoche(p), 0);
+  return h('section', { class: 'rubriques', 'aria-label': 'Raccourcis' },
     h('div', { class: 'grille-tuiles' },
-      tuile('banque', 'Comptes', mt(s.globalCentimes, { classe: s.globalCentimes < 0 ? 'negatif' : '' }), () => ouvrirFeuille({ titre: 'Tes comptes', contenu: h('div', { class: 'feuille-sections' }, positionGlobale(auj), h('h3', { class: 'feuille-sous-titre' }, 'Les 7 prochains jours'), risqueDecouvert(auj)) })),
-      tuile('liste', 'Dépenses du mois', mt(depMois), () => aller('depenses')),
-      tuile('panier', 'Enveloppes', envTotal ? [mt(depMois), ' sur ', mt(envTotal)] : 'À créer', () => { const f = ouvrirFeuille({ titre: critique ? 'Enveloppes vitales' : 'Enveloppes du mois', contenu: enveloppesBloc(r, critique) || etatVide('panier', 'Aucune enveloppe', 'Crée tes enveloppes pour suivre chaque poste de dépense.'), actions: [bouton('Modifier les enveloppes', () => { f.fermer(); aller('budgets'); })] }); }),
-      tuile('boucle', 'Abonnements', abo.liste.length ? [mt(abo.aLimiterMensuelCentimes), ' /mois'] : 'Aucun', () => aller('abonnements')),
-      tuile('cle', 'Dettes', nbDettes ? `${nbDettes} en cours` : 'Aucune', () => aller('epargne/dettes')),
-      tuile('cloche', 'Rappels', rappels.length ? `${rappels.length} à voir` : 'Rien à faire', () => feuilleRappels(rappels)),
-      tuile('graphique', 'Bilan', 'Mois par mois', () => aller('historique'))));
+      tuile('banque', 'Mon argent', mt(s.globalCentimes, { classe: s.globalCentimes < 0 ? 'negatif' : '' }), () => ouvrirFeuille({ titre: 'Mon argent', contenu: h('div', { class: 'feuille-sections' }, positionGlobale(auj), h('h3', { class: 'feuille-sous-titre' }, 'Les 7 prochains jours'), risqueDecouvert(auj)) })),
+      tuile('liste', 'Mes dépenses', [mt(depMois), ' ce mois'], () => aller('depenses')),
+      tuile('tirelire', 'Mon épargne', mt(poches), () => aller('epargne')),
+      tuile('boucle', 'Abonnements', abo.liste.length ? [mt(abo.aLimiterMensuelCentimes), ' /mois'] : 'Aucun', () => aller('abonnements'))));
 }
 
 function bandeaux(r, auj) {

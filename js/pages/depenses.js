@@ -8,10 +8,11 @@ import { etat } from '../store.js';
 import { CATEGORIES, FAMILLES, categorie, famille, natureTransaction, contributionDepense, categoriesDepense, categoriesEntree } from '../categories.js';
 import { libelleRelatif, formatDate, aujourdhui, ajouterJours, estIso } from '../dates.js';
 import { formatEuros } from '../money.js';
-import { periodeBudget } from '../calculs.js';
+import { periodeBudget, estDepenseQuotidienne } from '../calculs.js';
 import { normaliserTexte } from '../rules.js';
 import { modifierTransaction, supprimerTransaction, recategoriser, enregistrerReprise } from '../actions.js';
 import { coutAnnuelRecurrent } from '../detecteurs.js';
+import { aller } from '../router.js';
 
 export const titre = 'Dépenses';
 
@@ -26,19 +27,17 @@ export function rendre(vue) {
   let attente;
   recherche.addEventListener('input', () => { clearTimeout(attente); attente = setTimeout(() => { filtres.texte = recherche.value; dessiner(); }, 180); });
 
-  const typeSeg = segment([['tout', 'Tout'], ['debit', 'Dépenses'], ['credit', 'Entrées']], filtres.type, (v) => { filtres.type = v; dessiner(); }, 'Type');
   const boutonFiltres = h('button', { class: 'btn btn-secondaire btn-petit bouton-filtres', type: 'button', 'aria-label': 'Filtres', onclick: () => feuilleFiltres(dessiner) }, icone('filtre'), h('span', { class: 'texte-filtres' }, 'Filtres'));
 
   const zoneAffichage = h('div');
-  const rendreAffichage = () => zoneAffichage.replaceChildren(segment([['jours', 'Par jour'], ['categories', 'Par catégorie']], affichage, (v) => { affichage = v; dessiner(); }, 'Affichage'));
+  const rendreAffichage = () => zoneAffichage.replaceChildren(segment([['jours', 'Liste'], ['categories', 'Par catégorie']], affichage, (v) => { affichage = v; dessiner(); }, 'Affichage'));
   rendreAffichage();
   const puceFiltre = h('div', { class: 'filtre-actif' });
 
   vue.replaceChildren(
     h('h1', { class: 'titre-page' }, 'Dépenses'),
     zoneAffichage,
-    h('div', { class: 'barre-recherche' }, icone('recherche'), recherche),
-    h('div', { class: 'barre-filtres' }, typeSeg, boutonFiltres),
+    h('div', { class: 'barre-filtres' }, h('div', { class: 'barre-recherche' }, icone('recherche'), recherche), boutonFiltres),
     puceFiltre, resume, liste);
 
   function dessiner() {
@@ -46,7 +45,8 @@ export function rendre(vue) {
     const total = tx.reduce((s, t) => s + contributionDepense(t), 0);
     const per = periodeBudget(aujourdhui(), etat.profil);
     const quand = { mois: ` depuis le salaire du ${per.debut.slice(8)}/${per.debut.slice(5, 7)}`, moisPrecedent: ' le mois précédent', 90: ' en 3 mois', 365: ' en 12 mois', tout: '' }[filtres.periode] ?? '';
-    resume.textContent = `${tx.length.toLocaleString('fr-FR')} opération${tx.length > 1 ? 's' : ''}, ${formatEuros(total)} dépensés${quand}`;
+    const prel = tx.filter((t) => !estDepenseQuotidienne(t)).reduce((s, t) => s + contributionDepense(t), 0);
+    resume.textContent = `${formatEuros(total)} dépensés${quand}${prel > 0 && prel < total ? `, dont ${formatEuros(prel)} de prélèvements` : ''}`;
     puceFiltre.replaceChildren(...(filtres.categorie ? [h('button', { type: 'button', class: 'pastille active', style: { '--c': categorie(filtres.categorie).couleur }, 'aria-label': `Retirer le filtre ${categorie(filtres.categorie).nom}`, onclick: () => { filtres.categorie = ''; dessiner(); } },
       icone(categorie(filtres.categorie).icone), h('span', {}, categorie(filtres.categorie).nom), icone('fermer'))] : []));
     if (!tx.length) {
@@ -114,7 +114,10 @@ function vueCategories(tx, onCategorie) {
           h('span', { class: 'ligne-categorie-bas' }, h('span', { class: 'jauge-fine', 'aria-hidden': 'true' }, h('span', { style: { width: `${Math.min(100, Math.max(0, (c.montant / x.total) * 100))}%` } })),
             h('span', { class: 'ligne-categorie-nb' }, `${c.nb} opération${c.nb > 1 ? 's' : ''}`))));
     }))));
-  return h('div', { class: 'vue-categories' }, repartition, blocs);
+  const plus = h('section', { class: 'carte' }, h('div', { class: 'carte-corps' }, h('div', { class: 'liste-liens' },
+    h('button', { class: 'ligne-lien', type: 'button', onclick: () => aller('budgets') }, icone('tirelire'), h('span', { class: 'ligne-lien-texte' }, 'Mes enveloppes', h('small', {}, 'une limite par catégorie')), icone('suivant')),
+    h('button', { class: 'ligne-lien', type: 'button', onclick: () => aller('historique') }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Mois passés', h('small', {}, 'le bilan de chaque mois')), icone('suivant')))));
+  return h('div', { class: 'vue-categories' }, repartition, blocs, plus);
 }
 
 function filtrer() {
@@ -145,6 +148,7 @@ function feuilleFiltres(apres) {
   const f = ouvrirFeuille({
     titre: 'Filtres',
     contenu: h('div', { class: 'formulaire' },
+      champ('Afficher', selectionner([['tout', 'Dépenses et entrées'], ['debit', 'Dépenses seulement'], ['credit', 'Entrées seulement']], filtres.type, (v) => { filtres.type = v; })),
       champ('Catégorie', selCat),
       champ('Période', selectionner([['mois', 'Ce mois-ci (depuis le salaire)'], ['moisPrecedent', 'Mois précédent (salaire à salaire)'], ['90', '3 derniers mois'], ['365', '12 derniers mois'], ['tout', 'Tout']], filtres.periode, (v) => { filtres.periode = v; })),
       champ('Compte', selectionner([['', 'Tous les comptes'], ...etat.comptes.map((c) => [c.id, c.nom])], filtres.compte, (v) => { filtres.compte = v; })),

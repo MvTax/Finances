@@ -23,11 +23,12 @@ export function rendre(vue, params = []) {
   const zone = h('div', { class: 'zone-onglet' });
   const dessiner = () => {
     const f = { poches: vuePoches, plan: vuePlan, dettes: vueDettes, simulateur: vueSimulateur }[ongletActif] || vuePoches;
-    zone.replaceChildren(f());
+    const retourEpargne = ['plan', 'simulateur'].includes(ongletActif) ? h('button', { class: 'lien retour', type: 'button', onclick: () => { ongletActif = 'poches'; history.replaceState(null, '', '#epargne/poches'); dessiner(); } }, icone('retour'), 'Mon épargne') : null;
+    zone.replaceChildren(...[retourEpargne, f()].filter(Boolean));
   };
   vue.replaceChildren(
     h('h1', { class: 'titre-page' }, 'Épargne'),
-    onglets([['poches', 'Poches'], ['plan', 'Mon plan'], ['dettes', 'Mes dettes'], ['simulateur', 'Simulateur']], ongletActif, (v) => { ongletActif = v; history.replaceState(null, '', `#epargne/${v}`); dessiner(); }),
+    onglets([['poches', 'Mon épargne'], ['dettes', 'Mes dettes']], ['plan', 'simulateur'].includes(ongletActif) ? 'poches' : ongletActif, (v) => { ongletActif = v; history.replaceState(null, '', `#epargne/${v}`); dessiner(); }),
     zone);
   dessiner();
 }
@@ -60,8 +61,8 @@ function vuePoches() {
       p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
       h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)}` : ''] : 'Sans objectif chiffré'),
       p.type === 'remboursementAnticipe' && s >= (p.palierCentimes || 50000) ? h('p', { class: 'petit vert-texte' }, icone('ok'), ` Palier atteint : tu peux rembourser ${formatEuros(s)} par anticipation.`) : null,
-      h('div', { class: 'groupe-boutons' }, bouton('Verser', () => feuilleMouvement(p, 'versement'), { classe: 'btn-petit btn-principal' }), bouton('Reprendre', () => feuilleMouvement(p, 'reprise'), { classe: 'btn-petit' }), bouton('Modifier', () => editerPoche(p), { classe: 'btn-petit' })),
-      h('details', { class: 'details-discret' }, h('summary', {}, 'Détails'), h('div', { class: 'details-contenu' }, notes)));
+      h('div', { class: 'groupe-boutons' }, bouton('Ajouter', () => feuilleMouvement(p, 'versement'), { classe: 'btn-petit btn-principal' }), bouton('Retirer', () => feuilleMouvement(p, 'reprise'), { classe: 'btn-petit' })),
+      h('details', { class: 'details-discret' }, h('summary', {}, 'Détails'), h('div', { class: 'details-contenu' }, notes, h('button', { class: 'lien', type: 'button', onclick: () => editerPoche(p) }, 'Modifier cette poche'))));
   });
   // Arrondis
   const ar = etat.profil.arrondi || {};
@@ -86,7 +87,10 @@ function vuePoches() {
   const plus = carte('Pour aller plus loin', h('div', { class: 'liste-liens' },
     h('details', { class: 'details-ligne' }, h('summary', {}, `Épargne de ${formatMois(per.mois)}`), sources),
     histo ? h('details', { class: 'details-ligne' }, h('summary', {}, 'Historique des 12 derniers mois (de salaire à salaire)'), histo) : null), { id: 'plus-epargne' });
-  return h('div', {}, h('div', { class: 'poches' }, cartesPoches), arrondis, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
+  const liens = carte(null, h('div', { class: 'liste-liens' },
+    h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'plan'; aller('epargne/plan'); } }, icone('calendrier'), h('span', { class: 'ligne-lien-texte' }, 'Mon plan mois par mois', h('small', {}, 'combien mettre de côté chaque mois')), icone('suivant')),
+    h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'simulateur'; aller('epargne/simulateur'); } }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Simulateur Livret A / LEP', h('small', {}, 'ce que rapporte ton épargne')), icone('suivant'))));
+  return h('div', {}, h('div', { class: 'poches' }, cartesPoches), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
 function ligne(l, c) { return h('div', { class: 'ligne-cle' }, h('span', {}, l), mt(c)); }
@@ -110,18 +114,18 @@ function feuilleMouvement(poche, sens) {
     poche.type === 'coussin' ? h('p', { class: 'petit' }, 'Le Coussin est réservé aux vrais imprévus (panne, santé, perte de revenu).') : null,
     bouton('Ouvrir mes enveloppes', () => { f.fermer(); aller('budgets'); }, { classe: 'btn-petit' })) : null;
   const f = ouvrirFeuille({
-    titre: sens === 'versement' ? `Verser sur « ${poche.nom} »` : `Reprendre de « ${poche.nom} »`,
+    titre: sens === 'versement' ? `Ajouter à « ${poche.nom} »` : `Retirer de « ${poche.nom} »`,
     contenu: h('div', { class: 'formulaire' }, avert, champ('Montant', champMontant({ onValeur: (v) => { montant = v; }, autofocus: true })),
       sens === 'reprise' ? champ('Pour quoi ?', h('input', { class: 'input', placeholder: 'Imprévu, dépense courante…', oninput: (e) => { motif = e.target.value; } })) : null,
       h('p', { class: 'petit' }, sens === 'versement' ? 'Enregistre un virement réellement effectué depuis ton compte courant.' : 'La reprise est enregistrée et visible : elle réduit ton épargne nette du mois.')),
-    actions: [bouton('Annuler', () => f.fermer()), bouton(sens === 'versement' ? "C'est fait" : 'Reprendre quand même', async () => {
+    actions: [bouton('Annuler', () => f.fermer()), bouton(sens === 'versement' ? 'Ajouter' : 'Retirer quand même', async () => {
       if (!montant || montant <= 0) { toast('Montant invalide.', { type: 'erreur' }); return; }
       if (sens === 'versement') await enregistrerVirementEpargne({ montantCentimes: montant, pocheId: poche.id, libelle: `Virement vers ${poche.nom}` });
       else {
         const p = { ...poche, mouvements: [...(poche.mouvements || []), { id: nouvelId('mv'), date: aujourdhui(), montantCentimes: montant, sens: 'reprise', motif: motif || 'Reprise' }] };
         await enregistrerLot([{ collection: 'poches', valeur: p }, { collection: 'evenements', valeur: { id: nouvelId('ev'), type: 'reprise', date: aujourdhui(), montantCentimes: montant, pocheId: poche.id, vu: false, motif } }]);
       }
-      f.fermer(); toast(sens === 'versement' ? 'Versement enregistré.' : 'Reprise enregistrée.', { type: sens === 'versement' ? 'succes' : 'info' });
+      f.fermer(); toast(sens === 'versement' ? 'Ajouté.' : 'Retiré.', { type: sens === 'versement' ? 'succes' : 'info' });
     }, { classe: sens === 'versement' ? 'btn-principal' : 'btn-danger' })],
   });
 }

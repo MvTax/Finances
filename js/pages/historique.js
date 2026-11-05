@@ -1,6 +1,7 @@
 // historique.js — Bilan (mois par mois, catégories, marchands, problèmes) et « Y remédier » (plan d'action).
 
 import { h, icone, mt } from '../ui/dom.js';
+import { aller } from '../router.js';
 import { carte, onglets, bouton, etatVide, segment } from '../ui/composants.js';
 import { toast, toastErreur } from '../ui/toast.js';
 import { etat, enregistrer, enregistrerLot } from '../store.js';
@@ -23,7 +24,7 @@ export function rendre(vue, params = []) {
   if (params[0]) ongletActif = params[0];
   const zone = h('div');
   const dessiner = () => zone.replaceChildren(ongletActif === 'remedier' ? vueRemedier() : vueBilan(dessiner));
-  vue.replaceChildren(h('h1', { class: 'titre-page' }, 'Historique'),
+  vue.replaceChildren(h('button', { class: 'lien retour', type: 'button', onclick: () => aller('depenses') }, icone('retour'), 'Dépenses'), h('h1', { class: 'titre-page' }, 'Mois passés'),
     onglets([['bilan', 'Bilan'], ['remedier', 'Y remédier']], ongletActif, (v) => { ongletActif = v; history.replaceState(null, '', `#historique/${v}`); dessiner(); }), zone);
   dessiner();
 }

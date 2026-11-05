@@ -1,6 +1,7 @@
 // budgets.js — enveloppes mensuelles, alertes 80/100 %, vases communicants, enveloppe « Plaisir sans culpabilité ».
 
 import { h, icone, mt } from '../ui/dom.js';
+import { aller } from '../router.js';
 import { carte, barre, bouton, champ, champMontant, etatVide, interrupteur, selectionner } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
@@ -59,6 +60,7 @@ export function rendre(vue) {
   const totalPlafonds = env.reduce((s, e) => s + plafondEffectif(e, p.mois), 0);
   const totalConso = env.reduce((s, e) => s + consommation(e, p), 0);
   vue.replaceChildren(
+    h('button', { class: 'lien retour', type: 'button', onclick: () => aller('depenses') }, icone('retour'), 'Dépenses'),
     h('h1', { class: 'titre-page' }, 'Enveloppes'),
     h('p', { class: 'sous-titre-page' }, `${formatMois(p.mois).charAt(0).toUpperCase()}${formatMois(p.mois).slice(1)}, du ${p.debut.slice(8)}/${p.debut.slice(5, 7)} au ${p.fin.slice(8)}/${p.fin.slice(5, 7)}`),
     env.length ? carte(null, h('div', {}, h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Total'), h('span', {}, mt(totalConso), ' / ', mt(totalPlafonds))), barre(totalConso, totalPlafonds))) : null,
