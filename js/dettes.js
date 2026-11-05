@@ -136,8 +136,9 @@ export function echeancesEntre(etat, debut, fin) {
       if (l.date >= debut && l.date <= fin) res.push({ type: 'credit', court: c.type === 'instantane', creditId: c.id, libelle: c.libelle, date: l.date, montantCentimes: l.montantCentimes ?? l.mensualiteCentimes, payee: !!l.payee, motifDetection: c.motifDetection });
     }
   }
+  // Une dette soldée garde ses échéances : celles de la période restent des dettes du mois (payées ou non),
+  // sinon un remboursement fait disparaîtrait du calcul du reste à dépenser. La projection ignore les échéances payées.
   for (const p of etat.prets || []) {
-    if (p.statut === 'solde') continue;
     for (const e of p.echeancier || []) {
       if (e.date >= debut && e.date <= fin) {
         res.push({

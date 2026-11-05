@@ -18,7 +18,7 @@ export function entreesDuMois(etat, mois) {
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
   // Les échéances d'un prêt amortissable sont des charges de long terme, pas des dettes « court terme »
   const court = dettes.filter((d) => d.court || d.type === 'proche');
-  const futur = echeancesEntre(etat, ajouterJours(per.fin, 1), '9999-12-31').filter((d) => d.court || (d.type === 'proche' && d.sens === 'empruntéParMoi'));
+  const futur = echeancesEntre(etat, ajouterJours(per.fin, 1), '9999-12-31').filter((d) => !d.payee && (d.court || (d.type === 'proche' && d.sens === 'empruntéParMoi')));
   return {
     periode: per, revenusCentimes: revenus, chargesFixesCentimes: charges, dettesCentimes: totalDettes,
     creditCourtEnCours: dettes.some((d) => d.court),

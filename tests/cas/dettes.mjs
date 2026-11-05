@@ -47,4 +47,9 @@ export default [
     const avec = simulerPretAvecPoche(pret, () => 25000, 50000);
     vrai(avec.finLe < sans.finLe); vrai(avec.interetsCentimes < sans.interetsCentimes); vrai(avec.remboursementsAnticipes.length > 0);
   } },
+  { nom: 'dettes : une dette remboursée reste comptée dans les dettes du mois (sinon le reste à dépenser gonfle)', fn: () => {
+    const etat = { creditsBancaires: [], prets: [{ id: 'p', personneAlias: 'X', sens: 'empruntéParMoi', statut: 'solde', echeancier: [{ date: '2026-11-06', montantCentimes: 20000, payee: true }] }] };
+    const e = echeancesEntre(etat, '2026-11-05', '2026-12-04');
+    egal(e.length, 1); egal(e[0].montantCentimes, 20000); egal(e[0].payee, true);
+  } },
 ];
