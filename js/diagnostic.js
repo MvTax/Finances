@@ -32,7 +32,8 @@ const ROUTES = [
   ['accueil', []], ['depenses', []], ['budgets', []],
   ['epargne', ['poches']], ['epargne', ['plan']], ['epargne', ['dettes']], ['epargne', ['simulateur']],
   ['historique', ['bilan']], ['historique', ['remedier']],
-  ['reglages', []], ['reglages', ['import']], ['reglages', ['questions']], ['reglages', ['regles']], ['reglages', ['charges']],
+  ['reglages', []], ...['revenus', 'epargne', 'operations', 'sauvegarde', 'profil', 'confidentialite', 'gemini', 'pont', 'diagnostic', 'apropos'].map((x) => ['reglages', [x]]),
+  ['reglages', ['import']], ['reglages', ['questions']], ['reglages', ['regles']], ['reglages', ['charges']],
 ];
 const PAGES = {
   accueil: () => import('./pages/accueil.js'), depenses: () => import('./pages/depenses.js'), budgets: () => import('./pages/budgets.js'),
@@ -519,7 +520,7 @@ export async function lancerDiagnostic(o = {}) {
     test(`#${[nom, ...params].join('/')}`, () => testerPage(nom, params));
   }
   S('Pages sur petit écran (320 px, iPhone SE)');
-  for (const [nom, params] of ROUTES.filter(([n, p]) => ['accueil', 'depenses', 'budgets', 'epargne'].includes(n) || (n === 'reglages' && !p.length))) {
+  for (const [nom, params] of ROUTES.filter(([n, p]) => ['accueil', 'depenses', 'budgets', 'epargne'].includes(n) || (n === 'reglages' && (!p.length || ['revenus', 'epargne'].includes(p[0]))))) {
     test(`#${[nom, ...params].join('/')} à 320 px`, () => testerPage(nom, params, 320));
   }
 

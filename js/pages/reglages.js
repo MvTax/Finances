@@ -26,21 +26,71 @@ import { versionApp } from '../version.js';
 
 export const titre = 'Réglages';
 
+// Sections des réglages : chacune s'ouvre sur sa propre page (#reglages/<section>).
+const SECTIONS = {
+  revenus: { titre: 'Revenus et logement', icone: 'mallette' },
+  epargne: { titre: 'Épargne et arrondis', icone: 'tirelire' },
+  operations: { titre: 'Opérations et catégories', icone: 'liste' },
+  sauvegarde: { titre: 'Sauvegarde', icone: 'partage' },
+  profil: { titre: 'Profil', icone: 'personnes' },
+  confidentialite: { titre: 'Confidentialité et apparence', icone: 'cadenas' },
+  gemini: { titre: 'Gemini (IA)', icone: 'etoile' },
+  pont: { titre: 'App Repas & Courses', icone: 'panier' },
+  diagnostic: { titre: 'Diagnostic', icone: 'recherche' },
+  apropos: { titre: 'À propos', icone: 'info' },
+};
+
 export function rendre(vue, params = []) {
   const sous = params[0];
   if (sous === 'import') return rendreImport(vue);
   if (sous === 'questions') return rendreQuestions(vue);
   if (sous === 'regles') return rendreRegles(vue);
   if (sous === 'charges') return rendreCharges(vue);
+  if (SECTIONS[sous]) return vue.replaceChildren(retour(), h('h1', { class: 'titre-page' }, SECTIONS[sous].titre), ...cartesSection(sous).filter(Boolean));
+  rendreAccueilReglages(vue);
+}
+
+/** Page d'entrée : le bouton d'import du fichier, puis une ligne par section. */
+function rendreAccueilReglages(vue) {
   const p = etat.profil; const pa = etat.parametres;
   const mois = periodeBudget(aujourdhui(), p).mois;
   const rev = revenusDuMois(etat, mois);
   const ia = iaDisponible();
   const nbQuestions = etat.questions.filter((q) => q.statut === 'ouverte').length;
-
+  const der = etat.meta.derniereMiseAJour;
+  const vide = !etat.transactions.length;
+  const sect = (id, detail) => lien(SECTIONS[id].titre, detail, () => aller(`reglages/${id}`), SECTIONS[id].icone);
   vue.replaceChildren(
     h('h1', { class: 'titre-page' }, 'Réglages'),
-    // Revenus
+    carte(null, h('div', { class: 'bloc-fichier' },
+      h('p', { class: 'bloc-fichier-titre' }, 'Mon fichier budget-import-prive.json'),
+      h('p', { class: 'petit' }, vide ? 'Remplit l’app avec ton historique, tes dettes et ton plan.' : der ? `Dernière mise à jour le ${formatDate(der.le.slice(0, 10))}. Tes saisies dans l’app sont toujours gardées.` : 'Met l’app à jour avec la dernière version du fichier. Tes saisies dans l’app sont gardées.'),
+      bouton('Importer mon fichier', () => choisirFichierMiseAJour(), { classe: 'btn-principal btn-large', icone: 'telecharger' }))),
+    carte('Mes données', h('div', { class: 'liste-liens' },
+      nbQuestions ? lien('Questions sur tes relevés', `${nbQuestions} en attente`, () => aller('reglages/questions'), 'info') : null,
+      sect('revenus', `${formatEuros(rev.totalCentimes)} en ${formatMois(mois)} (${rev.statut === 'attendu' ? 'à confirmer' : 'confirmé'})`),
+      sect('epargne', `objectif ${formatEuros(p.objectifEpargneCentimes || 0)} par mois, arrondis ${p.arrondi?.actif ? 'activés' : 'désactivés'}`),
+      sect('operations', `relevés, ${etat.chargesFixes.filter((c) => c.actif).length} charges fixes, ${etat.reglesCategorie.length} règles`),
+      sect('sauvegarde', pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'))),
+    carte('L’app', h('div', { class: 'liste-liens' },
+      sect('profil', p.prenomAffichage || 'prénom, jour de salaire'),
+      sect('confidentialite', `${pa.pinHash ? 'code PIN actif' : 'sans code PIN'}, thème ${({ auto: 'automatique', clair: 'clair', sombre: 'sombre' })[pa.theme || 'auto']}`),
+      sect('gemini', ia.ok ? `activé (${pa.modeleGemini || MODELE_DEFAUT})` : pa.mode100Local ? 'mode 100 % local' : 'aucune clé'),
+      sect('pont', 'échanges avec l’app Repas'))),
+    carte('Aide', h('div', { class: 'liste-liens' },
+      sect('diagnostic', 'tester toute l’app et me l’envoyer'),
+      sect('apropos', `version ${versionApp}`))),
+  );
+}
+
+/** Contenu de chaque section (mêmes réglages qu'avant, rangés par thème). */
+function cartesSection(id) {
+  const p = etat.profil; const pa = etat.parametres;
+  const mois = periodeBudget(aujourdhui(), p).mois;
+  const rev = revenusDuMois(etat, mois);
+  const ia = iaDisponible();
+  const nbQuestions = etat.questions.filter((q) => q.statut === 'ouverte').length;
+  if (id === 'revenus') return [
     carte('Revenus du mois', h('div', {},
       h('div', { class: 'liste-cles' },
         h('div', { class: 'ligne-cle' }, h('span', {}, `Salaire net (${formatMois(mois)})`), mt(rev.salaireCentimes)),
@@ -49,34 +99,14 @@ export function rendre(vue, params = []) {
         h('div', { class: 'ligne-cle forte' }, h('span', {}, `Total ${rev.statut === 'attendu' ? '(attendu)' : '(confirmé)'}`), mt(rev.totalCentimes))),
       h('div', { class: 'groupe-boutons' }, bouton('Saisir au centime', () => feuilleRevenus(mois), { classe: 'btn-principal btn-petit' }), bouton('+ Ajouter une autre entrée', () => autreEntree(mois), { classe: 'btn-petit' }), bouton('Historique', () => historiqueRevenus(), { classe: 'btn-petit' })),
       h('p', { class: 'petit' }, 'Le taux horaire et les calculs du mois utilisent ces montants exacts. L’aide au logement n’y figure jamais.'))),
-    // Logement
     carte('Logement', h('div', { class: 'formulaire' },
       champ('Loyer à payer (aide déjà déduite)', champMontant({ valeur: p.loyerAPayerCentimes || null, onValeur: (v) => { if (v !== null) majProfil({ loyerAPayerCentimes: v }); } }), 'Montant que tu paies réellement, utilisé tel quel dans les charges fixes.'),
       champ('Jour de prélèvement du loyer', h('input', { class: 'input', inputmode: 'numeric', value: p.jourLoyer ? String(p.jourLoyer) : '', onchange: (e) => { const j = Math.max(1, Math.min(31, Number(e.target.value) || 1)); majProfil({ jourLoyer: j }); const cf = etat.chargesFixes.find((c) => c.estLoyer); if (cf) enregistrer('chargesFixes', { ...cf, jourPrelevement: j }); } })),
       h('details', {}, h('summary', {}, 'Loyer brut et aide (facultatif, informatif)'),
         champ('Loyer brut', champMontant({ valeur: p.loyerBrutCentimes, onValeur: (v) => majProfil({ loyerBrutCentimes: v }) })),
         champ('Aide au logement', champMontant({ valeur: p.aideLogementCentimes, onValeur: (v) => majProfil({ aideLogementCentimes: v }) }), 'Aide versée au bailleur, non comptabilisée dans vos revenus.')))),
-    // Profil
-    carte('Profil', h('div', { class: 'formulaire' },
-      champ('Prénom affiché', h('input', { class: 'input', value: p.prenomAffichage || '', onchange: (e) => majProfil({ prenomAffichage: e.target.value.trim() }) })),
-      champ('Jour de salaire habituel', h('input', { class: 'input', inputmode: 'numeric', value: String(p.jourSalaireHabituel || 1), onchange: (e) => majProfil({ jourSalaireHabituel: Math.max(1, Math.min(28, Number(e.target.value) || 1)) }) }), 'Le mois budgétaire va de ce jour à la veille du salaire suivant.'),
-      champ('Heures travaillées par mois', h('input', { class: 'input', inputmode: 'decimal', value: String(p.heuresMensuelles || 151.67).replace('.', ','), onchange: (e) => majProfil({ heuresMensuelles: Number(e.target.value.replace(',', '.')) || 151.67 }) })),
-      champ('Nom du titulaire sur les relevés', h('input', { class: 'input', value: p.nomTitulaire || '', autocomplete: 'off', onchange: (e) => majProfil({ nomTitulaire: e.target.value.trim() }) }), 'Stocké uniquement sur cet iPhone : sert à reconnaître tes virements à toi-même.'))),
-    // Arrondis
-    carte('Arrondis à l’euro supérieur', h('div', { class: 'formulaire' },
-      interrupteur('Activer la cagnotte d’arrondis', p.arrondi?.actif, (v) => majProfil({ arrondi: { ...p.arrondi, actif: v, depuis: p.arrondi?.depuis || aujourdhui() } })),
-      champ('Fréquence du virement', segment([['hebdomadaire', 'Semaine'], ['quinzaine', '15 jours'], ['mensuelle', 'Mois']], p.arrondi?.frequence || 'hebdomadaire', (v) => majProfil({ arrondi: { ...p.arrondi, frequence: v } }), 'Fréquence')),
-      champ('Jour du virement', selectionner(JOURS_LONGS.map((j, i) => [String(i + 1), j]), String(p.arrondi?.jourVirement || 4), (v) => majProfil({ arrondi: { ...p.arrondi, jourVirement: Number(v) } })), 'Hebdomadaire par défaut : petits montants réguliers, moins de risque de découvert.'),
-      interrupteur('Arrondir aussi les charges fixes', p.arrondi?.inclureChargesFixes, (v) => majProfil({ arrondi: { ...p.arrondi, inclureChargesFixes: v } })),
-      champ('Poche alimentée', selectionner(etat.poches.map((x) => [x.id, x.nom]), p.arrondi?.pocheId || 'poche-coussin', (v) => majProfil({ arrondi: { ...p.arrondi, pocheId: v } }))))),
-    // Revolut
-    carte('Règle Revolut', h('div', { class: 'formulaire' },
-      interrupteur('Virement à un particulier = commande Uber Eats via un tiers', p.regleRevolut?.actif !== false, (v) => majProfil({ regleRevolut: { ...p.regleRevolut, actif: v } })),
-      h('div', { class: 'deux-colonnes' },
-        champ('Montant minimum', champMontant({ valeur: p.regleRevolut?.minCentimes ?? 1000, onValeur: (v) => v !== null && majProfil({ regleRevolut: { ...p.regleRevolut, minCentimes: v } }) })),
-        champ('Montant maximum', champMontant({ valeur: p.regleRevolut?.maxCentimes ?? 1800, onValeur: (v) => v !== null && majProfil({ regleRevolut: { ...p.regleRevolut, maxCentimes: v } }) }))),
-      h('p', { class: 'petit' }, 'Hors de cette fourchette, l’app te demande de qualifier le virement.'))),
-    // Épargne
+  ];
+  if (id === 'epargne') return [
     carte('Objectif et plan', h('div', { class: 'formulaire' },
       champ('Objectif d’épargne mensuel', champMontant({ valeur: p.objectifEpargneCentimes || null, onValeur: (v) => v !== null && majProfil({ objectifEpargneCentimes: v }) })),
       h('div', { class: 'deux-colonnes' },
@@ -86,40 +116,65 @@ export function rendre(vue, params = []) {
         champ('Taux Livret A (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLivretA).replace('.', ','), onchange: (e) => majParametres({ tauxLivretA: Number(e.target.value.replace(',', '.')) || 0 }) })),
         champ('Taux LEP (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLEP).replace('.', ','), onchange: (e) => majParametres({ tauxLEP: Number(e.target.value.replace(',', '.')) || 0 }) }))),
       bouton('Enveloppes', () => aller('budgets'), { icone: 'balance' }))),
-    // Données
-    carte('Données', h('div', { class: 'liste-liens' },
-      lien('Mettre à jour depuis mon fichier', etat.meta.derniereMiseAJour ? `dernière mise à jour le ${formatDate(etat.meta.derniereMiseAJour.le.slice(0, 10))}` : 'garde tout ce que tu as saisi', () => choisirFichierMiseAJour(), 'telecharger'),
+    carte('Arrondis à l’euro supérieur', h('div', { class: 'formulaire' },
+      interrupteur('Activer la cagnotte d’arrondis', p.arrondi?.actif, (v) => majProfil({ arrondi: { ...p.arrondi, actif: v, depuis: p.arrondi?.depuis || aujourdhui() } })),
+      champ('Fréquence du virement', segment([['hebdomadaire', 'Semaine'], ['quinzaine', '15 jours'], ['mensuelle', 'Mois']], p.arrondi?.frequence || 'hebdomadaire', (v) => majProfil({ arrondi: { ...p.arrondi, frequence: v } }), 'Fréquence')),
+      champ('Jour du virement', selectionner(JOURS_LONGS.map((j, i) => [String(i + 1), j]), String(p.arrondi?.jourVirement || 4), (v) => majProfil({ arrondi: { ...p.arrondi, jourVirement: Number(v) } })), 'Hebdomadaire par défaut : petits montants réguliers, moins de risque de découvert.'),
+      interrupteur('Arrondir aussi les charges fixes', p.arrondi?.inclureChargesFixes, (v) => majProfil({ arrondi: { ...p.arrondi, inclureChargesFixes: v } })),
+      champ('Poche alimentée', selectionner(etat.poches.map((x) => [x.id, x.nom]), p.arrondi?.pocheId || 'poche-coussin', (v) => majProfil({ arrondi: { ...p.arrondi, pocheId: v } }))))),
+  ];
+  if (id === 'operations') return [
+    carte(null, h('div', { class: 'liste-liens' },
       lien('Questions sur tes relevés', nbQuestions ? `${nbQuestions} en attente` : 'à jour', () => aller('reglages/questions'), 'info'),
-      lien('Importer un relevé ou une sauvegarde', 'PDF, CSV, JSON', () => aller('reglages/import'), 'importer'),
+      lien('Importer un relevé', 'PDF LCL ou Revolut, CSV', () => aller('reglages/import'), 'importer'),
       lien('Charges fixes', `${etat.chargesFixes.filter((c) => c.actif).length} actives`, () => aller('reglages/charges'), 'calendrier'),
       lien('Règles de catégorisation', `${etat.reglesCategorie.length} règles`, () => aller('reglages/regles'), 'liste'),
       lien('Catégories', `${CATEGORIES.length}`, () => feuilleCategories(), 'etoile'),
       lien('Comptes et soldes', `${etat.comptes.length} comptes`, () => feuilleComptes(), 'banque'))),
-    // Sauvegarde
+    carte('Règle Revolut', h('div', { class: 'formulaire' },
+      interrupteur('Virement à un particulier = commande Uber Eats via un tiers', p.regleRevolut?.actif !== false, (v) => majProfil({ regleRevolut: { ...p.regleRevolut, actif: v } })),
+      h('div', { class: 'deux-colonnes' },
+        champ('Montant minimum', champMontant({ valeur: p.regleRevolut?.minCentimes ?? 1000, onValeur: (v) => v !== null && majProfil({ regleRevolut: { ...p.regleRevolut, minCentimes: v } }) })),
+        champ('Montant maximum', champMontant({ valeur: p.regleRevolut?.maxCentimes ?? 1800, onValeur: (v) => v !== null && majProfil({ regleRevolut: { ...p.regleRevolut, maxCentimes: v } }) }))),
+      h('p', { class: 'petit' }, 'Hors de cette fourchette, l’app te demande de qualifier le virement.'))),
+  ];
+  if (id === 'sauvegarde') return [
     carte('Sauvegarde', h('div', {},
       h('p', {}, pa.derniereSauvegarde ? `Dernière sauvegarde : ${formatDate(pa.derniereSauvegarde.slice(0, 10))}.` : 'Aucune sauvegarde pour l’instant.'),
       h('p', { class: 'petit' }, 'Fais-la chaque semaine : tes données ne vivent que sur cet iPhone (aucun serveur). Enregistre le fichier dans Fichiers ou iCloud Drive.'),
       h('div', { class: 'groupe-boutons' }, bouton('Exporter (partager le fichier)', () => exporterSauvegarde(), { classe: 'btn-principal btn-petit', icone: 'partage' }), bouton('Restaurer', () => aller('reglages/import'), { classe: 'btn-petit', icone: 'importer' })),
       stockage())),
-    // Gemini
-    carteGemini(ia),
-    // Confidentialité
+  ];
+  if (id === 'profil') return [
+    carte('Profil', h('div', { class: 'formulaire' },
+      champ('Prénom affiché', h('input', { class: 'input', value: p.prenomAffichage || '', onchange: (e) => majProfil({ prenomAffichage: e.target.value.trim() }) })),
+      champ('Jour de salaire habituel', h('input', { class: 'input', inputmode: 'numeric', value: String(p.jourSalaireHabituel || 1), onchange: (e) => majProfil({ jourSalaireHabituel: Math.max(1, Math.min(28, Number(e.target.value) || 1)) }) }), 'Le mois budgétaire va de ce jour à la veille du salaire suivant.'),
+      champ('Heures travaillées par mois', h('input', { class: 'input', inputmode: 'decimal', value: String(p.heuresMensuelles || 151.67).replace('.', ','), onchange: (e) => majProfil({ heuresMensuelles: Number(e.target.value.replace(',', '.')) || 151.67 }) })),
+      champ('Nom du titulaire sur les relevés', h('input', { class: 'input', value: p.nomTitulaire || '', autocomplete: 'off', onchange: (e) => majProfil({ nomTitulaire: e.target.value.trim() }) }), 'Stocké uniquement sur cet iPhone : sert à reconnaître tes virements à toi-même.'))),
+  ];
+  if (id === 'confidentialite') return [
     carte('Confidentialité', h('div', { class: 'formulaire' },
       interrupteur('Mode 100 % local', pa.mode100Local, (v) => majParametres({ mode100Local: v }), 'Tout fonctionne par règles ; aucune requête réseau hors mise à jour de l’app.'),
       interrupteur('Masquer les montants', pa.masquageMontants, (v) => { definirMasquage(v); majParametres({ masquageMontants: v }); }),
       h('div', { class: 'ligne-reglage' }, h('span', { class: 'ligne-reglage-libelle' }, 'Code PIN', h('small', {}, PIN_EST_UN_VERROU)), pa.pinHash ? h('div', { class: 'groupe-boutons' }, bouton('Changer', () => feuillePin(), { classe: 'btn-petit' }), bouton('Supprimer', async () => { await supprimerPin(); toast('Code PIN supprimé.'); }, { classe: 'btn-petit btn-danger-texte' })) : bouton('Définir', () => feuillePin(), { classe: 'btn-petit' })))),
-    // Apparence
     carte('Apparence', segment([['auto', 'Automatique'], ['clair', 'Clair'], ['sombre', 'Sombre']], pa.theme || 'auto', async (v) => { await majParametres({ theme: v }); appliquerTheme(v); }, 'Thème')),
-    // Pont
+  ];
+  if (id === 'gemini') return [
+    carteGemini(ia),
+  ];
+  if (id === 'pont') return [
     cartePont(ia),
-    // Diagnostic complet
+  ];
+  if (id === 'diagnostic') return [
     carteDiagnostic(ia),
-    // À propos et effacement
+  ];
+  if (id === 'apropos') return [
     carte('À propos', h('div', {},
       h('p', { class: 'petit' }, `Budget ${versionApp} · schéma de données ${SCHEMA_VERSION} · ${etat.transactions.length.toLocaleString('fr-FR')} transactions.`),
       bouton('Revoir l’accueil de démarrage', () => { majParametres({ onboarding: { ...pa.onboarding, termine: false, etape: 0 } }); aller('onboarding'); }, { classe: 'btn-petit' }),
       bouton('Effacer toutes les données', effacer, { classe: 'btn-danger-texte' }))),
-  );
+  ];
+  return [];
 }
 
 /** Choix du fichier privé (même nom, même emplacement) puis mise à jour sans perte. */
@@ -352,11 +407,11 @@ async function effacer() {
 // ---------------------------------------------------------------------------
 // Sous-pages
 // ---------------------------------------------------------------------------
-function retour() { return h('button', { class: 'lien retour', type: 'button', onclick: () => aller('reglages') }, icone('retour'), 'Réglages'); }
+function retour(vers = 'reglages', libelle = 'Réglages') { return h('button', { class: 'lien retour', type: 'button', onclick: () => aller(vers) }, icone('retour'), libelle); }
 
 function rendreQuestions(vue) {
   const qs = etat.questions;
-  vue.replaceChildren(retour(), h('h1', { class: 'titre-page' }, 'Questions sur tes relevés'),
+  vue.replaceChildren(retour('reglages/operations', 'Opérations et catégories'), h('h1', { class: 'titre-page' }, 'Questions sur tes relevés'),
     qs.length ? h('div', {}, qs.map(carteQuestion)) : etatVide('ok', 'Aucune question', 'Tout est qualifié.'));
 }
 
@@ -390,7 +445,7 @@ function carteQuestion(q) {
 
 function rendreRegles(vue) {
   const regles = [...etat.reglesCategorie].sort((a, b) => (a.origine === 'utilisateur' ? -1 : 1) - (b.origine === 'utilisateur' ? -1 : 1));
-  vue.replaceChildren(retour(), h('h1', { class: 'titre-page' }, 'Règles de catégorisation'),
+  vue.replaceChildren(retour('reglages/operations', 'Opérations et catégories'), h('h1', { class: 'titre-page' }, 'Règles de catégorisation'),
     h('p', { class: 'petit' }, 'Ordre : tes règles → règles importées → règles par défaut → Gemini (si activé). Corriger une catégorie crée une règle.'),
     regles.length ? h('div', { class: 'liste' }, regles.map((r) => h('div', { class: 'ligne-regle' },
       h('span', {}, h('strong', {}, libelleRegle(r)), h('small', {}, ` → ${nomCategorie(r.categorie)} · ${r.origine === 'utilisateur' ? 'toi' : 'import'}`)),
@@ -401,7 +456,7 @@ function rendreRegles(vue) {
 
 function rendreCharges(vue) {
   const dessiner = () => rendreCharges(vue);
-  vue.replaceChildren(retour(), h('h1', { class: 'titre-page' }, 'Charges fixes'),
+  vue.replaceChildren(retour('reglages/operations', 'Opérations et catégories'), h('h1', { class: 'titre-page' }, 'Charges fixes'),
     h('p', { class: 'petit' }, 'Détectées automatiquement à l’import (prélèvements réguliers). Elles entrent dans le reste à dépenser et la projection de découvert.'),
     h('div', { class: 'liste' }, [...etat.chargesFixes].sort((a, b) => a.jourPrelevement - b.jourPrelevement).map((c) => {
       let m = c.montantCentimes; let j = c.jourPrelevement;

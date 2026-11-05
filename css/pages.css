@@ -348,3 +348,8 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .diag-pourcent { font-family: var(--police-chiffres); font-size: 14px; color: var(--texte-2); }
 .diag-fin { padding: 8px 0 16px; }
 .liste-gardes { margin: 0; padding-left: 18px; }
+
+/* Réglages : bloc du fichier privé */
+.bloc-fichier { display: flex; flex-direction: column; gap: 8px; }
+.bloc-fichier-titre { font-weight: 600; }
+.bloc-fichier .btn-large { margin-top: 4px; }

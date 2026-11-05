@@ -24,7 +24,7 @@ import { indicationEnvoiGemini } from './communs.js';
 export function rendreImport(vue) {
   const input = h('input', { type: 'file', accept: '.pdf,.csv,.json,application/pdf,text/csv,application/json', multiple: true, class: 'sr', id: 'fichiers-import', onchange: (e) => traiter([...e.target.files]) });
   vue.replaceChildren(
-    h('button', { class: 'lien retour', type: 'button', onclick: () => aller('reglages') }, icone('retour'), 'Réglages'),
+    h('button', { class: 'lien retour', type: 'button', onclick: () => aller('reglages/operations') }, icone('retour'), 'Opérations et catégories'),
     h('h1', { class: 'titre-page' }, 'Importer'),
     carte('Relevés bancaires', h('div', {},
       h('p', {}, 'PDF LCL (relevé mensuel), PDF Revolut (« Relevé personnalisé »), exports CSV LCL ou Revolut, ou tout autre CSV. Tout est analysé sur ton iPhone : rien n’est envoyé.'),
