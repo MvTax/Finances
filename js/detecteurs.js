@@ -14,7 +14,7 @@ const dansPeriode = (t, debut, fin) => t.date >= debut && t.date <= fin;
 export function periodesSalaire(etat, debut, fin) {
   const res = [];
   let p = periodeBudget(debut, etat.profil || {});
-  for (let i = 0; i < 120 && p.debut <= fin; i++) { res.push(p); p = periodeBudget(ajouterJours(p.fin, 1), etat.profil || {}); }
+  for (let i = 0; i < 120 && p.debut <= fin; i++) { res.push(p); const q = periodeBudget(ajouterJours(p.fin, 1), etat.profil || {}); if (q.debut <= p.debut) break; p = q; }
   return res;
 }
 

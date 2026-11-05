@@ -354,3 +354,22 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .bloc-fichier-titre { font-weight: 600; }
 .bloc-fichier .btn-large { margin-top: 4px; }
 .hero-periode { font-size: 13px; margin-top: 6px; opacity: .9; }
+
+/* Abonnements */
+.abo-entete { background: var(--surface); border-radius: var(--rayon); padding: 18px 16px; display: flex; flex-direction: column; gap: 8px; }
+.abo-libelle { font-size: 15px; color: var(--texte-2); font-weight: 500; }
+.abo-total { font-family: var(--police-chiffres); font-size: 36px; font-weight: 650; letter-spacing: -.6px; color: var(--f-abonnements); }
+.abo-unite { font-family: var(--police); font-size: 16px; font-weight: 500; color: var(--texte-2); letter-spacing: 0; }
+.abo-limite { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ligne-abo { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 62px; padding: 10px 0; border: 0; border-bottom: 0.5px solid var(--separateur); background: transparent; color: var(--texte); text-align: left; cursor: pointer; }
+.ligne-abo:last-child { border-bottom: 0; }
+.ligne-abo-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ligne-abo-nom { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ligne-abo-sous { font-size: 13px; color: var(--texte-3); }
+.ligne-abo-droite { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.ligne-abo-montant { font-family: var(--police-chiffres); font-weight: 600; }
+.ligne-abo-montant small { font-family: var(--police); font-weight: 400; color: var(--texte-3); font-size: 12px; }
+.ligne-abo-an { font-size: 13px; color: var(--texte-3); font-family: var(--police-chiffres); }
+.abo-conseils, .abo-alternatives { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
+.abo-alternatives li::marker { color: var(--vert); }
+.grille-tuiles .tuile:last-child:nth-child(odd) { grid-column: span 2; min-height: 72px; }

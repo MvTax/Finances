@@ -128,6 +128,7 @@ function cartesSection(id) {
       lien('Questions sur tes relevés', nbQuestions ? `${nbQuestions} en attente` : 'à jour', () => aller('reglages/questions'), 'info'),
       lien('Importer un relevé', 'PDF LCL ou Revolut, CSV', () => aller('reglages/import'), 'importer'),
       lien('Charges fixes', `${etat.chargesFixes.filter((c) => c.actif).length} actives`, () => aller('reglages/charges'), 'calendrier'),
+      lien('Abonnements', 'liste, limite, alternatives gratuites', () => aller('abonnements'), 'boucle'),
       lien('Règles de catégorisation', `${etat.reglesCategorie.length} règles`, () => aller('reglages/regles'), 'liste'),
       lien('Catégories', `${CATEGORIES.length}`, () => feuilleCategories(), 'etoile'),
       lien('Comptes et soldes', `${etat.comptes.length} comptes`, () => feuilleComptes(), 'banque'))),

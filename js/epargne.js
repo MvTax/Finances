@@ -120,10 +120,11 @@ export function arrondiTransaction(tx, reglage = {}) {
  * Cagnotte en attente : arrondis des dépenses depuis l'activation, non encore virés.
  * Les arrondis System'Épargne de la banque sont un montant DISTINCT (ligne TOTAL OPTION) : aucun double comptage.
  */
-export function cagnotteEnAttente(transactions, reglage, cagnotte = []) {
+export function cagnotteEnAttente(transactions, reglage, cagnotte = [], { debutSuivi = null } = {}) {
   if (!reglage?.actif) return { total: 0, lignes: [] };
   const vires = new Set(cagnotte.filter((c) => c.vireLe).map((c) => c.transactionId));
-  const depuis = reglage.depuis || '0000-01-01';
+  // Jamais d'arrondis sur l'historique importé : on part du début du suivi au plus tôt
+  const depuis = [reglage.depuis, debutSuivi].filter(Boolean).sort().pop() || '0000-01-01';
   const lignes = [];
   for (const t of transactions) {
     if (t.date < depuis || vires.has(t.id)) continue;

@@ -65,7 +65,7 @@ function vuePoches() {
   });
   // Arrondis
   const ar = etat.profil.arrondi || {};
-  const cag = cagnotteEnAttente(etat.transactions, ar, etat.cagnotteArrondis);
+  const cag = cagnotteEnAttente(etat.transactions, ar, etat.cagnotteArrondis, { debutSuivi: etat.profil.debutSuivi || etat.profil.premierImportLe });
   const prochaine = ar.actif ? prochainVirementArrondis(ar, aujourdhui(), ar.dernierVirement || null) : null;
   const arrondis = carte('Arrondis à virer', h('div', {},
     ar.actif ? h('div', { class: 'poche-tete' }, h('span', { class: 'petit' }, `Prochain virement le ${formatDate(prochaine)}`), h('span', { class: 'poche-solde' }, mt(cag.total))) : h('p', {}, 'Arrondis désactivés (Réglages → Arrondis).'),

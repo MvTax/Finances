@@ -8,6 +8,7 @@ import { etat, ecrireMeta, enregistrer } from '../store.js';
 import { aller } from '../router.js';
 import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, coutDecouvert, reliquat, periodeBudget } from '../calculs.js';
 import { prochainVirementArrondis, soldePoche } from '../epargne.js';
+import { listerAbonnements } from '../abonnements.js';
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatJourLong, formatMois, diffJours, moisDe, dateDuMois } from '../dates.js';
 import { formatEuros } from '../money.js';
 import { categorie } from '../categories.js';
@@ -74,6 +75,11 @@ function essentiel(auj, rappels) {
       valeur: mt(cible ? cible.soldeApresCentimes : p.premierNegatif.soldeCentimes, { classe: 'negatif' }),
       onclick: () => ouvrirFeuille({ titre: 'Risque de découvert', contenu: risqueDecouvert(auj) }) }));
   }
+  const plafondAbo = etat.profil.plafondAbonnementsCentimes;
+  if (plafondAbo !== null && plafondAbo !== undefined) {
+    const abo = listerAbonnements(etat, auj, { resilies: etat.meta.abonnementsResilies || {} });
+    if (abo.aLimiterMensuelCentimes > plafondAbo) lignes.push(ligneEssentiel({ type: 'alerte', icone: 'boucle', titre: `Abonnements au-dessus de ta limite de ${formatEuros(plafondAbo)}`, valeur: mt(abo.aLimiterMensuelCentimes - plafondAbo, { classe: 'negatif' }), onclick: () => aller('abonnements') }));
+  }
   for (const b of rappels.slice(0, 2)) lignes.push(ligneEssentiel({ ...b, onclick: () => feuilleRappel(b) }));
   if (!lignes.length) return null;
   return carte('L’essentiel', h('div', { class: 'liste' }, lignes), { id: 'essentiel' });
@@ -113,6 +119,7 @@ function rubriques(r, auj, rappels, critique) {
   const s = soldes(etat, auj);
   const depMois = depensesVariables(etat, r.periode.debut, r.periode.fin);
   const envTotal = etat.enveloppes.reduce((t, e) => t + plafondEffectif(e, r.periode.mois), 0);
+  const abo = listerAbonnements(etat, auj, { resilies: etat.meta.abonnementsResilies || {} });
   const nbDettes = etat.creditsBancaires.filter((c) => c.actif !== false).length + etat.prets.filter((x) => x.statut !== 'solde' && x.sens === 'empruntéParMoi').length;
   const tuile = (ic, nom, valeur, onclick) => h('button', { type: 'button', class: 'tuile', onclick }, h('span', { class: 'tuile-icone', 'aria-hidden': 'true' }, icone(ic)), h('span', { class: 'tuile-nom' }, nom), h('span', { class: 'tuile-valeur' }, valeur));
   return h('section', { class: 'rubriques', 'aria-labelledby': 'rubriques-t' },
@@ -121,6 +128,7 @@ function rubriques(r, auj, rappels, critique) {
       tuile('banque', 'Comptes', mt(s.globalCentimes, { classe: s.globalCentimes < 0 ? 'negatif' : '' }), () => ouvrirFeuille({ titre: 'Tes comptes', contenu: h('div', { class: 'feuille-sections' }, positionGlobale(auj), h('h3', { class: 'feuille-sous-titre' }, 'Les 7 prochains jours'), risqueDecouvert(auj)) })),
       tuile('liste', 'Dépenses du mois', mt(depMois), () => aller('depenses')),
       tuile('panier', 'Enveloppes', envTotal ? [mt(depMois), ' sur ', mt(envTotal)] : 'À créer', () => { const f = ouvrirFeuille({ titre: critique ? 'Enveloppes vitales' : 'Enveloppes du mois', contenu: enveloppesBloc(r, critique) || etatVide('panier', 'Aucune enveloppe', 'Crée tes enveloppes pour suivre chaque poste de dépense.'), actions: [bouton('Modifier les enveloppes', () => { f.fermer(); aller('budgets'); })] }); }),
+      tuile('boucle', 'Abonnements', abo.liste.length ? [mt(abo.aLimiterMensuelCentimes), ' /mois'] : 'Aucun', () => aller('abonnements')),
       tuile('cle', 'Dettes', nbDettes ? `${nbDettes} en cours` : 'Aucune', () => aller('epargne/dettes')),
       tuile('cloche', 'Rappels', rappels.length ? `${rappels.length} à voir` : 'Rien à faire', () => feuilleRappels(rappels)),
       tuile('graphique', 'Bilan', 'Mois par mois', () => aller('historique'))));

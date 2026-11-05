@@ -52,6 +52,10 @@ Le mois budgétaire commence le jour où le salaire arrive réellement (opérati
 
 **Reste du mois → épargne.** Dans les 3 jours avant le salaire, l'accueil affiche « Il te reste X € jusqu'au salaire ». Une fois le salaire arrivé, il propose « Reste de <mois> : X € → épargne » : ce qui n'a pas été dépensé part sur les poches selon leurs parts. Le montant ne dépasse jamais l'argent réellement présent sur les comptes à la fin du mois.
 
+## Abonnements
+
+L'accueil (Détails → Abonnements) et Réglages → Opérations et catégories mènent à la page **Abonnements** : coût par mois et par an, limite à ne pas dépasser (alerte sur l'accueil), liste « À limiter » et « Essentiels » (téléphone, transport, carte), conseils et alternatives gratuites pour chaque service connu, bouton « Je l'ai résilié » (économies cumulées). Les abonnements et les prélèvements automatiques comptent dans les charges du mois : ils n'entament jamais le budget du jour.
+
 ## Importer des relevés
 
 Va dans **Réglages → Importer**. Formats acceptés :

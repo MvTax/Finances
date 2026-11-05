@@ -143,7 +143,7 @@ export async function enregistrerVirementEpargne({ montantCentimes, pocheId = nu
 
 /** Virement de la cagnotte d'arrondis (« Vire X € sur ton Livret » → « C'est fait »). */
 export async function virerArrondis() {
-  const c = cagnotteEnAttente(etat.transactions, etat.profil.arrondi, etat.cagnotteArrondis);
+  const c = cagnotteEnAttente(etat.transactions, etat.profil.arrondi, etat.cagnotteArrondis, { debutSuivi: etat.profil.debutSuivi || etat.profil.premierImportLe });
   if (!c.total) return null;
   const tx = await enregistrerVirementEpargne({ montantCentimes: c.total, pocheId: etat.profil.arrondi.pocheId || 'poche-coussin', type: 'arrondiApp', libelle: 'Arrondis virés sur le livret', lignesArrondis: c.lignes });
   await majProfil({ arrondi: { ...etat.profil.arrondi, dernierVirement: aujourdhui() } });

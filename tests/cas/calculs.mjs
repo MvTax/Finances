@@ -31,15 +31,25 @@ export default [
     egal(periodeBudget('2026-11-04', profil).debut, '2026-10-03');                          // octobre a commencé le 03
     // Salaire de décembre pas encore arrivé : novembre continue jusqu'à ce qu'il arrive (7 jours au plus)
     const attente = { jourSalaireHabituel: 5, datesSalaire: ['2026-11-05'] };
-    p = periodeBudget('2026-12-06', attente);
+    const ref = (d) => ({ reference: d }); // « aujourd'hui » simulé
+    p = periodeBudget('2026-12-06', attente, ref('2026-12-06'));
     egal(p.mois, '2026-11'); egal(p.debut, '2026-11-05'); egal(p.fin, '2026-12-06');
-    egal(periodeBudget('2026-12-12', attente).fin, '2026-12-12');                            // 7e jour d'attente : novembre continue
-    p = periodeBudget('2026-12-14', attente);
+    egal(periodeBudget('2026-12-12', attente, ref('2026-12-12')).fin, '2026-12-12');         // 7e jour d'attente : novembre continue
+    p = periodeBudget('2026-12-14', attente, ref('2026-12-14'));
     egal(p.mois, '2026-12'); egal(p.debut, '2026-12-13');                                    // au-delà : décembre commence le lendemain, sans chevauchement
-    egal(periodeBudget('2026-12-13', attente).debut, '2026-12-13');
+    egal(periodeBudget('2026-12-13', attente, ref('2026-12-13')).debut, '2026-12-13');
+    // Date future vue d'aujourd'hui (05/11) : jour habituel, pas d'attente (sinon la projection compterait deux fois le même mois)
+    egal(periodeBudget('2026-12-05', attente, ref('2026-11-05')).debut, '2026-12-05');
     // Salaire versé fin octobre : il compte pour novembre
     egal(periodeBudget('2026-11-10', { jourSalaireHabituel: 1, datesSalaire: ['2026-10-30'] }).mois, '2026-11');
     egal(JSON.stringify(datesDeSalaire({ transactions: [{ categorie: 'salaire', sens: 'credit', montantCentimes: 145296, date: '2026-11-05' }], revenusMensuels: [{ recuLe: '2026-10-03' }] })), '["2026-10-03","2026-11-05"]');
+  } },
+  { nom: 'projection : avec des dates de salaire réelles, chaque prélèvement n’est compté qu’une fois', fn: () => {
+    const e = etatNovembre();
+    e.profil = { ...e.profil, datesSalaire: ['2026-10-05', '2026-11-05'] };
+    const p = projectionDecouvert(e, '2026-11-05', { jours: 7 });
+    const cles = (p.evenements || []).map((x) => `${x.date}|${x.libelle}|${x.montantCentimes}`);
+    egal(cles.length, new Set(cles).size);
   } },
   { nom: 'reste du mois : aperçu avant le salaire, puis reste du mois précédent à verser sur l’épargne', fn: () => {
     const e = etatNovembre();

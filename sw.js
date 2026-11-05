@@ -2,7 +2,7 @@
 // pdf.js (vendor/pdfjs) est mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
 
@@ -19,6 +19,7 @@ const COQUILLE = [
   './icons/icone-512.png',
   './icons/icone-maskable-512.png',
   './icons/icone.svg',
+  './js/abonnements.js',
   './js/actions.js',
   './js/diagnostic.js',
   './js/journal.js',
@@ -56,6 +57,7 @@ const COQUILLE = [
   './js/import/pdf-loader.js',
   './js/import/pipeline.js',
   './js/import/revolut-pdf.js',
+  './js/pages/abonnements.js',
   './js/pages/accueil.js',
   './js/pages/budgets.js',
   './js/pages/communs.js',

@@ -4,7 +4,7 @@ import { h, icone, mt } from '../ui/dom.js';
 import { carte, bouton, champ, selectionner, etatVide, pastillesCategories, interrupteur, ligneTransaction } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { toast, toastErreur } from '../ui/toast.js';
-import { etat, majParametres, remplacerTout, enregistrerLot, appliquerMiseAJour } from '../store.js';
+import { etat, majParametres, majProfil, remplacerTout, enregistrerLot, appliquerMiseAJour } from '../store.js';
 import { planifierMiseAJour, resumeMiseAJour, basesDepuisContenu, ESTAMPILLES_HISTORIQUES } from '../miseajour.js';
 import { recalculerTousAjustements } from '../actions.js';
 import { aller } from '../router.js';
@@ -15,7 +15,7 @@ import { analyserCSV, parserGenerique } from '../import/csv.js';
 import { preparerImport, validerImport } from '../actions.js';
 import { lireSauvegarde, fusionner } from '../sauvegarde.js';
 import { categoriesDepense, categoriesEntree, categorie } from '../categories.js';
-import { formatDate } from '../dates.js';
+import { formatDate, diffJours } from '../dates.js';
 import { formatEuros } from '../money.js';
 import { iaDisponible } from '../gemini.js';
 import { categoriserInconnus, analyserRelevePDF } from '../ia.js';
@@ -209,9 +209,58 @@ export function estFichierPrive(objet, contenu) {
   return tx.length > 0 && tx.every((t) => ESTAMPILLES_HISTORIQUES.includes(t.modifieLe));
 }
 
+/** Dépenses saisies à la main (clavier, voix, ticket, pont), à garder quand le fichier remplace tout. */
+function saisiesManuelles() {
+  return etat.transactions.filter((t) => ['texte', 'voix', 'photo', 'bridge'].includes(t.source) && !t.ajustement);
+}
+
+/**
+ * Remplace les données par le fichier (comptes, charges, revenus, poches, plan…) en GARDANT les dépenses saisies
+ * à la main (rattachées au compte courant du fichier si leur compte n'existe plus, sans doublon), le prénom affiché
+ * et l'accueil de démarrage déjà fait.
+ */
+export async function remplacerEnGardantSaisies(contenu) {
+  const saisies = saisiesManuelles();
+  const prenom = etat.profil.prenomAffichage;
+  const onboarding = etat.parametres.onboarding;
+  await remplacerTout(contenu);
+  const comptes = new Set(etat.comptes.map((c) => c.id));
+  const courant = etat.comptes.find((c) => c.type === 'courant')?.id || etat.comptes[0]?.id;
+  const ajouts = [];
+  for (const t of saisies) {
+    const compteId = comptes.has(t.compteId) ? t.compteId : courant;
+    const deja = etat.transactions.some((x) => x.compteId === compteId && x.sens === t.sens && x.montantCentimes === t.montantCentimes && Math.abs(diffJours(x.date, t.date)) <= 3);
+    if (!deja) ajouts.push({ collection: 'transactions', valeur: { ...t, compteId } });
+  }
+  if (ajouts.length) await enregistrerLot(ajouts);
+  if (prenom && !etat.profil.prenomAffichage) await majProfil({ prenomAffichage: prenom });
+  if (onboarding?.termine) await majParametres({ onboarding });
+  return { gardees: ajouts.length, doublons: saisies.length - ajouts.length };
+}
+
 /** Mise à jour depuis le fichier privé : garde tout ce qui a été saisi ou modifié dans l'app. */
 export async function mettreAJourDepuisFichier(objet, r, { apres } = {}) {
   const estampille = objet.miseAJour?.estampille || ESTAMPILLES_HISTORIQUES[0];
+  // Premier import du fichier : il remplace ce que l'accueil de démarrage a créé (comptes, charges, poches par défaut…)
+  // au lieu de s'y mélanger ; seules les dépenses saisies à la main sont gardées.
+  const connues = new Set([...(etat.meta.estampillesFichier || []), ...ESTAMPILLES_HISTORIQUES]);
+  const dejaImporte = (etat.meta.estampillesFichier || []).length || etat.transactions.some((t) => connues.has(t.modifieLe));
+  if (!dejaImporte) {
+    const n = saisiesManuelles().length;
+    const f0 = ouvrirFeuille({
+      titre: 'Importer ton fichier',
+      contenu: h('div', { class: 'formulaire' },
+        h('p', {}, `Ton fichier remplit l’app : ${r.contenu.transactions?.length || 0} opérations, tes comptes, charges, dettes, poches et plan.`),
+        h('p', { class: 'petit' }, `Il remplace les réglages de démarrage (compte par défaut, loyer, revenus saisis…).${n ? ` Tes ${n} dépense${n > 1 ? 's' : ''} saisie${n > 1 ? 's' : ''} à la main ${n > 1 ? 'sont gardées' : 'est gardée'}.` : ''}`)),
+      actions: [bouton('Annuler', () => f0.fermer()), bouton('Importer', async () => {
+        const res = await remplacerEnGardantSaisies(r.contenu);
+        await appliquerMiseAJour({ ecritures: [], suppressions: [], profil: etat.profil, parametres: etat.parametres, totaux: { ajouts: r.contenu.transactions?.length || 0 } }, { estampille, baseProfil: r.contenu.profil || null, baseParametres: r.contenu.parametres || null, bases: basesDepuisContenu(r.contenu) });
+        await recalculerTousAjustements();
+        f0.fermer(); toast(`Fichier importé${res.gardees ? `, ${res.gardees} saisie${res.gardees > 1 ? 's' : ''} gardée${res.gardees > 1 ? 's' : ''}` : ''}.`, { type: 'succes' }); apres?.();
+      }, { classe: 'btn-principal' })],
+    });
+    return;
+  }
   const plan = planifierMiseAJour(etatCourant(), r.contenu, { estampilles: [...(etat.meta.estampillesFichier || []), estampille], supprimes: etat.meta.supprimes || {}, baseProfil: etat.meta.baseProfil || null, baseParametres: etat.meta.baseParametres || null, bases: [etat.meta.baseFichier, ...(objet.miseAJour?.bases || [])] });
   const premiere = !etat.transactions.length;
   if (premiere) { await remplacerTout(r.contenu); toast('Fichier importé.', { type: 'succes' }); apres?.(); return; }
@@ -230,9 +279,12 @@ export async function mettreAJourDepuisFichier(objet, r, { apres } = {}) {
         gardes.filter((c) => !c.cle && c.champs).map((c) => h('li', {}, `${c.collection === 'profil' ? 'Profil' : 'Réglages'} : ${c.champs.map((x) => CHAMPS_LISIBLES[x] || x).join(', ')}`))) : null,
       plan.totaux.ignores ? h('p', { class: 'petit' }, `${plan.totaux.ignores} élément(s) déjà présent(s) ou supprimé(s) par toi : ignorés.`) : null,
       h('button', { type: 'button', class: 'lien negatif-texte', onclick: async () => {
-        const ok = await confirmer({ titre: 'Tout remplacer ?', message: 'Tes saisies et modifications faites dans l’app seront perdues. Préfère « Mettre à jour ».', ok: 'Tout remplacer', danger: true });
+        const ok = await confirmer({ titre: 'Tout remplacer ?', message: 'Tout est remplacé par le fichier (comptes, charges, poches, plan, modifications). Seules tes dépenses saisies à la main sont gardées.', ok: 'Tout remplacer', danger: true });
         if (!ok) return;
-        await remplacerTout(r.contenu); f.fermer(); toast('Données remplacées par le fichier.', { type: 'succes' }); apres?.();
+        const res = await remplacerEnGardantSaisies(r.contenu);
+        await appliquerMiseAJour({ ecritures: [], suppressions: [], profil: etat.profil, parametres: etat.parametres, totaux: {} }, { estampille, baseProfil: r.contenu.profil || null, baseParametres: r.contenu.parametres || null, bases: basesDepuisContenu(r.contenu) });
+        await recalculerTousAjustements();
+        f.fermer(); toast(`Données remplacées par le fichier${res.gardees ? ` (${res.gardees} saisie${res.gardees > 1 ? 's' : ''} gardée${res.gardees > 1 ? 's' : ''})` : ''}.`, { type: 'succes' }); apres?.();
       } }, 'Tout remplacer à la place')),
     actions: [
       bouton('Annuler', () => f.fermer()),
@@ -251,7 +303,7 @@ async function restaurer(fichier) {
   try { objet = JSON.parse(await fichier.text()); } catch { toastErreur('Ce fichier n’est pas un JSON valide.'); return; }
   const r = lireSauvegarde(objet);
   if (!r.ok) { toastErreur(r.erreurs.join(' ')); return; }
-  if (estFichierPrive(objet, r.contenu) && etat.transactions.length) { await mettreAJourDepuisFichier(objet, r, { apres: () => aller('accueil') }); return; }
+  if (estFichierPrive(objet, r.contenu)) { await mettreAJourDepuisFichier(objet, r, { apres: () => aller('accueil') }); return; }
   const a = r.apercu;
   const f = ouvrirFeuille({
     titre: 'Restaurer une sauvegarde',

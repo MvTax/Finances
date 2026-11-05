@@ -11,7 +11,7 @@ import { journal, masquerSecrets } from './journal.js';
 import { CATEGORIES, FAMILLES, contributionDepense } from './categories.js';
 import { aujourdhui, estIso, ajouterJours } from './dates.js';
 import { formatEuros } from './money.js';
-import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, depensesParCategorie, periodeBudget, reliquat } from './calculs.js';
+import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, depensesParCategorie, periodeBudget, reliquat, prelevementsHorsCharges } from './calculs.js';
 import { planDesMois, scenariosPret } from './plan.js';
 import { soldePoche } from './epargne.js';
 import { tableauAmortissement, verifierCoherencePret } from './dettes.js';
@@ -31,13 +31,13 @@ import { choisirMime, mimePourGemini, voixDisponible, blobEnBase64 } from './voi
 const ROUTES = [
   ['accueil', []], ['depenses', []], ['budgets', []],
   ['epargne', ['poches']], ['epargne', ['plan']], ['epargne', ['dettes']], ['epargne', ['simulateur']],
-  ['historique', ['bilan']], ['historique', ['remedier']],
+  ['historique', ['bilan']], ['historique', ['remedier']], ['abonnements', []],
   ['reglages', []], ...['revenus', 'epargne', 'operations', 'sauvegarde', 'profil', 'confidentialite', 'gemini', 'pont', 'diagnostic', 'apropos'].map((x) => ['reglages', [x]]),
   ['reglages', ['import']], ['reglages', ['questions']], ['reglages', ['regles']], ['reglages', ['charges']],
 ];
 const PAGES = {
   accueil: () => import('./pages/accueil.js'), depenses: () => import('./pages/depenses.js'), budgets: () => import('./pages/budgets.js'),
-  epargne: () => import('./pages/epargne.js'), historique: () => import('./pages/historique.js'), reglages: () => import('./pages/reglages.js'),
+  epargne: () => import('./pages/epargne.js'), historique: () => import('./pages/historique.js'), reglages: () => import('./pages/reglages.js'), abonnements: () => import('./pages/abonnements.js'),
 };
 
 const IDS_CAT = new Set(CATEGORIES.map((c) => c.id));
@@ -306,6 +306,26 @@ export async function lancerDiagnostic(o = {}) {
     }
     return { statut, detail: lignes.join(' ; ') || 'Aucun crédit' };
   });
+  test('Doublons de structure (après un import mélangé)', () => {
+    const pb = [];
+    const loyers = (etat.chargesFixes || []).filter((c) => c.actif && c.estLoyer);
+    if (loyers.length > 1) pb.push(`${loyers.length} loyers actifs (compté plusieurs fois dans les charges)`);
+    const parCompte = new Map(); for (const t of tx) parCompte.set(t.compteId, (parCompte.get(t.compteId) || 0) + 1);
+    const courants = (etat.comptes || []).filter((c) => c.type === 'courant');
+    const vides = courants.filter((c) => !(parCompte.get(c.id) > 3));
+    if (courants.length > 1 && vides.length) pb.push(`compte(s) courant(s) presque vide(s) en plus du principal : ${vides.map((c) => c.nom).join(', ')} (la projection de découvert peut regarder le mauvais compte)`);
+    const actives = (etat.poches || []).filter((p) => p.actif !== false);
+    const avecPart = actives.filter((p) => p.partRepartition);
+    if (avecPart.length && actives.some((p) => p.type === 'projet' && !p.cibleCentimes)) pb.push('poche « projet » sans objectif');
+    const pret = (etat.poches || []).find((p) => p.type === 'remboursementAnticipe');
+    if (pret && pret.actif === false && (etat.creditsBancaires || []).some((c) => c.type === 'amortissable')) pb.push('poche de remboursement anticipé désactivée alors qu’un prêt existe');
+    const ar = etat.profil.arrondi;
+    if (ar?.actif && !ar.depuis && !(etat.profil.debutSuivi || etat.profil.premierImportLe)) pb.push('arrondis sans date de départ : tout l’historique serait arrondi');
+    const charges = new Map(); for (const c of (etat.chargesFixes || []).filter((x) => x.actif)) { const k = `${(c.libelle || '').toLowerCase()}|${c.montantCentimes}`; charges.set(k, (charges.get(k) || 0) + 1); }
+    const doubles = [...charges].filter(([, n]) => n > 1).map(([k]) => k.split('|')[0]);
+    if (doubles.length) pb.push(`charges fixes en double : ${doubles.join(', ')}`);
+    return { statut: pb.length ? 'echec' : 'ok', detail: pb.length ? `${pb.join(' ; ')} → Réglages → Importer mon fichier → « Tout remplacer à la place » (tes saisies sont gardées)` : 'Aucun doublon de loyer, de compte ou de charge' };
+  });
   test('Règles de catégorisation', () => {
     const pb = [];
     for (const r of etat.reglesCategorie || []) {
@@ -365,13 +385,14 @@ export async function lancerDiagnostic(o = {}) {
     const per = r?.periode || periodeBudget(auj, etat.profil);
     const debut = ajouterJours(auj, -90);
     const total = depensesVariables(etat, debut, auj);
-    const fixes = (etat.transactions || []).filter((t) => t.chargeFixeId && t.date >= debut && t.date <= auj).reduce((s, t) => s + contributionDepense(t), 0);
+    const fixes = (etat.transactions || []).filter((t) => t.chargeFixeId && t.date >= debut && t.date <= auj).reduce((s, t) => s + contributionDepense(t), 0)
+      + prelevementsHorsCharges(etat, debut, auj).reduce((s, c) => s + c.montantPrevuCentimes, 0); // abonnements et prélèvements non rattachés
     const parCatBrut = depensesParCategorie(etat, debut, auj, { inclureEtalees: false });
     const parCat = parCatBrut;
     const somme = (Array.isArray(parCat) ? parCat : Object.values(parCat)).reduce((t, c) => t + (c.montantCentimes ?? c ?? 0), 0);
     const familles = {};
     for (const c of Array.isArray(parCat) ? parCat : []) { const f = CATEGORIES.find((x) => x.id === c.categorie)?.famille || '?'; familles[f] = (familles[f] || 0) + c.montantCentimes; }
-    return { statut: somme === total + fixes ? 'ok' : 'echec', detail: `90 jours : variables ${eur(total)} + charges fixes rattachées ${eur(fixes)} = ${eur(total + fixes)} ; somme par catégorie ${eur(somme)}${somme !== total + fixes ? ` (ÉCART ${eur(somme - total - fixes)})` : ''} ; par famille : ${Object.entries(familles).map(([f, v]) => `${FAMILLES.find((x) => x.id === f)?.nom || f} ${eur(v)}`).join(', ')} ; période en cours ${per.debut} → ${per.fin}` };
+    return { statut: somme === total + fixes ? 'ok' : 'echec', detail: `90 jours : variables ${eur(total)} + charges, abonnements et prélèvements ${eur(fixes)} = ${eur(total + fixes)} ; somme par catégorie ${eur(somme)}${somme !== total + fixes ? ` (ÉCART ${eur(somme - total - fixes)})` : ''} ; par famille : ${Object.entries(familles).map(([f, v]) => `${FAMILLES.find((x) => x.id === f)?.nom || f} ${eur(v)}`).join(', ')} ; période en cours ${per.debut} → ${per.fin}` };
   });
   test('Plan sur 24 mois', () => {
     const t0 = performance.now();

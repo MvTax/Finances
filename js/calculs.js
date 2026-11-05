@@ -16,7 +16,7 @@ export const COMMISSION_INTERVENTION_CENTIMES = 800; // tarif courant d'une comm
  * Un salaire attendu mais pas encore arrivé prolonge la période en cours (7 jours au plus) : le mois change
  * au moment où le salaire arrive. Avec un jour de salaire au 1er et sans dates réelles, c'est le mois calendaire.
  */
-export function periodeBudget(dateIso, profil = {}) {
+export function periodeBudget(dateIso, profil = {}, { reference = aujourdhui() } = {}) {
   const js = Math.min(Math.max(Number(profil.jourSalaireHabituel) || 1, 1), 28);
   const reelles = [...new Set((profil.datesSalaire || []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
   if (!reelles.length) {
@@ -38,9 +38,10 @@ export function periodeBudget(dateIso, profil = {}) {
     else {
       // Salaire pas encore arrivé : la période précédente continue tant qu'on est à moins de 7 jours du jour habituel
       const apresDernier = t > reelles[reelles.length - 1];
-      if (apresDernier && t <= dateIso && diffJours(t, dateIso) <= 7) attendu = t;
+      // Attente seulement pour aujourd'hui (ou une date passée) : pour une date future on ne peut pas savoir, on prend le jour habituel
+      if (apresDernier && t <= dateIso && diffJours(t, dateIso) <= 7 && dateIso <= reference) attendu = t;
       // Toujours pas de salaire au bout de 7 jours : le nouveau mois commence le lendemain de l'attente (pas de retour en arrière)
-      else debuts.push({ date: apresDernier && t <= dateIso ? ajouterJours(t, 8) : t, reel: false });
+      else debuts.push({ date: apresDernier && t <= dateIso && dateIso <= reference && diffJours(t, reference) > 7 ? ajouterJours(t, 8) : t, reel: false });
     }
   }
   debuts.sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -149,11 +150,33 @@ export function dettesPeriode(etat, periode) {
 }
 
 /** Dépenses variables de la période : hors internes, épargne, prêts, dettes, charges fixes ; remboursements nettés. */
+/**
+ * Dépense « du quotidien » (celle qui entame le budget du jour) : pas une charge fixe rattachée,
+ * pas un abonnement, pas un prélèvement automatique (PRLV). Ces derniers comptent dans les charges du mois.
+ */
+export function estDepenseQuotidienne(t) {
+  if (t.chargeFixeId) return false;
+  if (t.categorie === 'abonnements') return false;
+  if (t.sens === 'debit' && /^PRLV\b/i.test(t.libellePrincipal || t.libelleBrut || '')) return false;
+  return true;
+}
+
+/** Abonnements et prélèvements payés dans la période sans charge fixe correspondante : comptés avec les charges. */
+export function prelevementsHorsCharges(etat, debut, fin) {
+  const res = [];
+  for (const t of etat.transactions || []) {
+    if (t.date < debut || t.date > fin || t.ajustement || estDepenseQuotidienne(t) || t.chargeFixeId) continue;
+    const v = contributionDepense(t);
+    if (v) res.push({ id: `tx-${t.id}`, libelle: t.libelle || t.marchand, categorie: t.categorie, date: t.date, montantPrevuCentimes: v, paye: true, transactionId: t.id, horsCharges: true });
+  }
+  return res;
+}
+
 export function depensesVariables(etat, debut, fin, filtre = () => true) {
   let total = 0;
   for (const t of etat.transactions || []) {
     if (t.date < debut || t.date > fin) continue;
-    if (t.chargeFixeId) continue;
+    if (!estDepenseQuotidienne(t)) continue;
     if (!filtre(t)) continue;
     total += contributionDepense(t);
   }
@@ -175,7 +198,7 @@ export function epargneCible(etat, mois) {
 export function resteADepenser(etat, dateIso = aujourdhui()) {
   const periode = periodeBudget(dateIso, etat.profil);
   const revenus = revenusDuMois(etat, periode.mois);
-  const charges = chargesFixesPeriode(etat, periode);
+  const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin)];
   const dettes = dettesPeriode(etat, periode);
   const cible = epargneCible(etat, periode.mois);
   const variables = depensesVariables(etat, periode.debut, periode.fin);
@@ -269,7 +292,7 @@ export function projectionDecouvert(etat, dateIso = aujourdhui(), { jours = 7, r
   // Charges fixes et dettes (sur la période courante et la suivante pour couvrir la fenêtre)
   const p1 = periodeBudget(dateIso, etat.profil);
   const p2 = periodeBudget(ajouterJours(p1.fin, 1), etat.profil);
-  for (const p of [p1, p2]) {
+  for (const p of p2.debut === p1.debut ? [p1] : [p1, p2]) {
     for (const c of chargesFixesPeriode(etat, p)) {
       if (c.payee || c.compteId !== courant.id) continue;
       if (c.date >= dateIso && c.date <= fin) evenements.push({ date: c.date, libelle: c.libelle, montantCentimes: -c.montantPrevuCentimes, type: 'charge', estLoyer: !!c.estLoyer });
@@ -327,7 +350,7 @@ export function projectionDecouvert(etat, dateIso = aujourdhui(), { jours = 7, r
 export function epargneDuMois(etat, dateIso = aujourdhui()) {
   const periode = periodeBudget(dateIso, etat.profil);
   const nette = epargneNettePeriode(etat.transactions || [], periode.debut, periode.fin);
-  const cagnotte = cagnotteEnAttente(etat.transactions || [], etat.profil?.arrondi, etat.cagnotteArrondis || []);
+  const cagnotte = cagnotteEnAttente(etat.transactions || [], etat.profil?.arrondi, etat.cagnotteArrondis || [], { debutSuivi: etat.profil?.debutSuivi || etat.profil?.premierImportLe });
   const cible = epargneCible(etat, periode.mois);
   return { periode, nette, cagnotteCentimes: cagnotte.total, cagnotteLignes: cagnotte.lignes, cibleCentimes: cible, projectionCentimes: nette.nette + cagnotte.total };
 }
