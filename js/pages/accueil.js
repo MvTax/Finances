@@ -6,12 +6,12 @@ import { toast } from '../ui/toast.js';
 import { ouvrirFeuille } from '../ui/sheet.js';
 import { etat, ecrireMeta, enregistrer } from '../store.js';
 import { aller } from '../router.js';
-import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, coutDecouvert, reliquat, periodeBudget } from '../calculs.js';
+import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, coutDecouvert, reliquat, periodeBudget, estDepenseQuotidienne } from '../calculs.js';
 import { prochainVirementArrondis, soldePoche } from '../epargne.js';
 import { listerAbonnements } from '../abonnements.js';
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatJourLong, formatMois, diffJours, moisDe, dateDuMois } from '../dates.js';
 import { formatEuros } from '../money.js';
-import { categorie } from '../categories.js';
+import { categorie, contributionDepense } from '../categories.js';
 import { exporterSauvegarde, feuilleRevenus } from './communs.js';
 import { enregistrerVirementEpargne, virerArrondis, payerEcheancePret, payerEcheanceCredit } from '../actions.js';
 import { ajouterAuCalendrier } from '../ics.js';
@@ -46,22 +46,66 @@ export function rendre(vue) {
 
 /** Le bloc sapin : ce que tu peux dépenser aujourd'hui, et le reste du mois. Rien d'autre. */
 function hero(r, j) {
+  const moisDepasse = r.resteCentimes < 0;
   const dispo = j.restantAujourdhuiCentimes;
-  const depasse = dispo < 0;
-  const valeur = h('p', { class: `jauge-valeur ${depasse ? 'depassee' : ''}`, 'aria-live': 'polite' }, estMasque() ? '•••,•• €' : formatEuros(depasse ? -dispo : dispo));
+  const depasse = dispo < 0 && !moisDepasse;
+  const montantAffiche = moisDepasse ? -r.resteCentimes : depasse ? -dispo : dispo;
+  const valeur = h('p', { class: `jauge-valeur ${depasse || moisDepasse ? 'depassee' : ''}`, 'aria-live': 'polite' }, estMasque() ? '•••,•• €' : formatEuros(montantAffiche));
   const chiffre = h('span', { class: `chiffre-principal ${r.resteCentimes < 0 ? 'negatif' : ''}` }, estMasque() ? '•••,•• €' : formatEuros(r.resteCentimes));
   if (!estMasque() && dernierReste !== null && dernierReste !== r.resteCentimes) animerMontant(chiffre, dernierReste, r.resteCentimes, (c) => formatEuros(c));
   dernierReste = r.resteCentimes;
   const pct = j.parJourCentimes > 0 ? Math.min(100, Math.max(0, Math.round((j.depensesDuJourCentimes / j.parJourCentimes) * 100))) : 0;
   return h('section', { class: `hero ${j.critique && r.revenus.totalCentimes > 0 ? 'hero-critique' : ''}`, 'aria-labelledby': 'hero-t' },
-    h('h2', { id: 'hero-t', class: 'hero-libelle' }, depasse ? 'Budget du jour dépassé de' : 'Tu peux dépenser aujourd’hui'),
+    h('h2', { id: 'hero-t', class: 'hero-libelle' }, moisDepasse ? 'Budget du mois dépassé de' : depasse ? 'Budget du jour dépassé de' : 'Tu peux dépenser aujourd’hui'),
     valeur,
     h('div', { class: 'hero-jauge', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `Dépensé aujourd'hui : ${formatEuros(j.depensesDuJourCentimes)} sur ${formatEuros(j.parJourCentimes)}` },
       h('span', { style: { width: `${pct}%` } })),
     h('div', { class: 'hero-mois' },
       h('p', { class: 'hero-aide' }, 'Reste jusqu’au salaire ', chiffre),
       h('p', { class: 'hero-aide' }, `${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`)),
-    h('p', { class: 'hero-aide hero-periode' }, `Mois du ${formatDateCourte(r.periode.debut)} (salaire) au ${formatDateCourte(r.periode.fin)}`));
+    h('p', { class: 'hero-aide hero-periode' }, `Mois du ${formatDateCourte(r.periode.debut)} (salaire) au ${formatDateCourte(r.periode.fin)}`),
+    h('button', { type: 'button', class: 'hero-lien', onclick: () => feuilleCalcul(r, j) }, 'Comment c’est calculé', icone('suivant')));
+}
+
+/** Détail ligne par ligne du reste jusqu'au salaire et du budget du jour, avec un lien pour corriger chaque poste. */
+function feuilleCalcul(r, j) {
+  let f;
+  const aller2 = (route) => () => { f.fermer(); aller(route); };
+  const ligne = (signe, titre, montant, detail, action) => h('div', { class: 'calcul-ligne' },
+    h('span', { class: 'calcul-signe', 'aria-hidden': 'true' }, signe),
+    h('span', { class: 'calcul-texte' }, h('span', { class: 'calcul-titre' }, titre), detail ? h('span', { class: 'calcul-detail' }, detail) : null, action || null),
+    mt(montant, { classe: 'calcul-montant' }));
+  const lien = (texte, route) => h('button', { type: 'button', class: 'lien calcul-lien', onclick: typeof route === 'function' ? route : aller2(route) }, texte);
+  const liste = (items) => h('details', { class: 'details-discret' }, h('summary', {}, `Voir les ${items.length} lignes`),
+    h('div', { class: 'liste-mini' }, items.map((x) => h('div', { class: 'ligne-mini' }, h('span', {}, h('span', { class: 'ligne-mini-date' }, formatDateCourte(x.date)), x.libelle, x.paye || x.payee ? h('span', { class: 'etiquette vert' }, 'payé') : null), mt(x.montantPrevuCentimes ?? x.montantCentimes)))));
+  const plan = etat.planMensuel.find((p) => p.mois === r.periode.mois);
+  const rev = r.revenus;
+  const nbDep = etat.transactions.filter((t) => t.date >= r.periode.debut && t.date <= aujourdhui() && t.sens === 'debit' && contributionDepense(t) > 0 && estDepenseQuotidienne(t)).length;
+  // Anomalies visibles (import mélangé avec l'accueil de démarrage)
+  const anomalies = [];
+  const loyers = r.charges.filter((c) => c.estLoyer);
+  if (loyers.length > 1) anomalies.push(`Le loyer est compté ${loyers.length} fois (${loyers.map((c) => formatEuros(c.montantPrevuCentimes)).join(' + ')}).`);
+  const courants = etat.comptes.filter((c) => c.type === 'courant');
+  if (courants.length > 1) anomalies.push(`Il y a ${courants.length} comptes courants (${courants.map((c) => c.nom).join(', ')}).`);
+  if (!plan && etat.profil.objectifEpargneCentimes) anomalies.push(`Aucun plan pour ce mois : l’épargne prise est ton objectif de démarrage (${formatEuros(etat.profil.objectifEpargneCentimes)}).`);
+  f = ouvrirFeuille({
+    titre: 'Comment c’est calculé',
+    contenu: h('div', { class: 'calcul' },
+      anomalies.length ? h('div', { class: 'alerte-abri' }, h('p', {}, h('strong', {}, 'Ce calcul contient des erreurs d’import : ')), anomalies.map((a) => h('p', { class: 'petit' }, a)),
+        h('p', { class: 'petit' }, 'Pour corriger : Réglages → Importer mon fichier → « Tout remplacer à la place » (tes saisies sont gardées).')) : null,
+      h('p', { class: 'petit' }, `Mois du ${formatDateCourte(r.periode.debut)} (arrivée du salaire) au ${formatDateCourte(r.periode.fin)}.`),
+      ligne('+', 'Revenus du mois', rev.totalCentimes, `salaire ${formatEuros(rev.salaireCentimes || 0)} + prime d’activité ${formatEuros(rev.primeActiviteCentimes || 0)}${rev.statut === 'attendu' ? ' — attendus, pas encore confirmés' : ''}`, lien('Modifier', () => { f.fermer(); feuilleRevenus(r.periode.mois); })),
+      ligne('−', 'Épargne prévue', r.epargneCibleCentimes, plan ? `plan de ${formatMois(plan.mois).replace(/ \d{4}$/, '')} : ${formatEuros((plan.allocationsPoches || []).reduce((s, a) => s + a.montantCentimes, 0))} sur les poches + ${formatEuros(plan.arrondisEstimesCentimes || 0)} d’arrondis` : 'objectif d’épargne du profil (aucun plan pour ce mois)', lien('Mon plan', 'epargne/plan')),
+      ligne('−', 'Charges et abonnements', r.chargesCentimes, `${r.charges.length} prélèvements (loyer, téléphone, transport, abonnements…)`, h('span', {}, liste(r.charges), lien('Charges fixes', 'reglages/charges'))),
+      ligne('−', 'Dettes du mois', r.dettesCentimes, `${r.dettes.length} échéances, payées ou à venir`, h('span', {}, liste(r.dettes), lien('Mes dettes', 'epargne/dettes'))),
+      ligne('−', 'Dépenses du quotidien', r.depensesVariablesCentimes, `${nbDep} dépense${nbDep > 1 ? 's' : ''} depuis le salaire (hors prélèvements et abonnements)`, lien('Voir', 'depenses')),
+      h('div', { class: `calcul-ligne calcul-total ${r.resteCentimes < 0 ? 'negatif-texte' : ''}` }, h('span', { class: 'calcul-signe' }, '='), h('span', { class: 'calcul-texte' }, h('span', { class: 'calcul-titre' }, 'Reste jusqu’au salaire')), mt(r.resteCentimes, { classe: 'calcul-montant' })),
+      h('h3', { class: 'feuille-sous-titre' }, 'Budget du jour'),
+      h('p', {}, r.resteCentimes < 0
+        ? `Le mois est déjà dépassé de ${formatEuros(-r.resteCentimes)} : il n’y a plus de budget par jour. Chaque jour sans dépense t’aide à revenir à zéro.`
+        : `Reste au début de la journée ${formatEuros(r.resteCentimes + j.depensesDuJourCentimes)} ÷ ${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''} restant${j.joursRestants > 1 ? 's' : ''} = ${formatEuros(j.parJourCentimes)} par jour. Dépensé aujourd’hui : ${formatEuros(j.depensesDuJourCentimes)}, il reste ${formatEuros(j.restantAujourdhuiCentimes)}.`),
+      h('p', { class: 'petit' }, 'Le budget par jour est fixé le matin : ce que tu dépenses dans la journée le fait baisser, il est recalculé le lendemain.')),
+  });
 }
 
 /** L'essentiel : l'alerte de découvert et les deux rappels les plus urgents, une ligne chacun. */
