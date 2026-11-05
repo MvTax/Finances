@@ -46,6 +46,12 @@ Quand le fichier privé change (nouvelles dettes, nouveau plan, nouveaux relevé
 
 Un aperçu montre ce qui va changer avant de valider. Réappliquer le même fichier ne change rien.
 
+## Le mois va d'un salaire à l'autre
+
+Le mois budgétaire commence le jour où le salaire arrive réellement (opération « Salaire » importée ou revenus confirmés dans l'app) et se termine la veille du salaire suivant. Tant que le salaire attendu n'est pas arrivé, le mois en cours continue (7 jours au plus, puis le nouveau mois démarre le lendemain). L'accueil, les dépenses, le bilan et l'historique de l'épargne suivent ces mois de salaire à salaire.
+
+**Reste du mois → épargne.** Dans les 3 jours avant le salaire, l'accueil affiche « Il te reste X € jusqu'au salaire ». Une fois le salaire arrivé, il propose « Reste de <mois> : X € → épargne » : ce qui n'a pas été dépensé part sur les poches selon leurs parts. Le montant ne dépasse jamais l'argent réellement présent sur les comptes à la fin du mois.
+
 ## Importer des relevés
 
 Va dans **Réglages → Importer**. Formats acceptés :

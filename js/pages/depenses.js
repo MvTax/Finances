@@ -8,13 +8,14 @@ import { etat } from '../store.js';
 import { CATEGORIES, FAMILLES, categorie, famille, natureTransaction, contributionDepense, categoriesDepense, categoriesEntree } from '../categories.js';
 import { libelleRelatif, formatDate, aujourdhui, ajouterJours, estIso } from '../dates.js';
 import { formatEuros } from '../money.js';
+import { periodeBudget } from '../calculs.js';
 import { normaliserTexte } from '../rules.js';
 import { modifierTransaction, supprimerTransaction, recategoriser, enregistrerReprise } from '../actions.js';
 import { coutAnnuelRecurrent } from '../detecteurs.js';
 
 export const titre = 'Dépenses';
 
-const filtres = { texte: '', type: 'tout', categorie: '', periode: '90', compte: '', source: '', internes: false };
+const filtres = { texte: '', type: 'tout', categorie: '', periode: 'mois', compte: '', source: '', internes: false };
 let affichage = 'jours'; // 'jours' | 'categories'
 const TAILLE_LOT = 120;
 
@@ -43,7 +44,9 @@ export function rendre(vue) {
   function dessiner() {
     const tx = filtrer();
     const total = tx.reduce((s, t) => s + contributionDepense(t), 0);
-    resume.textContent = `${tx.length.toLocaleString('fr-FR')} opération${tx.length > 1 ? 's' : ''}, ${formatEuros(total)} dépensés`;
+    const per = periodeBudget(aujourdhui(), etat.profil);
+    const quand = { mois: ` depuis le salaire du ${per.debut.slice(8)}/${per.debut.slice(5, 7)}`, moisPrecedent: ' le mois précédent', 90: ' en 3 mois', 365: ' en 12 mois', tout: '' }[filtres.periode] ?? '';
+    resume.textContent = `${tx.length.toLocaleString('fr-FR')} opération${tx.length > 1 ? 's' : ''}, ${formatEuros(total)} dépensés${quand}`;
     puceFiltre.replaceChildren(...(filtres.categorie ? [h('button', { type: 'button', class: 'pastille active', style: { '--c': categorie(filtres.categorie).couleur }, 'aria-label': `Retirer le filtre ${categorie(filtres.categorie).nom}`, onclick: () => { filtres.categorie = ''; dessiner(); } },
       icone(categorie(filtres.categorie).icone), h('span', {}, categorie(filtres.categorie).nom), icone('fermer'))] : []));
     if (!tx.length) {
@@ -116,10 +119,11 @@ function vueCategories(tx, onCategorie) {
 
 function filtrer() {
   const t = normaliserTexte(filtres.texte);
-  const depuis = filtres.periode === 'tout' ? '0000-00-00' : ajouterJours(aujourdhui(), -Number(filtres.periode));
+  const depuis = filtres.periode === 'tout' ? '0000-00-00' : filtres.periode === 'mois' ? periodeBudget(aujourdhui(), etat.profil).debut : filtres.periode === 'moisPrecedent' ? periodeBudget(ajouterJours(periodeBudget(aujourdhui(), etat.profil).debut, -1), etat.profil).debut : ajouterJours(aujourdhui(), -Number(filtres.periode));
+  const jusqua = filtres.periode === 'moisPrecedent' ? ajouterJours(periodeBudget(aujourdhui(), etat.profil).debut, -1) : '9999-12-31';
   const montantCherche = /^\d+([.,]\d{1,2})?$/.test(filtres.texte.trim()) ? filtres.texte.trim().replace('.', ',') : null;
   return etat.transactions.filter((x) => {
-    if (x.date < depuis) return false;
+    if (x.date < depuis || x.date > jusqua) return false;
     const n = natureTransaction(x);
     if (!filtres.internes && (n === 'interne' || x.ajustement)) return false;
     if (filtres.type !== 'tout' && x.sens !== filtres.type) return false;
@@ -142,11 +146,11 @@ function feuilleFiltres(apres) {
     titre: 'Filtres',
     contenu: h('div', { class: 'formulaire' },
       champ('Catégorie', selCat),
-      champ('Période', selectionner([['30', '30 derniers jours'], ['90', '3 derniers mois'], ['365', '12 derniers mois'], ['tout', 'Tout']], filtres.periode, (v) => { filtres.periode = v; })),
+      champ('Période', selectionner([['mois', 'Ce mois-ci (depuis le salaire)'], ['moisPrecedent', 'Mois précédent (salaire à salaire)'], ['90', '3 derniers mois'], ['365', '12 derniers mois'], ['tout', 'Tout']], filtres.periode, (v) => { filtres.periode = v; })),
       champ('Compte', selectionner([['', 'Tous les comptes'], ...etat.comptes.map((c) => [c.id, c.nom])], filtres.compte, (v) => { filtres.compte = v; })),
       champ('Source', selectionner([['', 'Toutes'], ['import', 'Relevé importé'], ['texte', 'Clavier'], ['voix', 'Voix'], ['photo', 'Ticket photo'], ['confirmation', 'Confirmation']], filtres.source, (v) => { filtres.source = v; })),
       interrupteur('Afficher les virements internes', filtres.internes, (v) => { filtres.internes = v; })),
-    actions: [bouton('Réinitialiser', () => { Object.assign(filtres, { categorie: '', periode: '90', compte: '', source: '', internes: false }); f.fermer(); }), bouton('Appliquer', () => f.fermer(), { classe: 'btn-principal' })],
+    actions: [bouton('Réinitialiser', () => { Object.assign(filtres, { categorie: '', periode: 'mois', compte: '', source: '', internes: false }); f.fermer(); }), bouton('Appliquer', () => f.fermer(), { classe: 'btn-principal' })],
     onFermer: apres,
   });
 }

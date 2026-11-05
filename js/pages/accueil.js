@@ -6,7 +6,7 @@ import { toast } from '../ui/toast.js';
 import { ouvrirFeuille } from '../ui/sheet.js';
 import { etat, ecrireMeta, enregistrer } from '../store.js';
 import { aller } from '../router.js';
-import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, coutDecouvert } from '../calculs.js';
+import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, coutDecouvert, reliquat, periodeBudget } from '../calculs.js';
 import { prochainVirementArrondis, soldePoche } from '../epargne.js';
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatJourLong, formatMois, diffJours, moisDe, dateDuMois } from '../dates.js';
 import { formatEuros } from '../money.js';
@@ -58,8 +58,9 @@ function hero(r, j) {
     h('div', { class: 'hero-jauge', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `Dépensé aujourd'hui : ${formatEuros(j.depensesDuJourCentimes)} sur ${formatEuros(j.parJourCentimes)}` },
       h('span', { style: { width: `${pct}%` } })),
     h('div', { class: 'hero-mois' },
-      h('p', { class: 'hero-aide' }, 'Reste ce mois-ci ', chiffre),
-      h('p', { class: 'hero-aide' }, `${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`)));
+      h('p', { class: 'hero-aide' }, 'Reste jusqu’au salaire ', chiffre),
+      h('p', { class: 'hero-aide' }, `${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`)),
+    h('p', { class: 'hero-aide hero-periode' }, `Mois du ${formatDateCourte(r.periode.debut)} (salaire) au ${formatDateCourte(r.periode.fin)}`));
 }
 
 /** L'essentiel : l'alerte de découvert et les deux rappels les plus urgents, une ligne chacun. */
@@ -128,6 +129,22 @@ function rubriques(r, auj, rappels, critique) {
 function bandeaux(r, auj) {
   const res = [];
   const mois = r.periode.mois;
+  // Reste du mois : versé sur l'épargne après le salaire ; aperçu dans les 3 jours qui le précèdent
+  const rel = reliquat(etat, auj);
+  const faits = etat.meta.reliquats || {};
+  const repartition = etat.poches.filter((p) => p.actif !== false && p.partRepartition).sort((a, b) => b.partRepartition - a.partRepartition).map((p) => `${p.partRepartition} % ${p.nom.toLowerCase().replace(/^prêt de/, 'prêt de')}`).join(', ');
+  if (rel.precedent.montantCentimes > 0 && !faits[rel.precedent.mois]) {
+    const m = rel.precedent.montantCentimes;
+    res.push({ type: 'action', icone: 'tirelire', titre: `Reste de ${formatMois(rel.precedent.mois).replace(/ \d{4}$/, '')} : ${formatEuros(m)} → épargne`,
+      texte: `Ce que tu n’as pas dépensé entre le ${formatDateCourte(rel.precedent.debut)} et le ${formatDateCourte(rel.precedent.fin)} part sur ton livret${repartition ? ` (${repartition})` : ''}. Fais le virement, puis touche « C’est fait ».`,
+      actions: [
+        bouton("C'est fait", async () => { await enregistrerVirementEpargne({ montantCentimes: m, pocheId: null, date: auj, libelle: `Reste de ${formatMois(rel.precedent.mois)} vers l’épargne` }); await ecrireMeta('reliquats', { ...faits, [rel.precedent.mois]: { montantCentimes: m, le: auj, statut: 'vire' } }, { avertir: true }); toast(`${formatEuros(m)} versés sur ton épargne.`, { type: 'succes' }); }, { classe: 'btn-principal btn-petit' }),
+        bouton('Garder sur le compte', async () => { await ecrireMeta('reliquats', { ...faits, [rel.precedent.mois]: { montantCentimes: m, le: auj, statut: 'garde' } }, { avertir: true }); toast('Gardé sur le compte.'); }, { classe: 'btn-petit' }),
+      ] });
+  } else if (rel.courant.avantSalaire && rel.courant.montantCentimes > 0) {
+    res.push({ type: 'info', icone: 'tirelire', titre: `Il te reste ${formatEuros(rel.courant.montantCentimes)} jusqu’au salaire`,
+      texte: `Ce qui restera à l’arrivée du salaire (vers le ${formatDateCourte(rel.courant.prochainSalaire)}) ira sur ton épargne.` });
+  }
   // Revenus du mois à confirmer
   if (r.revenus.statut === 'attendu') {
     const recuDetecte = etat.transactions.find((t) => t.categorie === 'salaire' && t.source === 'import' && t.date >= r.periode.debut);
@@ -215,7 +232,7 @@ function risqueDecouvert(auj) {
 }
 
 function revenusNonConfirmes() {
-  const mois = moisDe(aujourdhui());
+  const mois = periodeBudget(aujourdhui(), etat.profil).mois;
   const r = etat.revenusMensuels.find((x) => x.mois === mois);
   return !r || r.statut !== 'confirme';
 }

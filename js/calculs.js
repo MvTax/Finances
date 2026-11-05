@@ -11,16 +11,75 @@ export const HEURES_MENSUELLES_DEFAUT = 151.67;
 export const COMMISSION_INTERVENTION_CENTIMES = 800; // tarif courant d'une commission d'intervention (paramétrable)
 
 /**
- * Période budgétaire : du jour de salaire au veille du salaire suivant (« novembre » = 05/11 → 04/12).
- * Avec un jour de salaire au 1er, c'est le mois calendaire.
+ * Période budgétaire : d'un salaire au suivant (« novembre » = du salaire de novembre à la veille du salaire de décembre).
+ * Dates réelles de salaire (profil.datesSalaire) quand elles sont connues, sinon le jour habituel.
+ * Un salaire attendu mais pas encore arrivé prolonge la période en cours (7 jours au plus) : le mois change
+ * au moment où le salaire arrive. Avec un jour de salaire au 1er et sans dates réelles, c'est le mois calendaire.
  */
 export function periodeBudget(dateIso, profil = {}) {
   const js = Math.min(Math.max(Number(profil.jourSalaireHabituel) || 1, 1), 28);
-  let mois = moisDe(dateIso);
-  if (Number(dateIso.slice(8, 10)) < js) mois = ajouterMois(mois, -1);
-  const debut = dateDuMois(mois, js);
-  const fin = ajouterJours(dateDuMois(ajouterMois(mois, 1), js), -1);
-  return { mois, debut, fin, nbJours: diffJours(debut, fin) + 1 };
+  const reelles = [...new Set((profil.datesSalaire || []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+  if (!reelles.length) {
+    let mois = moisDe(dateIso);
+    if (Number(dateIso.slice(8, 10)) < js) mois = ajouterMois(mois, -1);
+    const debut = dateDuMois(mois, js);
+    const fin = ajouterJours(dateDuMois(ajouterMois(mois, 1), js), -1);
+    return { mois, debut, fin, nbJours: diffJours(debut, fin) + 1, theorique: true };
+  }
+  // Débuts de période autour de la date : salaire réel s'il est arrivé à ± 10 jours du jour habituel, sinon jour habituel
+  const centre = moisDe(dateIso);
+  const debuts = [];
+  let attendu = null; // salaire du mois en cours pas encore arrivé
+  for (let k = -3; k <= 2; k++) {
+    const m = ajouterMois(centre, k);
+    const t = dateDuMois(m, js);
+    const reel = reelles.filter((d) => Math.abs(diffJours(t, d)) <= 10).pop();
+    if (reel) debuts.push({ date: reel, reel: true });
+    else {
+      // Salaire pas encore arrivé : la période précédente continue tant qu'on est à moins de 7 jours du jour habituel
+      const apresDernier = t > reelles[reelles.length - 1];
+      if (apresDernier && t <= dateIso && diffJours(t, dateIso) <= 7) attendu = t;
+      // Toujours pas de salaire au bout de 7 jours : le nouveau mois commence le lendemain de l'attente (pas de retour en arrière)
+      else debuts.push({ date: apresDernier && t <= dateIso ? ajouterJours(t, 8) : t, reel: false });
+    }
+  }
+  debuts.sort((a, b) => (a.date < b.date ? -1 : 1));
+  const courant = debuts.filter((d) => d.date <= dateIso).pop() || debuts[0];
+  const debut = courant.date;
+  const suivant = attendu && attendu > debut ? { date: attendu } : debuts.find((d) => d.date > courant.date);
+  let fin = suivant ? ajouterJours(suivant.date, -1) : ajouterJours(dateDuMois(ajouterMois(moisDe(debut), 1), js), -1);
+  if (fin < dateIso) fin = dateIso; // salaire en retard : la période va jusqu'à son arrivée
+  const mois = moisDe(ajouterJours(debut, 10)); // un salaire versé fin octobre compte pour novembre
+  return { mois, debut, fin, nbJours: diffJours(debut, fin) + 1, theorique: !courant.reel, salaireAttenduLe: suivant?.date || null };
+}
+
+/** Dates réelles de salaire : opérations « salaire » reçues et revenus confirmés avec leur date de réception. */
+export function datesDeSalaire(etat) {
+  const d = new Set();
+  for (const t of etat.transactions || []) if (t.categorie === 'salaire' && t.sens === 'credit' && t.montantCentimes >= 30000) d.add(t.date);
+  for (const r of etat.revenusMensuels || []) if (r.recuLe) d.add(r.recuLe);
+  return [...d].sort();
+}
+
+/**
+ * Ce qui reste du mois : avant le salaire (aperçu) et après (reste du mois précédent à verser sur l'épargne).
+ * Le montant ne dépasse jamais l'argent réellement présent sur les comptes courants à la fin de la période.
+ */
+export function reliquat(etat, dateIso = aujourdhui()) {
+  const p = periodeBudget(dateIso, etat.profil);
+  const debutSuivi = etat.profil?.debutSuivi || etat.profil?.premierImportLe || null;
+  const disponible = (date) => soldes(etat, date).comptes.filter((c) => c.compte.type === 'courant' || c.compte.type === 'neobanque').reduce((s, c) => s + c.soldeCentimes, 0);
+  const plafond = (reste, date) => Math.max(0, Math.min(reste, disponible(date)));
+  const prec = periodeBudget(ajouterJours(p.debut, -1), etat.profil);
+  const suiviPrec = !debutSuivi || prec.debut >= debutSuivi;
+  const restePrec = suiviPrec ? resteADepenser(etat, prec.fin).resteCentimes : 0;
+  const joursRestants = diffJours(dateIso, p.fin) + 1;
+  const resteCourant = resteADepenser(etat, dateIso).resteCentimes;
+  return {
+    periode: p,
+    precedent: { mois: prec.mois, debut: prec.debut, fin: prec.fin, montantCentimes: suiviPrec ? plafond(restePrec, prec.fin) : 0 },
+    courant: { montantCentimes: plafond(resteCourant, dateIso), joursRestants, prochainSalaire: p.salaireAttenduLe || ajouterJours(p.fin, 1), avantSalaire: joursRestants <= 3 },
+  };
 }
 
 /** Revenus réels d'un mois : salaire exact + prime d'activité exacte + autres entrées. Jamais l'aide au logement. */

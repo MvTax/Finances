@@ -85,7 +85,7 @@ function vuePoches() {
   const histo = historiqueMensuel();
   const plus = carte('Pour aller plus loin', h('div', { class: 'liste-liens' },
     h('details', { class: 'details-ligne' }, h('summary', {}, `Épargne de ${formatMois(per.mois)}`), sources),
-    histo ? h('details', { class: 'details-ligne' }, h('summary', {}, 'Historique des 12 derniers mois'), histo) : null), { id: 'plus-epargne' });
+    histo ? h('details', { class: 'details-ligne' }, h('summary', {}, 'Historique des 12 derniers mois (de salaire à salaire)'), histo) : null), { id: 'plus-epargne' });
   return h('div', {}, h('div', { class: 'poches' }, cartesPoches), arrondis, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
@@ -94,9 +94,12 @@ function ligne(l, c) { return h('div', { class: 'ligne-cle' }, h('span', {}, l),
 function historiqueMensuel() {
   const tx = etat.transactions.filter((t) => t.epargne?.estEpargne);
   if (!tx.length) return null;
-  const dates = tx.map((t) => t.date).sort();
-  const mois = listeMois(moisDe(dates[0]), moisDe(aujourdhui())).slice(-12).reverse();
-  return h('div', { class: 'liste-cles' }, mois.map((m) => { const n = epargneNettePeriode(tx, `${m}-01`, dernierJour(m)); return h('div', { class: 'ligne-cle' }, h('span', {}, formatMois(m)), h('span', { class: n.nette < 0 ? 'negatif-texte' : '' }, mt(n.nette), n.nbReprises ? h('small', {}, ` (${n.nbReprises} reprise${n.nbReprises > 1 ? 's' : ''})`) : null)); }));
+  const premiere = tx.map((t) => t.date).sort()[0];
+  // 12 derniers mois de salaire à salaire
+  const periodes = [];
+  let p = periodeBudget(aujourdhui(), etat.profil);
+  while (periodes.length < 12 && p.fin >= premiere) { periodes.push(p); p = periodeBudget(ajouterJours(p.debut, -1), etat.profil); }
+  return h('div', { class: 'liste-cles' }, periodes.map((per) => { const n = epargneNettePeriode(tx, per.debut, per.fin); return h('div', { class: 'ligne-cle' }, h('span', {}, formatMois(per.mois), h('small', {}, ` (${per.debut.slice(8)}/${per.debut.slice(5, 7)} → ${per.fin.slice(8)}/${per.fin.slice(5, 7)})`)), h('span', { class: n.nette < 0 ? 'negatif-texte' : '' }, mt(n.nette), n.nbReprises ? h('small', {}, ` (${n.nbReprises} reprise${n.nbReprises > 1 ? 's' : ''})`) : null)); }));
 }
 
 function feuilleMouvement(poche, sens) {

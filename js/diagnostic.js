@@ -11,7 +11,7 @@ import { journal, masquerSecrets } from './journal.js';
 import { CATEGORIES, FAMILLES, contributionDepense } from './categories.js';
 import { aujourdhui, estIso, ajouterJours } from './dates.js';
 import { formatEuros } from './money.js';
-import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, depensesParCategorie, periodeBudget } from './calculs.js';
+import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, depensesParCategorie, periodeBudget, reliquat } from './calculs.js';
 import { planDesMois, scenariosPret } from './plan.js';
 import { soldePoche } from './epargne.js';
 import { tableauAmortissement, verifierCoherencePret } from './dettes.js';
@@ -407,21 +407,27 @@ export async function lancerDiagnostic(o = {}) {
       const d = ajouterJours(auj, i); const p = periodeBudget(d, etat.profil);
       if (!(p.debut <= d && d <= p.fin)) pb.push(`${d} hors de sa période ${p.debut}→${p.fin}`);
       const suivante = periodeBudget(ajouterJours(p.fin, 1), etat.profil);
-      if (suivante.debut !== ajouterJours(p.fin, 1)) pb.push(`trou ou chevauchement après ${p.fin}`);
+      // Salaire attendu pas encore arrivé : la période se prolonge jour après jour (même début), sinon elle doit s'enchaîner
+      if (suivante.debut !== p.debut && suivante.debut !== ajouterJours(p.fin, 1)) pb.push(`trou ou chevauchement après ${p.fin}`);
     }
-    return { statut: pb.length ? 'echec' : 'ok', detail: pb.length ? [...new Set(pb)].slice(0, 6).join(' ; ') : 'Chaque jour appartient à une seule période, sans trou' };
+    return { statut: pb.length ? 'echec' : 'ok', detail: pb.length ? [...new Set(pb)].slice(0, 6).join(' ; ') : `Chaque jour appartient à une seule période, sans trou ; dates de salaire connues : ${(etat.profil.datesSalaire || []).slice(-3).join(', ') || 'aucune (jour habituel)'}` };
   });
   test('Budget du jour, jour par jour jusqu’à la fin de la période', () => {
     const per = periodeBudget(auj, etat.profil); const lignes = []; const pb = [];
     let jours = null;
-    for (let d = auj; d <= per.fin; d = ajouterJours(d, 1)) {
+    for (let d = auj; d <= per.fin && d <= ajouterJours(auj, 40); d = ajouterJours(d, 1)) {
       const j = jaugeDuJour(etat, d, null);
       if (!ent(j.parJourCentimes) || !ent(j.restantAujourdhuiCentimes)) pb.push(`${d} : valeur non entière`);
-      if (jours !== null && j.joursRestants !== jours - 1) pb.push(`${d} : jours restants ${j.joursRestants} (attendu ${jours - 1})`);
+      if (jours !== null && j.joursRestants !== jours - 1 && !(jours === 1 && j.joursRestants === 1)) pb.push(`${d} : jours restants ${j.joursRestants} (attendu ${jours - 1})`);
       jours = j.joursRestants;
       if (lignes.length < 6 || d === per.fin) lignes.push(`${d.slice(5)} ${eur(j.parJourCentimes)}`);
     }
     return { statut: pb.length ? 'echec' : 'ok', detail: (pb.length ? `${pb.slice(0, 5).join(' ; ')} — ` : '') + lignes.join(' ; ') };
+  });
+  test('Reste du mois (aperçu avant salaire, versement à l’épargne après)', () => {
+    const rl = reliquat(etat, auj);
+    const faits = etat.meta.reliquats || {};
+    return { statut: 'info', detail: `mois en cours ${rl.periode.debut} → ${rl.periode.fin}${rl.periode.theorique ? ' (jour de salaire habituel)' : ' (dates de salaire réelles)'} ; aperçu avant salaire : ${rl.courant.avantSalaire ? eur(rl.courant.montantCentimes) : 'pas encore (plus de 3 jours)'} ; reste du mois précédent (${rl.precedent.mois}) : ${eur(rl.precedent.montantCentimes)}${faits[rl.precedent.mois] ? ` (${faits[rl.precedent.mois].statut})` : ''} ; début du suivi : ${etat.profil.debutSuivi || etat.profil.premierImportLe || 'non défini'}` };
   });
   test('Projection de découvert sur 30 jours', () => {
     const p = projectionDecouvert(etat, auj, { jours: 30 });

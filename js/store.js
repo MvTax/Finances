@@ -1,6 +1,7 @@
 // store.js — état de l'app en mémoire, persistance IndexedDB et notifications de changement.
 
 import * as db from './db.js';
+import { datesDeSalaire } from './calculs.js';
 import { tousLesStores, SCHEMA_VERSION } from './migrations.js';
 import { nouvelId } from './import/pipeline.js';
 
@@ -49,10 +50,14 @@ const ecouteurs = new Set();
 export function surChangement(fn) { ecouteurs.add(fn); return () => ecouteurs.delete(fn); }
 let planifie = false;
 export function notifier(raison = 'change') {
+  majDatesSalaire();
   if (planifie) return;
   planifie = true;
-  queueMicrotask(() => { planifie = false; for (const fn of ecouteurs) { try { fn(raison); } catch (e) { console.error(e); } } });
+  queueMicrotask(() => { planifie = false; majDatesSalaire(); for (const fn of ecouteurs) { try { fn(raison); } catch (e) { console.error(e); } } });
 }
+
+/** Le mois budgétaire va d'un salaire réel au suivant : les dates sont recalculées à chaque changement. */
+function majDatesSalaire() { etat.profil.datesSalaire = datesDeSalaire(etat); }
 
 const maintenant = () => new Date().toISOString();
 
@@ -213,9 +218,10 @@ export async function majParametres(partiel) {
 /** L'instantané de la jauge est recalculé après un changement de fond (restauration, revenus, import). */
 export async function reinitialiserJauge() { if (etat.meta.jauge) await ecrireMeta('jauge', null); }
 
-export async function ecrireMeta(cle, valeur) {
+export async function ecrireMeta(cle, valeur, { avertir = false } = {}) {
   etat.meta[cle] = valeur;
   await db.ecrire('meta', { cle, valeur });
+  if (avertir) notifier('meta');
 }
 
 /** Remplace toutes les données par un contenu de sauvegarde (secrets locaux conservés). */

@@ -4,8 +4,8 @@ import { h, icone, mt } from '../ui/dom.js';
 import { carte, onglets, bouton, etatVide, segment } from '../ui/composants.js';
 import { toast, toastErreur } from '../ui/toast.js';
 import { etat, enregistrer, enregistrerLot } from '../store.js';
-import { analyser } from '../detecteurs.js';
-import { depensesParCategorie } from '../calculs.js';
+import { analyser, syntheseMensuelle } from '../detecteurs.js';
+import { depensesParCategorie, periodeBudget } from '../calculs.js';
 import { planActionLocal, totalEconomies, LIBELLES_ACTIONS } from '../coach.js';
 import { histogramme, barresHorizontales } from '../charts.js';
 import { aujourdhui, ajouterJours, formatMois, moisDe, ajouterMois, dernierJour } from '../dates.js';
@@ -33,7 +33,9 @@ function bornes() {
   if (!tx.length) return null;
   const fin = tx.reduce((m, t) => (t.date > m ? t.date : m), '0000-00-00');
   const premier = tx.reduce((m, t) => (t.date < m ? t.date : m), '9999-12-31');
-  const debut = periode === 'tout' ? premier : ajouterMois(moisDe(fin), -Number(periode) + 1) + '-01';
+  // Mois de salaire à salaire : on remonte n périodes depuis la dernière opération
+  let debut = premier;
+  if (periode !== 'tout') { let p = periodeBudget(fin > aujourdhui() ? aujourdhui() : fin, etat.profil); for (let i = 1; i < Number(periode); i++) p = periodeBudget(ajouterJours(p.debut, -1), etat.profil); debut = p.debut; }
   return { debut: debut < premier ? premier : debut, fin: fin > aujourdhui() ? aujourdhui() : fin };
 }
 
@@ -41,10 +43,11 @@ function vueBilan(redessiner) {
   const b = bornes();
   if (!b) return etatVide('graphique', 'Pas encore de données', 'Importe tes relevés ou ajoute des dépenses : le bilan apparaît ici.');
   const a = analyser(etat, b.debut, b.fin);
+  a.mensuel = syntheseMensuelle(etat, b.debut, b.fin, { parSalaire: true });
   const nbMois = Math.max(1, a.mensuel.length);
   const choix = segment([['3', '3 mois'], ['6', '6 mois'], ['12', '12 mois'], ['tout', 'Tout']], periode, (v) => { periode = v; redessiner(); }, 'Période');
   const mensuel = histogramme({
-    titre: 'Revenus et dépenses par mois',
+    titre: 'Revenus et dépenses par mois (de salaire à salaire)',
     description: `Revenus réels (salaire et prime) et dépenses hors virements internes, épargne et prêts, de ${formatMois(moisDe(b.debut))} à ${formatMois(moisDe(b.fin))}.`,
     libelles: a.mensuel.map((m) => formatMois(m.mois, true)),
     series: [{ nom: 'Revenus', valeurs: a.mensuel.map((m) => m.revenus), classe: 'serie-revenus' }, { nom: 'Dépenses', valeurs: a.mensuel.map((m) => m.depenses), classe: 'serie-depenses' }, { nom: 'Épargne nette', valeurs: a.mensuel.map((m) => Math.max(0, m.epargneNette)), classe: 'serie-epargne' }],
@@ -53,7 +56,7 @@ function vueBilan(redessiner) {
   const graphCats = barresHorizontales({ titre: 'Catégories où tu dépenses le plus', description: 'Total sur la période', colonne: 'Catégorie', donnees: cats.map((c) => ({ libelle: categorie(c.categorie).nom, valeur: c.montantCentimes, couleur: categorie(c.categorie).couleur })) });
   const graphMarchands = barresHorizontales({ titre: 'Marchands', description: 'Montant et nombre de passages', colonne: 'Marchand', donnees: a.topMarchands.slice(0, 10).map((m) => ({ libelle: m.marchand, valeur: m.montantCentimes, texte: `${formatEuros(m.montantCentimes, { sansCentimes: true })} · ${m.passages}×` })) });
   return h('div', {}, choix,
-    carte('Mois par mois', h('div', {}, mensuel, tableMensuel(a.mensuel))),
+    carte('Mois par mois', h('div', {}, h('p', { class: 'petit' }, 'Chaque mois va du jour du salaire à la veille du salaire suivant.'), mensuel, tableMensuel(a.mensuel))),
     carte('Où part ton argent', graphCats),
     carte('Marchands', graphMarchands),
     carte('Problèmes détectés', problemes(a, nbMois)));

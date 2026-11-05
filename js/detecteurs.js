@@ -5,15 +5,27 @@ import { natureTransaction, contributionDepense, montantSigne, nomCategorie } fr
 import { ajouterJours, diffJours, estWeekend, jourSemaine, listeMois, moisDe, dernierJour } from './dates.js';
 import { normaliserTexte } from './rules.js';
 import { parseMontant } from './money.js';
+import { periodeBudget } from './calculs.js';
 
 const dansPeriode = (t, debut, fin) => t.date >= debut && t.date <= fin;
 
 /** Synthèse mois par mois (mois calendaires). */
-export function syntheseMensuelle(etat, debut, fin) {
-  const mois = listeMois(moisDe(debut), moisDe(fin));
-  return mois.map((m) => {
-    const d = m + '-01'; const f = dernierJour(m);
-    const r = { mois: m, salaire: 0, prime: 0, autresRevenus: 0, exceptionnel: 0, depenses: 0, dettes: 0, epargneVersee: 0, epargneReprise: 0, entreesProches: 0, sortiesProches: 0, deblocages: 0, especes: 0, fraisBancaires: 0, nbTransactions: 0 };
+/** Liste des mois de salaire (d'un salaire au suivant) qui touchent l'intervalle. */
+export function periodesSalaire(etat, debut, fin) {
+  const res = [];
+  let p = periodeBudget(debut, etat.profil || {});
+  for (let i = 0; i < 120 && p.debut <= fin; i++) { res.push(p); p = periodeBudget(ajouterJours(p.fin, 1), etat.profil || {}); }
+  return res;
+}
+
+/**
+ * Synthèse par mois. Par défaut, mois calendaires ; avec { parSalaire: true }, mois de salaire à salaire
+ * (c'est ce que montre le Bilan).
+ */
+export function syntheseMensuelle(etat, debut, fin, o = {}) {
+  const mois = o.parSalaire ? periodesSalaire(etat, debut, fin).map((p) => ({ m: p.mois, d: p.debut, f: p.fin })) : listeMois(moisDe(debut), moisDe(fin)).map((m) => ({ m, d: m + '-01', f: dernierJour(m) }));
+  return mois.map(({ m, d, f }) => {
+    const r = { mois: m, debut: d, fin: f, salaire: 0, prime: 0, autresRevenus: 0, exceptionnel: 0, depenses: 0, dettes: 0, epargneVersee: 0, epargneReprise: 0, entreesProches: 0, sortiesProches: 0, deblocages: 0, especes: 0, fraisBancaires: 0, nbTransactions: 0 };
     for (const t of etat.transactions || []) {
       if (!dansPeriode(t, d, f)) continue;
       const n = natureTransaction(t);

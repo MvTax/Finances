@@ -1,6 +1,6 @@
 import { egal, vrai } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
-import { periodeBudget, revenusDuMois, resteADepenser, jaugeDuJour, soldes, projectionDecouvert, tauxHoraire, equivalentTravail, depensesVariables } from '../../js/calculs.js';
+import { periodeBudget, reliquat, datesDeSalaire, revenusDuMois, resteADepenser, jaugeDuJour, soldes, projectionDecouvert, tauxHoraire, equivalentTravail, depensesVariables } from '../../js/calculs.js';
 
 function etatNovembre() {
   const e = etatBase({
@@ -22,6 +22,40 @@ export default [
     egal(p.mois, '2026-11'); egal(p.debut, '2026-11-05'); egal(p.fin, '2026-12-04'); egal(p.nbJours, 30);
     egal(periodeBudget('2026-11-04', { jourSalaireHabituel: 5 }).mois, '2026-10');
     egal(periodeBudget('2026-02-15', { jourSalaireHabituel: 1 }).fin, '2026-02-28');
+  } },
+  { nom: 'période budgétaire : d’un salaire réel au suivant (salaire en avance, en retard, attendu)', fn: () => {
+    const profil = { jourSalaireHabituel: 5, datesSalaire: ['2026-10-03', '2026-11-05', '2026-12-04'] };
+    let p = periodeBudget('2026-11-20', profil);
+    egal(p.debut, '2026-11-05'); egal(p.fin, '2026-12-03'); egal(p.mois, '2026-11');        // salaire de décembre arrivé le 04
+    egal(periodeBudget('2026-12-04', profil).mois, '2026-12');
+    egal(periodeBudget('2026-11-04', profil).debut, '2026-10-03');                          // octobre a commencé le 03
+    // Salaire de décembre pas encore arrivé : novembre continue jusqu'à ce qu'il arrive (7 jours au plus)
+    const attente = { jourSalaireHabituel: 5, datesSalaire: ['2026-11-05'] };
+    p = periodeBudget('2026-12-06', attente);
+    egal(p.mois, '2026-11'); egal(p.debut, '2026-11-05'); egal(p.fin, '2026-12-06');
+    egal(periodeBudget('2026-12-12', attente).fin, '2026-12-12');                            // 7e jour d'attente : novembre continue
+    p = periodeBudget('2026-12-14', attente);
+    egal(p.mois, '2026-12'); egal(p.debut, '2026-12-13');                                    // au-delà : décembre commence le lendemain, sans chevauchement
+    egal(periodeBudget('2026-12-13', attente).debut, '2026-12-13');
+    // Salaire versé fin octobre : il compte pour novembre
+    egal(periodeBudget('2026-11-10', { jourSalaireHabituel: 1, datesSalaire: ['2026-10-30'] }).mois, '2026-11');
+    egal(JSON.stringify(datesDeSalaire({ transactions: [{ categorie: 'salaire', sens: 'credit', montantCentimes: 145296, date: '2026-11-05' }], revenusMensuels: [{ recuLe: '2026-10-03' }] })), '["2026-10-03","2026-11-05"]');
+  } },
+  { nom: 'reste du mois : aperçu avant le salaire, puis reste du mois précédent à verser sur l’épargne', fn: () => {
+    const e = etatNovembre();
+    e.profil = { ...e.profil, debutSuivi: '2026-10-05' };
+    const avant = reliquat(e, '2026-11-03');                           // 3 jours avant le salaire du 05/11
+    vrai(avant.courant.avantSalaire, 'aperçu dans les 3 derniers jours');
+    egal(avant.courant.prochainSalaire, '2026-11-05');
+    const apres = reliquat(e, '2026-11-06');
+    egal(apres.precedent.mois, '2026-10');
+    vrai(apres.precedent.montantCentimes >= 0, 'jamais négatif');
+    // Plafonné par l'argent réellement présent sur les comptes à la fin du mois précédent
+    const s = soldes(e, apres.precedent.fin).comptes.filter((c) => ['courant', 'neobanque'].includes(c.compte.type)).reduce((t, c) => t + c.soldeCentimes, 0);
+    vrai(apres.precedent.montantCentimes <= Math.max(0, s), 'plafonné par les soldes');
+    // Mois avant le début du suivi : rien à verser
+    e.profil.debutSuivi = '2026-11-05';
+    egal(reliquat(e, '2026-11-06').precedent.montantCentimes, 0);
   } },
   { nom: 'revenus : mois non confirmé = montants du mois précédent « attendu » ; aide au logement jamais comptée', fn: () => {
     const e = etatNovembre();

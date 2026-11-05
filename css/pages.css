@@ -353,3 +353,4 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .bloc-fichier { display: flex; flex-direction: column; gap: 8px; }
 .bloc-fichier-titre { font-weight: 600; }
 .bloc-fichier .btn-large { margin-top: 4px; }
+.hero-periode { font-size: 13px; margin-top: 6px; opacity: .9; }
