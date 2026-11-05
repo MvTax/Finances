@@ -2,7 +2,7 @@
 // pdf.js (vendor/pdfjs) est mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
 
@@ -20,6 +20,8 @@ const COQUILLE = [
   './icons/icone-maskable-512.png',
   './icons/icone.svg',
   './js/actions.js',
+  './js/diagnostic.js',
+  './js/journal.js',
   './js/app-theme.js',
   './js/app.js',
   './js/bridge.js',

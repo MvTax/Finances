@@ -34,7 +34,7 @@ export async function analyserVoix(blob, mimeOrigine) {
   let mime = mimePourGemini(mimeOrigine);
   for (let i = 0; i < 3; i++) {
     try {
-      return await genererJSON({ systeme: P.PROMPT_VOIX, schema: P.SCHEMA_VOIX, valider: validerTransactionIA, parts: [{ text: contexte() + ' Transcris puis structure cette dépense ou entrée dictée.' }, { inlineData: { mimeType: mime, data: base64 } }] });
+      return await genererJSON({ systeme: P.PROMPT_VOIX, schema: P.SCHEMA_VOIX, valider: validerTransactionIA, parts: [{ text: contexte() + ' Transcris puis structure cette dépense ou entrée dictée.' }, { inlineData: { mimeType: mime, data: base64 } }], reflexion: 'faible', timeoutMs: 60000 });
     } catch (e) {
       if (e.code === 'format' && MIME_REPLI[mime]) { mime = MIME_REPLI[mime]; continue; }
       if (e.code === 'format') throw new ErreurGemini(`Gemini refuse le format audio de cet appareil (${mimeOrigine}). Utilise la saisie au clavier.`, 'format');
@@ -45,7 +45,7 @@ export async function analyserVoix(blob, mimeOrigine) {
 }
 
 export async function analyserTexteIA(texte) {
-  return genererJSON({ systeme: P.PROMPT_VOIX, schema: P.SCHEMA_VOIX, valider: validerTransactionIA, parts: [{ text: `${contexte()}\nPhrase : « ${texte.slice(0, 500)} »` }] });
+  return genererJSON({ systeme: P.PROMPT_VOIX, schema: P.SCHEMA_VOIX, valider: validerTransactionIA, parts: [{ text: `${contexte()}\nPhrase : « ${texte.slice(0, 500)} »` }], reflexion: 'faible' });
 }
 
 export function validerTicket(o) {
@@ -70,7 +70,7 @@ export function validerTicket(o) {
 }
 
 export async function analyserTicket(image) {
-  return genererJSON({ systeme: P.PROMPT_TICKET, schema: P.SCHEMA_TICKET, valider: validerTicket, parts: [{ text: contexte() }, { inlineData: { mimeType: image.mime, data: image.base64 } }], timeoutMs: 60000 });
+  return genererJSON({ systeme: P.PROMPT_TICKET, schema: P.SCHEMA_TICKET, valider: validerTicket, parts: [{ text: contexte() }, { inlineData: { mimeType: image.mime, data: image.base64 } }], timeoutMs: 60000, reflexion: 'faible' });
 }
 
 /** Catégorisation en lot des marchands inconnus : uniquement marchand normalisé + montant moyen + passages. */
@@ -88,7 +88,7 @@ export async function categoriserInconnus(transactions) {
   const lot = lotInconnus(transactions);
   if (!lot.length) return new Map();
   const r = await genererJSON({
-    systeme: P.PROMPT_CATEGORISATION, schema: P.SCHEMA_CATEGORISATION,
+    systeme: P.PROMPT_CATEGORISATION, schema: P.SCHEMA_CATEGORISATION, reflexion: 'faible',
     valider: (o) => (Array.isArray(o?.resultats) ? o : null),
     parts: [{ text: `Catégories autorisées : ${listeCategories()}.\nMarchands : ${JSON.stringify(lot)}` }],
   });

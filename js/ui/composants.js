@@ -134,7 +134,7 @@ export function onglets(liste, actif, onChange) {
 }
 
 export function selectionner(options, valeur, onChange, o = {}) {
-  const s = h('select', { class: 'input', id: o.id || null, onchange: (e) => onChange(e.target.value) },
+  const s = h('select', { class: 'input', id: o.id || null, 'aria-label': o.aria || null, onchange: (e) => onChange(e.target.value) },
     options.map(([v, l]) => h('option', { value: v, selected: v === valeur ? true : null }, l)));
   return s;
 }

@@ -2,6 +2,7 @@
 
 import { etat, majParametres } from './store.js';
 import { aujourdhui } from './dates.js';
+import { noter } from './journal.js';
 
 export const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 export const MODELE_DEFAUT = 'gemini-3.8-flash';
@@ -46,10 +47,16 @@ async function requete(url, init, timeoutMs = TIMEOUT_MS) {
   if (!navigator.onLine) throw new ErreurGemini('Hors ligne : la saisie est gardée en file d’attente et sera analysée au retour du réseau.', 'horsligne', { file: true });
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  const debut = performance.now();
+  const chemin = url.replace(BASE, '').split('?')[0];
+  const taille = typeof init?.body === 'string' ? init.body.length : 0;
   try {
-    return await fetch(url, { ...init, signal: ctrl.signal, cache: 'no-store', referrerPolicy: 'strict-origin-when-cross-origin' });
+    const rep = await fetch(url, { ...init, signal: ctrl.signal, cache: 'no-store', referrerPolicy: 'strict-origin-when-cross-origin' });
+    noter('gemini', `${init?.method || 'GET'} ${chemin} → ${rep.status}`, { ms: Math.round(performance.now() - debut), statut: rep.status, octetsEnvoyes: taille, delaiMaxMs: timeoutMs });
+    return rep;
   } catch (e) {
-    if (e.name === 'AbortError') throw new ErreurGemini('Gemini met trop de temps à répondre : réessaie.', 'delai', { reessayable: true, file: true });
+    noter('gemini', `${init?.method || 'GET'} ${chemin} → ${e.name === 'AbortError' ? 'DÉLAI DÉPASSÉ' : 'ERREUR RÉSEAU'}`, { ms: Math.round(performance.now() - debut), octetsEnvoyes: taille, delaiMaxMs: timeoutMs, erreur: e.name });
+    if (e.name === 'AbortError') throw new ErreurGemini(`Gemini met trop de temps à répondre (plus de ${Math.round(timeoutMs / 1000)} s) : réessaie.`, 'delai', { reessayable: true, file: true });
     throw new ErreurGemini('Réseau indisponible : la saisie est gardée en file d’attente.', 'reseau', { file: true });
   } finally { clearTimeout(t); }
 }
@@ -70,6 +77,17 @@ function versResponseSchema(s) {
 }
 
 /**
+ * Niveau de réflexion du modèle pour les tâches courtes (voix, texte, ticket, catégories) : faible = réponse rapide.
+ * Gemini 3 : thinkingLevel « low » ; Gemini 2.5 Flash : thinkingBudget 0. Autres modèles : rien (valeur par défaut).
+ */
+export function configReflexion(modele, niveau) {
+  if (niveau !== 'faible') return null;
+  if (/^gemini-3/.test(modele)) return { thinkingLevel: 'low' };
+  if (/^gemini-2\.5-flash/.test(modele)) return { thinkingBudget: 0 };
+  return null;
+}
+
+/**
  * Appel generateContent avec sortie JSON structurée, délai, nouvelles tentatives (429/5xx) et validation.
  * @param {{ systeme, parts, schema, valider?: (obj) => obj|null, modele?, timeoutMs? }} o
  */
@@ -79,9 +97,12 @@ export async function genererJSON(o) {
   const cle = etat.parametres.cleGemini;
   let modele = o.modele || modeleActif();
   let formeSchema = 'json';
-  for (let tentative = 0; tentative < 4; tentative++) {
+  let avecReflexion = true;
+  for (let tentative = 0; tentative < 5; tentative++) {
     const generationConfig = { responseMimeType: 'application/json' };
     if (formeSchema === 'json') generationConfig.responseJsonSchema = o.schema; else generationConfig.responseSchema = versResponseSchema(o.schema);
+    const reflexion = avecReflexion ? configReflexion(modele, o.reflexion) : null;
+    if (reflexion) generationConfig.thinkingConfig = reflexion;
     const corps = { systemInstruction: { parts: [{ text: o.systeme }] }, contents: [{ role: 'user', parts: o.parts }], generationConfig };
     const rep = await requete(`${BASE}/models/${encodeURIComponent(modele)}:generateContent`, {
       method: 'POST',
@@ -92,6 +113,8 @@ export async function genererJSON(o) {
     let json = null;
     try { json = await rep.json(); } catch { json = null; }
     if (!rep.ok) {
+      // Réglage de réflexion refusé par ce modèle : on retente sans
+      if (rep.status === 400 && reflexion && /thinking/i.test(json?.error?.message || '')) { avecReflexion = false; noter('info', `Réglage de réflexion refusé par ${modele} : nouvelle tentative sans`); continue; }
       const err = traduireErreur(rep.status, json);
       if (err.code === 'schema' && formeSchema === 'json') { formeSchema = 'ancien'; continue; }
       if (err.code === 'modele' && !o.modele) {
@@ -134,6 +157,6 @@ export async function meilleurModeleDisponible() {
 
 /** Test minimal de la clé (envoie seulement « Réponds OK »). */
 export async function testerCle() {
-  const r = await genererJSON({ systeme: 'Réponds {"ok":true}.', parts: [{ text: 'Test de connexion.' }], schema: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] }, valider: (x) => (x && x.ok === true ? x : null), timeoutMs: 20000 });
+  const r = await genererJSON({ systeme: 'Réponds {"ok":true}.', parts: [{ text: 'Test de connexion.' }], schema: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] }, valider: (x) => (x && x.ok === true ? x : null), timeoutMs: 20000, reflexion: 'faible' });
   return r.ok;
 }

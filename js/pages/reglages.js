@@ -111,12 +111,77 @@ export function rendre(vue, params = []) {
     carte('Apparence', segment([['auto', 'Automatique'], ['clair', 'Clair'], ['sombre', 'Sombre']], pa.theme || 'auto', async (v) => { await majParametres({ theme: v }); appliquerTheme(v); }, 'Thème')),
     // Pont
     cartePont(ia),
+    // Diagnostic complet
+    carteDiagnostic(ia),
     // À propos et effacement
     carte('À propos', h('div', {},
       h('p', { class: 'petit' }, `Budget ${versionApp} · schéma de données ${SCHEMA_VERSION} · ${etat.transactions.length.toLocaleString('fr-FR')} transactions.`),
       bouton('Revoir l’accueil de démarrage', () => { majParametres({ onboarding: { ...pa.onboarding, termine: false, etape: 0 } }); aller('onboarding'); }, { classe: 'btn-petit' }),
       bouton('Effacer toutes les données', effacer, { classe: 'btn-danger-texte' }))),
   );
+}
+
+/** Diagnostic : teste toute l'app et produit un rapport détaillé à copier ou à partager. */
+let optionGeminiDiag = null;
+let dernierRapport = null;
+function carteDiagnostic(ia) {
+  if (optionGeminiDiag === null) optionGeminiDiag = ia.ok;
+  return carte('Diagnostic', h('div', { class: 'formulaire' },
+    h('p', { class: 'petit' }, 'Teste l’app de bout en bout (stockage, hors ligne, données, calculs, chaque page, sauvegarde, tests automatiques) et produit un rapport détaillé à m’envoyer pour corriger les erreurs. Le rapport ne contient ni libellés d’opérations, ni prénoms, ni clé.'),
+    ia.ok ? interrupteur('Inclure les tests Gemini', optionGeminiDiag, (v) => { optionGeminiDiag = v; }, 'Envoie une phrase fictive et un bip de test, aucune de tes données') : null,
+    bouton('Lancer le test complet', () => ouvrirDiagnostic(), { classe: 'btn-principal', icone: 'recherche' }),
+    dernierRapport ? bouton('Revoir le dernier rapport', () => feuilleRapport(dernierRapport), { classe: 'btn-petit' }) : null));
+}
+
+async function ouvrirDiagnostic() {
+  const { lancerDiagnostic } = await import('../diagnostic.js');
+  const etatTexte = h('p', { class: 'diag-etat', 'aria-live': 'polite' }, 'Démarrage…');
+  const liste = h('ol', { class: 'diag-liste' });
+  const zoneActions = h('div', { class: 'groupe-boutons' });
+  const f = ouvrirFeuille({ titre: 'Diagnostic', plein: true, contenu: h('div', { class: 'diag' },
+    optionGeminiDiag && iaDisponible().ok ? indicationEnvoiGemini('une phrase fictive (« deux cafés à 3,20 euros hier »), un bip audio de 1 s et trois demandes « Réponds OK ». Aucune de tes données.') : null,
+    etatTexte, zoneActions, liste) });
+  const symboles = { ok: '✓', avert: '!', echec: '✗', info: 'i' };
+  let n = 0;
+  try {
+    const rapport = await lancerDiagnostic({ gemini: optionGeminiDiag && iaDisponible().ok, surProgres: (r) => {
+      n++;
+      etatTexte.textContent = `${n} tests… (${r.section})`;
+      liste.append(h('li', { class: `diag-ligne diag-${r.statut}` }, h('span', { class: 'diag-symbole', 'aria-hidden': 'true' }, symboles[r.statut]), h('span', {}, h('strong', {}, `${r.section} › ${r.nom}`), h('small', {}, r.detail.split('\n')[0].slice(0, 220)))));
+    } });
+    dernierRapport = rapport;
+    const nb = (s) => rapport.resultats.filter((x) => x.statut === s).length;
+    etatTexte.textContent = `Terminé en ${(rapport.duree / 1000).toFixed(1)} s : ${nb('ok')} OK, ${nb('avert')} avertissement(s), ${nb('echec')} échec(s).`;
+    etatTexte.className = `diag-etat ${nb('echec') ? 'negatif-texte' : nb('avert') ? 'orange-texte' : 'vert-texte'}`;
+    zoneActions.replaceChildren(...actionsRapport(rapport));
+  } catch (e) {
+    etatTexte.textContent = `Le diagnostic s’est arrêté : ${e.message}`;
+    etatTexte.className = 'diag-etat negatif-texte';
+  }
+  return f;
+}
+
+function actionsRapport(rapport) {
+  const nomFichier = `diagnostic-budget-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.md`;
+  return [
+    bouton('Copier le rapport', async () => {
+      try { await navigator.clipboard.writeText(rapport.markdown); toast('Rapport copié : colle-le dans ta conversation avec Claude.', { type: 'succes' }); }
+      catch {
+        const zone = h('textarea', { class: 'input', readonly: true, rows: '8', 'aria-label': 'Rapport' }, rapport.markdown);
+        ouvrirFeuille({ titre: 'Copie manuelle', contenu: h('div', {}, h('p', { class: 'petit' }, 'Sélectionne tout le texte puis Copier.'), zone) });
+        setTimeout(() => { zone.focus(); zone.select(); }, 350);
+      }
+    }, { classe: 'btn-principal', icone: 'copier' }),
+    bouton('Partager le fichier', async () => {
+      const fichier = new File([rapport.markdown], nomFichier, { type: 'text/markdown' });
+      if (navigator.canShare?.({ files: [fichier] })) { try { await navigator.share({ files: [fichier], title: 'Diagnostic Budget' }); } catch { /* partage annulé */ } return; }
+      const a = h('a', { href: URL.createObjectURL(fichier), download: nomFichier }); document.body.append(a); a.click(); a.remove();
+    }, { icone: 'partage' }),
+  ];
+}
+
+function feuilleRapport(rapport) {
+  ouvrirFeuille({ titre: 'Dernier rapport', plein: true, contenu: h('div', { class: 'diag' }, h('div', { class: 'groupe-boutons' }, actionsRapport(rapport)), h('pre', { class: 'diag-texte' }, rapport.markdown.split('## Données brutes')[0])) });
 }
 
 function lien(titreL, detail, action, ic) {
@@ -162,7 +227,7 @@ function carteGemini(ia) {
   const cle = h('input', { class: 'input', type: 'password', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, value: pa.cleGemini || '', placeholder: 'Clé API Google AI Studio', 'aria-label': 'Clé API Gemini' });
   cle.addEventListener('change', () => majParametres({ cleGemini: cle.value.trim() }));
   const liste = h('datalist', { id: 'modeles-gemini' });
-  const modele = h('input', { class: 'input', list: 'modeles-gemini', value: pa.modeleGemini || MODELE_DEFAUT, autocapitalize: 'off', spellcheck: false, onchange: (e) => majParametres({ modeleGemini: e.target.value.trim() || null }) });
+  const modele = h('input', { class: 'input', 'aria-label': 'Modèle Gemini', list: 'modeles-gemini', value: pa.modeleGemini || MODELE_DEFAUT, autocapitalize: 'off', spellcheck: false, onchange: (e) => majParametres({ modeleGemini: e.target.value.trim() || null }) });
   const statut = h('p', { class: 'petit', 'aria-live': 'polite' });
   const appels = pa.appelsIA?.date === aujourdhui() ? pa.appelsIA.nb : 0;
   return carte('Gemini (facultatif)', h('div', { class: 'formulaire' },
@@ -303,7 +368,7 @@ function rendreRegles(vue) {
     regles.length ? h('div', { class: 'liste' }, regles.map((r) => h('div', { class: 'ligne-regle' },
       h('span', {}, h('strong', {}, libelleRegle(r)), h('small', {}, ` → ${nomCategorie(r.categorie)} · ${r.origine === 'utilisateur' ? 'toi' : 'import'}`)),
       h('div', { class: 'groupe-boutons' },
-        selectionner(CATEGORIES.map((c) => [c.id, c.nom]), r.categorie, (v) => enregistrer('reglesCategorie', { ...r, categorie: v })),
+        selectionner(CATEGORIES.map((c) => [c.id, c.nom]), r.categorie, (v) => enregistrer('reglesCategorie', { ...r, categorie: v }), { aria: `Catégorie de la règle ${libelleRegle(r)}` }),
         h('button', { class: 'btn-icone', type: 'button', 'aria-label': `Supprimer la règle ${libelleRegle(r)}`, onclick: async () => { await supprimerObjet('reglesCategorie', r.id); rendreRegles(vue); } }, icone('corbeille')))))) : etatVide('liste', 'Aucune règle', 'Corrige la catégorie d’une opération : la règle apparaît ici.'));
 }
 

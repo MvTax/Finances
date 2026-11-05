@@ -1,7 +1,7 @@
 import { egal } from '../outils/assert.mjs';
 import { analyserPhrase } from '../../js/saisie.js';
 import { validerTransactionIA, validerTicket } from '../../js/ia.js';
-import { choisirFlashStable } from '../../js/gemini.js';
+import { choisirFlashStable, configReflexion } from '../../js/gemini.js';
 import { mimePourGemini } from '../../js/voice.js';
 import { dimensionsCibles } from '../../js/camera.js';
 import { forcerAujourdhui } from '../../js/dates.js';
@@ -24,6 +24,10 @@ export default [
     forcerAujourdhui(null);
   } },
   { nom: 'Gemini : choix du Flash stable le plus récent ; correspondance MIME audio iOS', fn: () => {
+    egal(JSON.stringify(configReflexion('gemini-3.8-flash', 'faible')), '{"thinkingLevel":"low"}');
+    egal(JSON.stringify(configReflexion('gemini-2.5-flash', 'faible')), '{"thinkingBudget":0}');
+    egal(configReflexion('gemini-3.8-flash', null), null);
+    egal(configReflexion('gemma-3', 'faible'), null);
     egal(choisirFlashStable(['models/gemini-2.5-flash', 'models/gemini-3.8-flash', 'models/gemini-3.8-flash-lite', 'models/gemini-3.9-flash-preview', 'models/gemini-3.5-flash']), 'gemini-3.8-flash');
     egal(mimePourGemini('audio/mp4'), 'audio/m4a'); egal(mimePourGemini('audio/webm;codecs=opus'), 'audio/webm');
   } },

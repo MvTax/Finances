@@ -1,5 +1,6 @@
 // app.js — démarrage de l'app : base, PIN, onboarding, routeur, service worker, clavier iOS.
 
+import { installerJournal } from './journal.js';
 import { charger, etat, surChangement } from './store.js';
 import { definirRoute, quandNavigation, demarrerRouteur, rendre as rendreRoute, routeActuelle, aller } from './router.js';
 import { spriteSVG } from './ui/icones.js';
@@ -9,6 +10,8 @@ import { appliquerTheme } from './app-theme.js';
 import { verrouiller, installerConfidentialite } from './securite.js';
 import { definirNomsCategories } from './categories.js';
 import { versionApp } from './version.js';
+
+installerJournal();
 
 const PAGES = {
   accueil: () => import('./pages/accueil.js'),
