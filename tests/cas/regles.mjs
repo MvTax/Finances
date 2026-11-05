@@ -41,4 +41,12 @@ export default [
     egal(trouverRegle(t, triees).categorie, 'plaisir');
     egal(cat('CB MCDONALDS 01/01/26', 'debit', [r]).categorie, 'plaisir');
   } },
+  { nom: 'règles : une règle relue depuis un JSON (ancien cache « _re » vide) fonctionne', fn: () => {
+    const r = regleDepuisCorrection({ marchand: 'Boulangerie Test', libellePrincipal: 'CB BOULANGERIE TEST', sens: 'debit' }, 'courses', 'r1');
+    trouverRegle({ libellePrincipal: 'CB BOULANGERIE TEST', marchand: 'Boulangerie Test', sens: 'debit' }, [r]);
+    const relue = JSON.parse(JSON.stringify({ ...r, _re: {} }));
+    const t = trouverRegle({ libellePrincipal: 'CB BOULANGERIE TEST', marchand: 'Boulangerie Test', sens: 'debit' }, [relue]);
+    egal(t?.id, 'r1');
+    vrai(!('_re' in r), 'la règle ne doit plus porter de cache');
+  } },
 ];

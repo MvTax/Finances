@@ -12,4 +12,5 @@ export const CAS = [
   ['migrations', () => import('./cas/migrations.mjs')],
   ['bridge', () => import('./cas/bridge.mjs')],
   ['saisie', () => import('./cas/saisie.mjs')],
+  ['miseajour', () => import('./cas/miseajour.mjs')],
 ];

@@ -93,8 +93,11 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .barre-recherche { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border-radius: 12px; padding: 0 12px; }
 .barre-recherche .ic { width: 20px; height: 20px; color: var(--texte-3); }
 .input-recherche { border: 0; background: transparent; box-shadow: none !important; padding-left: 0; }
-.barre-filtres { display: flex; gap: 8px; align-items: center; }
-.barre-filtres .segment { flex: 1; }
+.barre-filtres { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.barre-filtres .segment { flex: 1 1 210px; }
+.barre-filtres .segment { flex: 1; min-width: 0; }
+.barre-filtres .segment-option { min-width: 0; padding: 6px 4px; }
+.bouton-filtres { flex: none; }
 .filtre-actif:empty { display: none; }
 .filtre-actif .pastille .ic:last-child { width: 14px; height: 14px; }
 .resume-filtres { font-size: 13px; color: var(--texte-3); padding: 0 4px; }
@@ -337,3 +340,11 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .diag-avert .diag-symbole { background: var(--orange-doux); color: var(--orange); }
 .diag-echec .diag-symbole { background: var(--rouge-doux); color: var(--rouge); }
 .diag-texte { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--surface-2); padding: 12px; border-radius: var(--rayon-petit); -webkit-user-select: text; user-select: text; }
+
+.diag-avancement { display: flex; flex-direction: column; gap: 6px; }
+.diag-barre { height: 10px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
+.diag-barre-remplie { display: block; height: 100%; width: 0; border-radius: 5px; background: var(--accent); transition: width 200ms var(--sortie); }
+.diag-barre.termine .diag-barre-remplie { background: var(--vert); }
+.diag-pourcent { font-family: var(--police-chiffres); font-size: 14px; color: var(--texte-2); }
+.diag-fin { padding: 8px 0 16px; }
+.liste-gardes { margin: 0; padding-left: 18px; }

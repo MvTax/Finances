@@ -34,6 +34,18 @@ L'accueil de démarrage tient en 4 écrans : revenus exacts, logement et charges
 
 Pour démarrer avec ton historique, va dans **Réglages → Importer → choisir ton fichier `budget-import-prive.json` → Remplacer**. L'accueil de démarrage est alors pré-rempli : tu n'as plus qu'à confirmer.
 
+### Mettre à jour depuis le fichier privé sans rien perdre
+
+Quand le fichier privé change (nouvelles dettes, nouveau plan, nouveaux relevés), garde-le au même endroit avec le même nom et touche **Réglages → Mettre à jour depuis mon fichier**. L'app compare le fichier à ce qu'elle contient (`js/miseajour.js`) :
+
+- ce qui vient du fichier et que tu n'as pas touché prend la nouvelle version ;
+- ce que tu as saisi dans l'app (dépenses, versements, règles…) est toujours gardé ;
+- ce que tu as modifié est gardé, champ par champ : seuls les champs que tu n'as pas changés sont mis à jour ;
+- ce que tu as supprimé n'est pas recréé ;
+- une saisie manuelle qui correspond à une nouvelle opération bancaire est rapprochée, sans doublon.
+
+Un aperçu montre ce qui va changer avant de valider. Réappliquer le même fichier ne change rien.
+
 ## Importer des relevés
 
 Va dans **Réglages → Importer**. Formats acceptés :
@@ -105,6 +117,10 @@ Les icônes sont dans `icons/` : `apple-touch-icon-180.png`, `icone-192.png`, `i
 ## Pont avec l'app Repas & Courses
 
 Le contrat `budget-repas` v1 est documenté dans [BRIDGE.md](BRIDGE.md). Il permet trois échanges : liste de courses issue de la photo du frigo, achats des tickets, profil nutrition. Ils passent par un lien `#bridge=…`, un fichier `.json` ou le presse-papier. Rien ne s'applique sans aperçu ni confirmation.
+
+## Diagnostic
+
+**Réglages → Diagnostic → Lancer le test complet** teste l'app de bout en bout (plus de 80 points, 5 de plus avec Gemini) avec une barre d'avancement, puis produit un rapport Markdown anonymisé (aucun libellé, aucun prénom, aucune clé) à copier ou partager. Le code est dans `js/diagnostic.js`, le journal des erreurs et des appels Gemini de la session dans `js/journal.js`.
 
 ## Tests
 

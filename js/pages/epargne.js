@@ -358,9 +358,9 @@ function vueSimulateur() {
     const depart = ajouterMois(moisDe(aujourdhui()), 1);
     const a = simulerLivret({ capitalInitialCentimes: capital, versementMensuelCentimes: mensuel, jourVersement: (etat.profil.jourSalaireHabituel || 1) + 1, tauxPourcent: tauxA, plafondCentimes: 2295000, moisDepart: depart, nbMois: duree });
     const l = simulerLivret({ capitalInitialCentimes: capital, versementMensuelCentimes: mensuel, jourVersement: (etat.profil.jourSalaireHabituel || 1) + 1, tauxPourcent: tauxL, plafondCentimes: etat.parametres.plafondLEPCentimes || 1000000, moisDepart: depart, nbMois: duree });
-    sortie.replaceChildren(h('table', { class: 'tableau' }, h('caption', { class: 'sr' }, 'Comparaison Livret A et LEP'),
+    sortie.replaceChildren(h('div', { class: 'tableau-defile' }, h('table', { class: 'tableau' }, h('caption', { class: 'sr' }, 'Comparaison Livret A et LEP'),
       h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Année'), h('th', { scope: 'col' }, `Livret A ${String(tauxA).replace('.', ',')} %`), h('th', { scope: 'col' }, `LEP ${String(tauxL).replace('.', ',')} %`))),
-      h('tbody', {}, a.lignes.map((x, i) => h('tr', {}, h('th', { scope: 'row' }, String(x.annee)), h('td', {}, mt(x.soldeFinCentimes), h('small', {}, ` (+${formatEuros(x.interetsCentimes)})`)), h('td', {}, mt(l.lignes[i]?.soldeFinCentimes || 0), h('small', {}, ` (+${formatEuros(l.lignes[i]?.interetsCentimes || 0)})`)))))),
+      h('tbody', {}, a.lignes.map((x, i) => h('tr', {}, h('th', { scope: 'row' }, String(x.annee)), h('td', {}, mt(x.soldeFinCentimes), h('small', {}, ` (+${formatEuros(x.interetsCentimes)})`)), h('td', {}, mt(l.lignes[i]?.soldeFinCentimes || 0), h('small', {}, ` (+${formatEuros(l.lignes[i]?.interetsCentimes || 0)})`))))))),
     h('p', { class: 'petit' }, 'Intérêts calculés par quinzaine (un versement compte à partir du 1er ou du 16 suivant), capitalisés au 31 décembre. Le LEP est réservé aux revenus modestes : vérifie ton éligibilité avec ton revenu fiscal de référence.'));
   };
   calc();

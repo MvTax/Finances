@@ -87,7 +87,11 @@ export async function charger() {
   etat.meta = Object.fromEntries((meta || []).map((x) => [x.cle, x.valeur]));
   const listes = await Promise.all(COLLECTIONS.map((c) => db.lireTout(c)));
   COLLECTIONS.forEach((c, i) => { etat[c] = listes[i] || []; });
+  // Anciennes règles importées avec un cache « _re » devenu un objet vide : nettoyées une fois pour toutes
+  const abimees = (etat.reglesCategorie || []).filter((r) => '_re' in r);
+  for (const r of abimees) delete r._re;
   const ops = initialiserDefauts();
+  for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });
   const hist = db.migrationsDeCetteSession();
@@ -120,9 +124,12 @@ export async function enregistrer(collection, obj, { silencieux = false } = {}) 
 export async function enregistrerLot(elements) {
   const m = maintenant();
   const ops = [];
+  const supprimes = [];
   for (const { collection, valeur, supprimer: suppr } of elements) {
     const cle = CLE[collection] || 'id';
     if (suppr) {
+      const avant = etat[collection].find((x) => x[cle] === valeur[cle]);
+      if (avant) supprimes.push({ collection, objet: avant });
       etat[collection] = etat[collection].filter((x) => x[cle] !== valeur[cle]);
       ops.push({ store: collection, supprimer: true, cle: valeur[cle] });
       continue;
@@ -135,14 +142,60 @@ export async function enregistrerLot(elements) {
     ops.push({ store: collection, valeur });
   }
   await db.ecrireLot(ops);
+  if (supprimes.length) await memoriserSuppressions(supprimes);
   notifier('lot');
 }
 
 export async function supprimerObjet(collection, cleValeur) {
   const cle = CLE[collection] || 'id';
+  const avant = etat[collection].find((x) => x[cle] === cleValeur);
   etat[collection] = etat[collection].filter((x) => x[cle] !== cleValeur);
   await db.supprimer(collection, cleValeur);
+  if (avant) await memoriserSuppressions([{ collection, objet: avant }]);
   notifier(collection);
+}
+
+/** Mémorise les objets supprimés (identifiant + clé naturelle) : une mise à jour depuis le fichier ne les recrée pas. */
+async function memoriserSuppressions(liste) {
+  const { cleNaturelle } = await import('./miseajour.js');
+  const s = structuredClone(etat.meta.supprimes || {});
+  for (const { collection, objet } of liste) {
+    const cle = CLE[collection] || 'id';
+    const t = s[collection] || (s[collection] = { ids: [], naturelles: [] });
+    t.ids.push(objet[cle]);
+    const n = cleNaturelle(collection, objet);
+    if (n) t.naturelles.push(`${n}#0`);
+    t.ids = t.ids.slice(-3000); t.naturelles = t.naturelles.slice(-3000);
+  }
+  etat.meta.supprimes = s;
+  await db.ecrire('meta', { cle: 'supprimes', valeur: s });
+}
+
+/**
+ * Applique une mise à jour calculée par planifierMiseAJour (miseajour.js) : écrit les objets TELS QUELS
+ * (sans changer leur date de modification, pour reconnaître plus tard ce qui vient du fichier).
+ */
+export async function appliquerMiseAJour(plan, { estampille, baseProfil, baseParametres, bases }) {
+  const ops = [];
+  for (const { collection, cle: v } of plan.suppressions) {
+    const cle = CLE[collection] || 'id';
+    etat[collection] = etat[collection].filter((x) => x[cle] !== v);
+    ops.push({ store: collection, supprimer: true, cle: v });
+  }
+  for (const { collection, valeur } of plan.ecritures) {
+    const cle = CLE[collection] || 'id';
+    const i = etat[collection].findIndex((x) => x[cle] === valeur[cle]);
+    if (i >= 0) etat[collection][i] = valeur; else etat[collection].push(valeur);
+    ops.push({ store: collection, valeur });
+  }
+  etat.profil = { ...plan.profil, cle: 'profil' };
+  etat.parametres = { ...plan.parametres, cle: 'parametres' };
+  ops.push({ store: 'profil', valeur: etat.profil }, { store: 'parametres', valeur: etat.parametres });
+  const estampilles = [...new Set([...(etat.meta.estampillesFichier || []), estampille].filter(Boolean))];
+  const meta = { estampillesFichier: estampilles, baseProfil, baseParametres, baseFichier: bases || null, derniereMiseAJour: { le: maintenant(), totaux: plan.totaux }, jauge: null };
+  for (const [k, v] of Object.entries(meta)) { etat.meta[k] = v; ops.push({ store: 'meta', valeur: { cle: k, valeur: v } }); }
+  await db.ecrireLot(ops);
+  notifier('miseAJour');
 }
 
 export async function majProfil(partiel) {
@@ -180,6 +233,8 @@ export async function remplacerTout(contenu) {
   ops.push(...initialiserDefauts());
   etat.meta.jauge = null;
   ops.push({ store: 'meta', valeur: { cle: 'jauge', valeur: null } });
+  const { basesDepuisContenu } = await import('./miseajour.js');
+  for (const [k, v] of Object.entries({ baseProfil: contenu.profil || null, baseParametres: contenu.parametres || null, baseFichier: basesDepuisContenu(contenu), supprimes: {} })) { etat.meta[k] = v; ops.push({ store: 'meta', valeur: { cle: k, valeur: v } }); }
   await db.ecrireLot(ops);
   notifier('restauration');
 }

@@ -26,7 +26,7 @@ export function rendre(vue) {
   recherche.addEventListener('input', () => { clearTimeout(attente); attente = setTimeout(() => { filtres.texte = recherche.value; dessiner(); }, 180); });
 
   const typeSeg = segment([['tout', 'Tout'], ['debit', 'Dépenses'], ['credit', 'Entrées']], filtres.type, (v) => { filtres.type = v; dessiner(); }, 'Type');
-  const boutonFiltres = h('button', { class: 'btn btn-secondaire btn-petit', type: 'button', onclick: () => feuilleFiltres(dessiner) }, icone('filtre'), h('span', {}, 'Filtres'));
+  const boutonFiltres = h('button', { class: 'btn btn-secondaire btn-petit bouton-filtres', type: 'button', 'aria-label': 'Filtres', onclick: () => feuilleFiltres(dessiner) }, icone('filtre'), h('span', { class: 'texte-filtres' }, 'Filtres'));
 
   const zoneAffichage = h('div');
   const rendreAffichage = () => zoneAffichage.replaceChildren(segment([['jours', 'Par jour'], ['categories', 'Par catégorie']], affichage, (v) => { affichage = v; dessiner(); }, 'Affichage'));

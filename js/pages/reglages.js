@@ -88,6 +88,7 @@ export function rendre(vue, params = []) {
       bouton('Enveloppes', () => aller('budgets'), { icone: 'balance' }))),
     // Données
     carte('Données', h('div', { class: 'liste-liens' },
+      lien('Mettre à jour depuis mon fichier', etat.meta.derniereMiseAJour ? `dernière mise à jour le ${formatDate(etat.meta.derniereMiseAJour.le.slice(0, 10))}` : 'garde tout ce que tu as saisi', () => choisirFichierMiseAJour(), 'telecharger'),
       lien('Questions sur tes relevés', nbQuestions ? `${nbQuestions} en attente` : 'à jour', () => aller('reglages/questions'), 'info'),
       lien('Importer un relevé ou une sauvegarde', 'PDF, CSV, JSON', () => aller('reglages/import'), 'importer'),
       lien('Charges fixes', `${etat.chargesFixes.filter((c) => c.actif).length} actives`, () => aller('reglages/charges'), 'calendrier'),
@@ -121,6 +122,23 @@ export function rendre(vue, params = []) {
   );
 }
 
+/** Choix du fichier privé (même nom, même emplacement) puis mise à jour sans perte. */
+function choisirFichierMiseAJour() {
+  const input = h('input', { type: 'file', accept: '.json,application/json', class: 'sr', onchange: async (e) => {
+    const fichier = e.target.files[0]; input.remove();
+    if (!fichier) return;
+    let objet;
+    try { objet = JSON.parse(await fichier.text()); } catch { toastErreur('Ce fichier n’est pas un JSON valide.'); return; }
+    const { lireSauvegarde } = await import('../sauvegarde.js');
+    const r = lireSauvegarde(objet);
+    if (!r.ok) { toastErreur(r.erreurs.join(' ')); return; }
+    const { mettreAJourDepuisFichier } = await import('./import.js');
+    await mettreAJourDepuisFichier(objet, r, { apres: () => aller('accueil') });
+  } });
+  document.body.append(input);
+  input.click();
+}
+
 /** Diagnostic : teste toute l'app et produit un rapport détaillé à copier ou à partager. */
 let optionGeminiDiag = null;
 let dernierRapport = null;
@@ -136,17 +154,24 @@ function carteDiagnostic(ia) {
 async function ouvrirDiagnostic() {
   const { lancerDiagnostic } = await import('../diagnostic.js');
   const etatTexte = h('p', { class: 'diag-etat', 'aria-live': 'polite' }, 'Démarrage…');
+  const remplissage = h('span', { class: 'diag-barre-remplie' });
+  const barre = h('div', { class: 'diag-barre', role: 'progressbar', 'aria-label': 'Avancement du diagnostic', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, remplissage);
+  const pourcent = h('p', { class: 'diag-pourcent' }, '0 %');
   const liste = h('ol', { class: 'diag-liste' });
   const zoneActions = h('div', { class: 'groupe-boutons' });
+  const zoneActionsFin = h('div', { class: 'groupe-boutons diag-fin' });
   const f = ouvrirFeuille({ titre: 'Diagnostic', plein: true, contenu: h('div', { class: 'diag' },
     optionGeminiDiag && iaDisponible().ok ? indicationEnvoiGemini('une phrase fictive (« deux cafés à 3,20 euros hier »), un bip audio de 1 s et trois demandes « Réponds OK ». Aucune de tes données.') : null,
-    etatTexte, zoneActions, liste) });
+    etatTexte, h('div', { class: 'diag-avancement' }, barre, pourcent), zoneActions, liste, zoneActionsFin) });
   const symboles = { ok: '✓', avert: '!', echec: '✗', info: 'i' };
   let n = 0;
   try {
-    const rapport = await lancerDiagnostic({ gemini: optionGeminiDiag && iaDisponible().ok, surProgres: (r) => {
+    const rapport = await lancerDiagnostic({ gemini: optionGeminiDiag && iaDisponible().ok, surProgres: (r, { fait, total }) => {
       n++;
-      etatTexte.textContent = `${n} tests… (${r.section})`;
+      const pct = Math.round((fait / total) * 100);
+      remplissage.style.width = `${pct}%`; barre.setAttribute('aria-valuenow', String(pct));
+      pourcent.textContent = `${pct} % · ${fait}/${total}`;
+      etatTexte.textContent = `Test en cours : ${r.section}…`;
       liste.append(h('li', { class: `diag-ligne diag-${r.statut}` }, h('span', { class: 'diag-symbole', 'aria-hidden': 'true' }, symboles[r.statut]), h('span', {}, h('strong', {}, `${r.section} › ${r.nom}`), h('small', {}, r.detail.split('\n')[0].slice(0, 220)))));
     } });
     dernierRapport = rapport;
@@ -154,6 +179,8 @@ async function ouvrirDiagnostic() {
     etatTexte.textContent = `Terminé en ${(rapport.duree / 1000).toFixed(1)} s : ${nb('ok')} OK, ${nb('avert')} avertissement(s), ${nb('echec')} échec(s).`;
     etatTexte.className = `diag-etat ${nb('echec') ? 'negatif-texte' : nb('avert') ? 'orange-texte' : 'vert-texte'}`;
     zoneActions.replaceChildren(...actionsRapport(rapport));
+    zoneActionsFin.replaceChildren(...actionsRapport(rapport));
+    barre.classList.add('termine');
   } catch (e) {
     etatTexte.textContent = `Le diagnostic s’est arrêté : ${e.message}`;
     etatTexte.className = 'diag-etat negatif-texte';

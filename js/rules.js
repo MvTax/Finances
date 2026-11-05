@@ -225,14 +225,20 @@ export const REGLES_DEFAUT = [
   R("TABAC", 'autres', 10),
 ];
 
+// Cache des expressions compilées, HORS des objets règle : une propriété ajoutée à la règle serait sauvegardée,
+// puis relue depuis un JSON sous forme d'objet vide « {} » (ce qui cassait la catégorisation après un import).
+const CACHE_REGEX = new WeakMap();
 function compilerRegle(r) {
-  if (r._re) return r._re;
+  const c = CACHE_REGEX.get(r);
+  if (c && c.motif === r.motif && c.type === r.type) return c.re;
+  let re;
   try {
-    r._re = r.type === 'texte' ? new RegExp(echapperRegex(normaliserTexte(r.motif))) : new RegExp(r.motif);
+    re = r.type === 'texte' ? new RegExp(echapperRegex(normaliserTexte(r.motif))) : new RegExp(r.motif);
   } catch {
-    r._re = /a^/; // motif invalide : ne correspond jamais
+    re = /a^/; // motif invalide : ne correspond jamais
   }
-  return r._re;
+  CACHE_REGEX.set(r, { re, motif: r.motif, type: r.type });
+  return re;
 }
 
 /** Clé de correspondance d'une transaction pour les règles. */

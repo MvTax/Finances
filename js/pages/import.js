@@ -4,7 +4,9 @@ import { h, icone, mt } from '../ui/dom.js';
 import { carte, bouton, champ, selectionner, etatVide, pastillesCategories, interrupteur, ligneTransaction } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { toast, toastErreur } from '../ui/toast.js';
-import { etat, majParametres, remplacerTout, enregistrerLot } from '../store.js';
+import { etat, majParametres, remplacerTout, enregistrerLot, appliquerMiseAJour } from '../store.js';
+import { planifierMiseAJour, resumeMiseAJour, basesDepuisContenu, ESTAMPILLES_HISTORIQUES } from '../miseajour.js';
+import { recalculerTousAjustements } from '../actions.js';
 import { aller } from '../router.js';
 import { extrairePages } from '../import/pdf-loader.js';
 import { parserLCL, estReleveLCL } from '../import/lcl-pdf.js';
@@ -198,12 +200,58 @@ function revueImport(resultats) {
   });
 }
 
-/** Restauration : validation, aperçu, choix fusionner / remplacer. */
+const CHAMPS_LISIBLES = { prenomAffichage: 'prénom affiché', jourLoyer: 'jour du loyer', loyerAPayerCentimes: 'loyer', jourSalaireHabituel: 'jour de salaire', objectifEpargneCentimes: 'objectif d’épargne', heuresMensuelles: 'heures par mois', arrondi: 'arrondis', regleRevolut: 'règle Revolut', parametresPlan: 'paramètres du plan', nomTitulaire: 'nom du titulaire' };
+
+/** Le fichier est-il le fichier privé (mis à jour au fil du temps) plutôt qu'une sauvegarde de l'app ? */
+export function estFichierPrive(objet, contenu) {
+  if (objet?.miseAJour?.estampille) return true;
+  const tx = contenu?.transactions || [];
+  return tx.length > 0 && tx.every((t) => ESTAMPILLES_HISTORIQUES.includes(t.modifieLe));
+}
+
+/** Mise à jour depuis le fichier privé : garde tout ce qui a été saisi ou modifié dans l'app. */
+export async function mettreAJourDepuisFichier(objet, r, { apres } = {}) {
+  const estampille = objet.miseAJour?.estampille || ESTAMPILLES_HISTORIQUES[0];
+  const plan = planifierMiseAJour(etatCourant(), r.contenu, { estampilles: [...(etat.meta.estampillesFichier || []), estampille], supprimes: etat.meta.supprimes || {}, baseProfil: etat.meta.baseProfil || null, baseParametres: etat.meta.baseParametres || null, bases: [etat.meta.baseFichier, ...(objet.miseAJour?.bases || [])] });
+  const premiere = !etat.transactions.length;
+  if (premiere) { await remplacerTout(r.contenu); toast('Fichier importé.', { type: 'succes' }); apres?.(); return; }
+  const gardes = plan.conflits.filter((c) => c.cle || c.champs);
+  // [singulier, pluriel, féminin]
+  const noms = { transactions: ['opération', 'opérations', true], prets: ['dette', 'dettes', true], creditsBancaires: ['crédit', 'crédits'], poches: ['poche', 'poches', true], enveloppes: ['enveloppe', 'enveloppes', true], chargesFixes: ['charge fixe', 'charges fixes', true], reglesCategorie: ['règle', 'règles', true], revenusMensuels: ['mois de revenus', 'mois de revenus'], planMensuel: ['mois du plan', 'mois du plan'], comptes: ['compte', 'comptes'], questions: ['question', 'questions', true], planAction: ['action', 'actions', true], virementsPrevus: ['virement prévu', 'virements prévus'] };
+  const libelleGarde = (k, n) => { const [s1, pl, fem] = noms[k] || [k, k]; return `${n} ${n > 1 ? pl : s1} modifié${fem ? 'e' : ''}${n > 1 ? 's' : ''} par toi`; };
+  const parType = {};
+  for (const c of gardes) if (c.cle) parType[c.collection] = (parType[c.collection] || 0) + 1; // ta version gagne sur ces éléments (ou ces champs)
+  const f = ouvrirFeuille({
+    titre: 'Mettre à jour depuis ton fichier',
+    contenu: h('div', { class: 'formulaire' },
+      h('p', {}, resumeMiseAJour(plan), '.'),
+      h('p', { class: 'petit' }, `Tout ce que tu as saisi ou modifié dans l’app est gardé${gardes.length ? ' :' : '.'}`),
+      gardes.length ? h('ul', { class: 'petit liste-gardes' }, Object.entries(parType).map(([k, n]) => h('li', {}, libelleGarde(k, n))),
+        gardes.filter((c) => !c.cle && c.champs).map((c) => h('li', {}, `${c.collection === 'profil' ? 'Profil' : 'Réglages'} : ${c.champs.map((x) => CHAMPS_LISIBLES[x] || x).join(', ')}`))) : null,
+      plan.totaux.ignores ? h('p', { class: 'petit' }, `${plan.totaux.ignores} élément(s) déjà présent(s) ou supprimé(s) par toi : ignorés.`) : null,
+      h('button', { type: 'button', class: 'lien negatif-texte', onclick: async () => {
+        const ok = await confirmer({ titre: 'Tout remplacer ?', message: 'Tes saisies et modifications faites dans l’app seront perdues. Préfère « Mettre à jour ».', ok: 'Tout remplacer', danger: true });
+        if (!ok) return;
+        await remplacerTout(r.contenu); f.fermer(); toast('Données remplacées par le fichier.', { type: 'succes' }); apres?.();
+      } }, 'Tout remplacer à la place')),
+    actions: [
+      bouton('Annuler', () => f.fermer()),
+      bouton('Mettre à jour', async () => {
+        await appliquerMiseAJour(plan, { estampille, baseProfil: r.contenu.profil || null, baseParametres: r.contenu.parametres || null, bases: basesDepuisContenu(r.contenu) });
+        await recalculerTousAjustements();
+        f.fermer(); toast(`Mis à jour : ${resumeMiseAJour(plan)}.`, { type: 'succes' }); apres?.();
+      }, { classe: 'btn-principal' }),
+    ],
+  });
+}
+
+/** Restauration : validation, aperçu, choix mettre à jour / fusionner / remplacer. */
 async function restaurer(fichier) {
   let objet;
   try { objet = JSON.parse(await fichier.text()); } catch { toastErreur('Ce fichier n’est pas un JSON valide.'); return; }
   const r = lireSauvegarde(objet);
   if (!r.ok) { toastErreur(r.erreurs.join(' ')); return; }
+  if (estFichierPrive(objet, r.contenu) && etat.transactions.length) { await mettreAJourDepuisFichier(objet, r, { apres: () => aller('accueil') }); return; }
   const a = r.apercu;
   const f = ouvrirFeuille({
     titre: 'Restaurer une sauvegarde',

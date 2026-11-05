@@ -8,6 +8,7 @@ const COLLECTIONS = Object.keys(tousLesStores()).filter((k) => !['meta', 'profil
 const SECRETS = ['cleGemini', 'pinHash', 'pinSel', 'pinIterations'];
 
 export function construireExport(etat, { maintenant = new Date().toISOString(), version = '1.0.0' } = {}) {
+  for (const r of etat.reglesCategorie || []) delete r._re;
   const parametres = { ...(etat.parametres || {}) };
   for (const s of SECRETS) delete parametres[s];
   const contenu = { profil: etat.profil || {}, parametres };
@@ -26,6 +27,7 @@ export function lireSauvegarde(objet) {
   let migre;
   try { migre = migrerContenu(objet.contenu, objet.schemaVersion); } catch (e) { return { ok: false, erreurs: [e.message] }; }
   const c = migre.contenu;
+  for (const r of c.reglesCategorie || []) delete r._re; // cache interne d'anciennes versions, jamais utile dans un fichier
   for (const k of COLLECTIONS) if (c[k] !== undefined && !Array.isArray(c[k])) erreurs.push(`« ${k} » devrait être une liste.`);
   for (const t of c.transactions || []) {
     if (!t.id || !/^\d{4}-\d{2}-\d{2}$/.test(t.date || '') || !Number.isInteger(t.montantCentimes) || t.montantCentimes < 0 || !['debit', 'credit'].includes(t.sens)) {
