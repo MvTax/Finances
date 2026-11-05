@@ -43,7 +43,7 @@ export function rendre(vue) {
   function dessiner() {
     const tx = filtrer();
     const total = tx.reduce((s, t) => s + contributionDepense(t), 0);
-    resume.textContent = `${tx.length.toLocaleString('fr-FR')} opération${tx.length > 1 ? 's' : ''}, ${formatEuros(total)} dépensés${filtres.internes ? '' : ' hors virements internes'}`;
+    resume.textContent = `${tx.length.toLocaleString('fr-FR')} opération${tx.length > 1 ? 's' : ''}, ${formatEuros(total)} dépensés`;
     puceFiltre.replaceChildren(...(filtres.categorie ? [h('button', { type: 'button', class: 'pastille active', style: { '--c': categorie(filtres.categorie).couleur }, 'aria-label': `Retirer le filtre ${categorie(filtres.categorie).nom}`, onclick: () => { filtres.categorie = ''; dessiner(); } },
       icone(categorie(filtres.categorie).icone), h('span', {}, categorie(filtres.categorie).nom), icone('fermer'))] : []));
     if (!tx.length) {

@@ -22,15 +22,54 @@
 .hero-jauge > span { display: block; height: 100%; border-radius: 2px; background: var(--laiton); transition: width 400ms var(--sortie); }
 :root:not([data-theme="sombre"]) .hero-jauge > span { background: #d4b47a; }
 .hero-aide { font-size: 14px; color: var(--hero-texte-2); }
-.hero-mois { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgb(255 255 255 / 14%); }
-.chiffre-principal { display: block; font-family: var(--police-chiffres); font-size: 26px; font-weight: 600; letter-spacing: -.4px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.hero-mois { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; }
+.hero-mois .chiffre-principal { display: inline; font-size: 17px; font-weight: 600; letter-spacing: 0; color: var(--hero-texte); margin: 0 0 0 4px; }
 .hero .chiffre-principal.negatif { color: #f3b1a9; }
-.hero-mois-droite { text-align: right; }
-.hero-mois-droite p:first-child { font-size: 17px; font-weight: 600; }
-.hero-note { font-size: 14px; color: var(--hero-texte); background: rgb(255 255 255 / 10%); border-radius: 10px; padding: 8px 10px; margin-top: 8px; }
 .hero-critique { background: #6e2b26; }
 html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .hero :focus-visible { outline-color: var(--hero-texte); }
+
+/* Ajouter une dépense : le geste principal, juste sous le chiffre du jour */
+.ajout-depense { min-height: 56px; gap: 10px; }
+.ajout-depense .ic { width: 22px; height: 22px; stroke-width: 2.2; }
+
+/* L'essentiel : une ligne par sujet urgent */
+.ligne-essentiel { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 0; border: 0; border-bottom: 0.5px solid var(--separateur); background: transparent; color: var(--texte); text-align: left; cursor: pointer; font-size: 16px; }
+.ligne-essentiel:last-child { border-bottom: 0; }
+.ligne-essentiel-titre { flex: 1; min-width: 0; font-weight: 500; line-height: 1.3; }
+.ligne-essentiel-alerte .ligne-essentiel-titre { color: var(--rouge); }
+.ligne-essentiel-alerte .bandeau-icone { background: var(--rouge-doux); color: var(--rouge); }
+.ligne-essentiel-info .bandeau-icone { background: var(--surface-2); color: var(--texte-2); }
+.ligne-essentiel-valeur { font-family: var(--police-chiffres); font-weight: 600; white-space: nowrap; }
+.ic.chevron { width: 16px; height: 16px; color: var(--texte-3); flex: none; }
+
+/* Épargne en résumé */
+.resume-epargne { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 16px; border: 0; border-radius: var(--rayon); background: var(--surface); color: var(--texte); text-align: left; cursor: pointer; margin-top: 10px; }
+.resume-epargne-haut { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.resume-epargne-titre { font-size: 17px; font-weight: 600; }
+.resume-epargne-valeur { font-family: var(--police-chiffres); font-weight: 600; color: var(--laiton); white-space: nowrap; }
+.resume-epargne-valeur .sur { font-family: var(--police); font-weight: 400; color: var(--texte-3); }
+.resume-epargne-valeur .mt:last-child { color: var(--texte-2); font-weight: 500; }
+.resume-epargne-bas { display: flex; align-items: center; gap: 4px; font-size: 14px; color: var(--texte-2); }
+.resume-epargne-bas .mt { color: var(--texte); font-family: var(--police-chiffres); font-weight: 500; }
+.resume-epargne-bas .chevron { margin-left: auto; }
+
+/* Rubriques : le détail s'ouvre à la demande */
+.rubriques { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.rubriques-titre { padding: 0 4px; }
+.grille-tuiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tuile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 96px; padding: 14px; border: 0; border-radius: var(--rayon); background: var(--surface); color: var(--texte); text-align: left; cursor: pointer; }
+.tuile:active { background: var(--surface-2); }
+.tuile-icone { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-doux); color: var(--accent); margin-bottom: 6px; }
+.tuile-icone .ic { width: 17px; height: 17px; }
+.tuile-nom { font-size: 15px; font-weight: 600; }
+.tuile-valeur { font-size: 14px; color: var(--texte-2); font-family: var(--police-chiffres); }
+.tuile-valeur .negatif { color: var(--rouge); }
+.feuille-sections { display: flex; flex-direction: column; gap: 10px; }
+.feuille-sections > .carte-corps { padding: 0; }
+.feuille-sous-titre { font-size: 15px; font-weight: 600; color: var(--texte-2); margin-top: 10px; }
+.feuille-corps > .carte-corps { padding: 0; }
+.feuille-corps > .bandeaux .bandeau:first-child { padding-top: 4px; }
 
 .alerte-decouvert, .ok-decouvert { display: flex; flex-direction: column; gap: 8px; }
 .alerte-titre { font-weight: 650; font-size: 17px; color: var(--rouge); display: flex; gap: 8px; align-items: flex-start; }
@@ -152,13 +191,30 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .poche-tete h3 { font-size: 17px; font-weight: 600; }
 .poche-solde { font-family: var(--police-chiffres); font-size: 22px; font-weight: 650; }
 .poche .barre-vert .barre-remplie, .poche .barre-bleu .barre-remplie { background: var(--laiton); }
-.objectif { font-weight: 650; display: flex; gap: 6px; align-items: center; }
+.objectif { font-weight: 500; font-size: 15px; display: flex; gap: 6px; align-items: center; }
 .objectif .ic { width: 18px; height: 18px; color: var(--laiton); }
 .a-confirmer { background: var(--accent-doux); padding: 10px 12px; border-radius: var(--rayon-petit); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 15px; }
 .a-confirmer .ic { width: 18px; height: 18px; color: var(--accent); }
 .anti-reprise { background: var(--orange-doux); padding: 12px; border-radius: var(--rayon-petit); display: flex; flex-direction: column; gap: 6px; }
 .anti-reprise .ic { width: 18px; height: 18px; display: inline-block; vertical-align: -3px; color: var(--orange); }
 .simulateur { display: flex; flex-direction: column; gap: 10px; }
+.resume-dettes { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
+.liste-dettes { display: flex; flex-direction: column; }
+.dette-ligne { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 0.5px solid var(--separateur); }
+.dette-ligne:last-child { border-bottom: 0; }
+.dette-ligne h3 { font-size: 16px; font-weight: 600; }
+.dette-ligne h3 small { font-weight: 400; color: var(--texte-3); }
+.poche-solde-petit { font-family: var(--police-chiffres); font-weight: 600; }
+.prochaine { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; }
+.avertissement-replie { flex-direction: column; gap: 4px; }
+.avertissement-replie > summary { color: var(--orange); min-height: 32px; font-size: 15px; gap: 6px; }
+.avertissement-replie > summary::before { display: none; }
+.details-discret > summary { min-height: 36px; font-size: 14px; color: var(--texte-2); }
+.details-contenu { display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; }
+.details-ligne { border-bottom: 0.5px solid var(--separateur); }
+.details-ligne:last-child { border-bottom: 0; }
+.details-ligne > summary { min-height: 52px; color: var(--texte); font-size: 16px; font-weight: 500; }
+.details-ligne > :not(summary) { padding-bottom: 12px; }
 .ligne-scenario { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ligne-scenario small, .ligne-cle-valeur small { font-size: 13px; color: var(--texte-3); }
 .ligne-cle-valeur small { display: block; }

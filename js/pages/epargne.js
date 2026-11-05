@@ -47,39 +47,46 @@ function vuePoches() {
     const s = soldePoche(p);
     const n = epargneNettePoche(p);
     const dateAtt = att[p.id];
-    return h('article', { class: 'poche' },
-      h('div', { class: 'poche-tete' }, h('h3', {}, p.nom), h('span', { class: 'poche-solde' }, mt(s))),
-      p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: s >= p.cibleCentimes ? 'vert' : 'bleu', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
-      h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)} au rythme prévu.` : '. Date d’atteinte impossible à projeter pour l’instant.'] : 'Sans objectif chiffré.'),
+    // L'essentiel visible (solde, objectif, boutons) ; le reste replié dans « Détails »
+    const notes = [
       h('p', { class: 'petit' }, `Placé sur ${p.compteSupport ? (/^(livret|lep|ldds)/i.test(p.compteSupport) ? `le ${p.compteSupport}` : p.compteSupport) : 'le livret'}${p.tauxAnnuel ? ` à ${String(p.tauxAnnuel).replace('.', ',')} %` : ''}.`),
       h('p', { class: 'petit' }, 'Épargne nette : ', mt(n.nette), n.reprises ? ` (versé ${formatEuros(n.versements)}, repris ${formatEuros(n.reprises)})` : ''),
       p.type === 'coussin' ? h('p', { class: 'petit' }, 'Uniquement pour les vrais imprévus. Le reprendre pour une dépense courante déclenche l’alerte « épargne reprise ».') : null,
-      p.type === 'projet' && /voiture/i.test(p.nom) ? h('p', { class: 'petit info-texte' }, icone('info'), ' Avant l’achat, prévois le coût mensuel d’une voiture (assurance, carburant, entretien, contrôle technique, stationnement) et ajoute-le aux charges fixes simulées.') : null,
-      p.type === 'remboursementAnticipe' && s >= (p.palierCentimes || 50000) ? h('p', { class: 'petit vert-texte' }, icone('ok'), ` Palier atteint : tu peux rembourser ${formatEuros(s)} par anticipation (voir « Mes dettes »).`) : null,
+      p.type === 'projet' && /voiture/i.test(p.nom) ? h('p', { class: 'petit' }, 'Avant l’achat, prévois le coût mensuel d’une voiture (assurance, carburant, entretien, stationnement) et ajoute-le aux charges fixes.') : null,
+      (p.mouvements || []).length ? h('div', { class: 'liste-cles' }, [...p.mouvements].reverse().slice(0, 30).map((m) => h('div', { class: 'ligne-cle' }, h('span', {}, `${formatDate(m.date)}, ${m.motif || (m.sens === 'versement' ? 'versement' : 'reprise')}`), h('span', { class: m.sens === 'reprise' ? 'negatif-texte' : '' }, m.sens === 'reprise' ? '−' : '+', mt(m.montantCentimes))))) : null,
+    ];
+    return h('article', { class: 'poche' },
+      h('div', { class: 'poche-tete' }, h('h3', {}, p.nom), h('span', { class: 'poche-solde' }, mt(s))),
+      p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
+      h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)}` : ''] : 'Sans objectif chiffré'),
+      p.type === 'remboursementAnticipe' && s >= (p.palierCentimes || 50000) ? h('p', { class: 'petit vert-texte' }, icone('ok'), ` Palier atteint : tu peux rembourser ${formatEuros(s)} par anticipation.`) : null,
       h('div', { class: 'groupe-boutons' }, bouton('Verser', () => feuilleMouvement(p, 'versement'), { classe: 'btn-petit btn-principal' }), bouton('Reprendre', () => feuilleMouvement(p, 'reprise'), { classe: 'btn-petit' }), bouton('Modifier', () => editerPoche(p), { classe: 'btn-petit' })),
-      (p.mouvements || []).length ? h('details', {}, h('summary', {}, `Historique (${p.mouvements.length})`), h('div', { class: 'liste-cles' }, [...p.mouvements].reverse().slice(0, 30).map((m) => h('div', { class: 'ligne-cle' }, h('span', {}, `${formatDate(m.date)} · ${m.motif || (m.sens === 'versement' ? 'Versement' : 'Reprise')}`), h('span', { class: m.sens === 'reprise' ? 'negatif-texte' : '' }, m.sens === 'reprise' ? '−' : '+', mt(m.montantCentimes)))))) : null);
+      h('details', { class: 'details-discret' }, h('summary', {}, 'Détails'), h('div', { class: 'details-contenu' }, notes)));
   });
   // Arrondis
   const ar = etat.profil.arrondi || {};
   const cag = cagnotteEnAttente(etat.transactions, ar, etat.cagnotteArrondis);
   const prochaine = ar.actif ? prochainVirementArrondis(ar, aujourdhui(), ar.dernierVirement || null) : null;
-  const arrondis = carte('Cagnotte « Arrondis à virer »', h('div', {},
-    ar.actif ? h('p', { class: 'grand-montant' }, mt(cag.total)) : h('p', {}, 'Arrondis désactivés (Réglages → Arrondis).'),
-    ar.actif ? h('p', { class: 'petit' }, `${cag.lignes.length} dépense${cag.lignes.length > 1 ? 's' : ''} arrondie${cag.lignes.length > 1 ? 's' : ''} à l'euro supérieur · virement ${({ hebdomadaire: 'chaque semaine', quinzaine: 'tous les 15 jours', mensuelle: 'chaque mois' })[ar.frequence || 'hebdomadaire']} · prochain le ${formatDate(prochaine)}. Distinct de l'arrondi System'Épargne de la banque : les deux comptent, une seule fois chacun.`) : null,
+  const arrondis = carte('Arrondis à virer', h('div', {},
+    ar.actif ? h('div', { class: 'poche-tete' }, h('span', { class: 'petit' }, `Prochain virement le ${formatDate(prochaine)}`), h('span', { class: 'poche-solde' }, mt(cag.total))) : h('p', {}, 'Arrondis désactivés (Réglages → Arrondis).'),
     ar.actif ? h('div', { class: 'groupe-boutons' }, bouton("C'est fait", async () => { if (!cag.total) { toast('Rien à virer pour l’instant.'); return; } await virerArrondis(); toast('Arrondis virés.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit', disabled: !cag.total }),
-      bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur le Livret', description: 'Ouvre Budget pour voir le montant.', date: prochaine, heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence || 'hebdomadaire'], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' })) : null), { id: 'arrondis' });
+      bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur le Livret', description: 'Ouvre Budget pour voir le montant.', date: prochaine, heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence || 'hebdomadaire'], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' })) : null,
+    ar.actif ? h('details', { class: 'details-discret' }, h('summary', {}, 'Comment ça marche'), h('p', { class: 'petit' }, `${cag.lignes.length} dépense${cag.lignes.length > 1 ? 's' : ''} arrondie${cag.lignes.length > 1 ? 's' : ''} à l'euro supérieur, à virer ${({ hebdomadaire: 'chaque semaine', quinzaine: 'tous les 15 jours', mensuelle: 'chaque mois' })[ar.frequence || 'hebdomadaire']}. C'est distinct de l'arrondi System'Épargne de la banque : les deux comptent, une seule fois chacun.`)) : null), { id: 'arrondis' });
   // Sources et objectif
   const progression = planMois ? planMois.allocationsPoches.reduce((s, a) => s + a.montantCentimes, 0) + (planMois.arrondisEstimesCentimes || 0) : 0;
-  const sources = carte(`Épargne de ${formatMois(per.mois)}`, h('div', {},
-    statistique('Épargne nette réelle', mt(nette.nette), { detail: `${formatEuros(nette.versements)} versés, ${formatEuros(nette.reprises)} repris` }),
+  const sources = h('div', {},
     h('div', { class: 'liste-cles' },
+      ligne('Épargne nette réelle', nette.nette),
       ligne('Virements vers le livret', nette.parType.virementLivret || 0),
       ligne("Arrondi System'Épargne (banque)", nette.parType.arrondiBanque || 0),
       ligne("Arrondis de l'app virés", nette.parType.arrondiApp || 0),
-      ligne('Arrondis en attente', cag.total)),
-    objectif ? h('p', { class: 'petit' }, `Objectif ${formatEuros(objectif)}/mois : palier de ce mois ${formatEuros(progression)} selon ton plan. C'est une progression, pas un échec : 500 € viennent quand les dettes court terme sont soldées.`) : null));
+      nette.reprises ? ligne('Repris', nette.reprises) : null),
+    objectif ? h('p', { class: 'petit' }, `Palier de ce mois : ${formatEuros(progression)} sur un objectif de ${formatEuros(objectif)}. Les 500 € viendront quand les dettes court terme seront soldées.`) : null);
   const histo = historiqueMensuel();
-  return h('div', {}, h('div', { class: 'poches' }, cartesPoches), arrondis, sources, histo, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
+  const plus = carte('Pour aller plus loin', h('div', { class: 'liste-liens' },
+    h('details', { class: 'details-ligne' }, h('summary', {}, `Épargne de ${formatMois(per.mois)}`), sources),
+    histo ? h('details', { class: 'details-ligne' }, h('summary', {}, 'Historique des 12 derniers mois'), histo) : null), { id: 'plus-epargne' });
+  return h('div', {}, h('div', { class: 'poches' }, cartesPoches), arrondis, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
 function ligne(l, c) { return h('div', { class: 'ligne-cle' }, h('span', {}, l), mt(c)); }
@@ -89,7 +96,7 @@ function historiqueMensuel() {
   if (!tx.length) return null;
   const dates = tx.map((t) => t.date).sort();
   const mois = listeMois(moisDe(dates[0]), moisDe(aujourdhui())).slice(-12).reverse();
-  return carte('Historique réel (épargne nette par mois)', h('div', { class: 'liste-cles' }, mois.map((m) => { const n = epargneNettePeriode(tx, `${m}-01`, dernierJour(m)); return h('div', { class: 'ligne-cle' }, h('span', {}, formatMois(m)), h('span', { class: n.nette < 0 ? 'negatif-texte' : '' }, mt(n.nette), n.nbReprises ? h('small', {}, ` (${n.nbReprises} reprise${n.nbReprises > 1 ? 's' : ''})`) : null)); })));
+  return h('div', { class: 'liste-cles' }, mois.map((m) => { const n = epargneNettePeriode(tx, `${m}-01`, dernierJour(m)); return h('div', { class: 'ligne-cle' }, h('span', {}, formatMois(m)), h('span', { class: n.nette < 0 ? 'negatif-texte' : '' }, mt(n.nette), n.nbReprises ? h('small', {}, ` (${n.nbReprises} reprise${n.nbReprises > 1 ? 's' : ''})`) : null)); }));
 }
 
 function feuilleMouvement(poche, sens) {
@@ -152,9 +159,8 @@ function vuePlan() {
       cur.arrondisEstimesCentimes ? ligne('Arrondis estimés', cur.arrondisEstimesCentimes) : null,
       ligne('Vie courante', cur.vieCouranteCentimes),
       h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Marge'), mt(cur.margeCentimes))),
-    cur.vieDetail ? h('p', { class: 'petit' }, 'Vie courante : ', cur.vieDetail.map((v) => `${v.libelle} ${formatEuros(v.montantCentimes)}`).join(', '), ` (≈ ${formatEuros(Math.round(cur.vieCouranteCentimes / (cur.periode ? 30 : 30)))} par jour)`) : null,
+    cur.vieDetail ? h('details', { class: 'details-discret' }, h('summary', {}, 'Détail de la vie courante'), h('div', { class: 'liste-cles' }, cur.vieDetail.map((v) => ligne(v.libelle, v.montantCentimes)))) : null,
     cur.objectif ? h('p', { class: 'objectif' }, icone('etoile'), ` Objectif n° 1 du mois : ${cur.objectif}.`) : null,
-    h('p', { class: 'petit' }, 'Le plan se recalcule quand tu saisis tes revenus exacts ou qu’une enveloppe déborde. Les montants proposés ne créent jamais de découvert projeté.'),
     proj[0].stocke && cur.statut !== 'accepte' ? bouton('Accepter ce plan', () => accepterPlan(cur), { classe: 'btn-principal' }) : !proj[0].stocke ? bouton('Accepter ce plan', () => accepterPlan(cur), { classe: 'btn-principal' }) : h('p', { class: 'vert-texte' }, icone('ok'), ' Plan accepté.')), { id: 'allocation' });
 
   const lignesProj = proj.slice(0, 24).map((l) => h('tr', {},
@@ -162,14 +168,14 @@ function vuePlan() {
     h('td', {}, mt(l.plan.allocationsPoches.reduce((s, a) => s + a.montantCentimes, 0) + (l.plan.arrondisEstimesCentimes || 0))),
     ...etat.poches.filter((p) => p.actif !== false).map((p) => h('td', {}, mt(l.soldes[p.id] || 0))),
     h('td', {}, mt(l.plan.margeCentimes))));
-  const tableau = carte('Projection mois par mois', h('div', { class: 'tableau-defile' }, h('table', { class: 'tableau' },
+  const tableau = detailsLigne('Projection mois par mois', h('div', { class: 'tableau-defile' }, h('table', { class: 'tableau' },
     h('caption', { class: 'sr' }, 'Épargne mensuelle et soldes projetés des poches'),
     h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Mois'), h('th', { scope: 'col' }, 'Épargne'), ...etat.poches.filter((p) => p.actif !== false).map((p) => h('th', { scope: 'col' }, p.nom)), h('th', { scope: 'col' }, 'Marge'))),
     h('tbody', {}, lignesProj))),
   h('div', { class: 'liste-cles' }, etat.poches.filter((p) => p.cibleCentimes && p.actif !== false).map((p) => h('div', { class: 'ligne-cle' }, h('span', {}, `${p.nom} (${formatEuros(p.cibleCentimes)})`), h('span', {}, att[p.id] ? formatMois(att[p.id]) : 'au-delà de 4 ans')))));
 
   const sc = scenariosPret(etat, mois, 60);
-  const scen = sc ? carte('Effet sur la fin du prêt', h('div', {},
+  const scen = sc ? detailsLigne('Effet sur la fin du prêt', h('div', {},
     h('div', { class: 'liste-cles', role: 'list', 'aria-label': 'Scénarios de remboursement anticipé' },
       [['Sans remboursement anticipé', sc.sansAnticipe], ['Tout sur le projet, puis le prêt', sc.projet], ['Répartition (réglable)', sc.repartition], ['Tout sur le remboursement anticipé', sc.pret]].map(([nom, x]) => {
         const gain = sc.sansAnticipe.interetsCentimes - x.interetsCentimes;
@@ -179,7 +185,11 @@ function vuePlan() {
       })),
     h('p', { class: 'petit' }, `Chaque euro remboursé par anticipation rapporte le taux du prêt (${String(sc.credit.tauxPourcent).replace('.', ',')} % saisi) contre ${String(etat.parametres.tauxLivretA).replace('.', ',')} % sur le Livret A.`),
     reglageRepartition())) : null;
-  return h('div', {}, allocation, tableau, scen);
+  return h('div', {}, allocation, carte('Pour aller plus loin', h('div', { class: 'liste-liens' }, tableau, scen), { id: 'plus-plan' }));
+}
+
+function detailsLigne(titre, ...contenus) {
+  return h('details', { class: 'details-ligne' }, h('summary', {}, titre), h('div', { class: 'details-contenu' }, contenus));
 }
 
 function reglageRepartition() {
@@ -211,27 +221,37 @@ async function accepterPlan(plan) {
 function vueDettes() {
   const auj = aujourdhui();
   const credits = etat.creditsBancaires.filter((c) => c.actif !== false).map((c) => c.type === 'amortissable' ? carteAmortissable(c, auj) : carteInstantane(c, auj));
-  const prets = etat.prets.map((p) => {
+  const prets = etat.prets.filter((p) => p.statut !== 'solde' || resteDuPret(p) > 0).map((p) => {
     const reste = resteDuPret(p);
-    return h('article', { class: 'dette' },
-      h('div', { class: 'poche-tete' }, h('h3', {}, p.sens === 'empruntéParMoi' ? `Je dois à ${p.personneAlias}` : `${p.personneAlias} me doit`, p.objet ? h('small', {}, ` · ${p.objet}`) : null), h('span', {}, mt(reste))),
-      barre(p.montantCentimes - reste, p.montantCentimes, { etat: 'bleu', label: `Remboursé ${formatEuros(p.montantCentimes - reste)} sur ${formatEuros(p.montantCentimes)}` }),
-      p.depenseEtalee ? h('p', { class: 'petit' }, `Dépense « ${p.objet} » de ${formatEuros(p.montantCentimes)} étalée : chaque remboursement compte dans sa catégorie, une seule fois.`) : null,
-      h('div', { class: 'liste-cles' }, p.echeancier.map((e) => h('div', { class: 'ligne-cle' }, h('span', {}, formatDate(e.date)), h('span', {}, mt(e.montantCentimes), ' ', e.payee ? h('span', { class: 'etiquette vert' }, 'payé') : bouton("C'est fait", () => payerEcheancePret(p.id, e.date), { classe: 'btn-petit btn-principal' }))))));
+    const prochaine = p.echeancier.find((e) => !e.payee);
+    return h('article', { class: 'dette-ligne' },
+      h('div', { class: 'poche-tete' }, h('h3', {}, p.sens === 'empruntéParMoi' ? p.personneAlias : `${p.personneAlias} me doit`, p.objet ? h('small', {}, ` (${p.objet})`) : null), mt(reste, { classe: 'poche-solde-petit' })),
+      prochaine ? h('div', { class: 'prochaine' }, h('span', { class: 'petit' }, `Prochain : ${formatEuros(prochaine.montantCentimes)} le ${formatDateCourte(prochaine.date)}`),
+        p.sens === 'empruntéParMoi' ? bouton("C'est fait", () => payerEcheancePret(p.id, prochaine.date), { classe: 'btn-petit btn-principal' }) : null) : h('p', { class: 'petit vert-texte' }, 'Tout est remboursé.'),
+      p.echeancier.length > 1 || p.depenseEtalee ? h('details', { class: 'details-discret' }, h('summary', {}, 'Échéancier'), h('div', { class: 'details-contenu' },
+        p.depenseEtalee ? h('p', { class: 'petit' }, `Dépense « ${p.objet} » de ${formatEuros(p.montantCentimes)} étalée : chaque remboursement compte une seule fois dans sa catégorie.`) : null,
+        h('div', { class: 'liste-cles' }, p.echeancier.map((e) => h('div', { class: 'ligne-cle' }, h('span', {}, formatDate(e.date)), h('span', {}, mt(e.montantCentimes), e.payee ? h('span', { class: 'etiquette vert' }, 'payé') : null)))))) : null);
   });
+  const totalDu = etat.creditsBancaires.filter((c) => c.actif !== false).reduce((t, c) => t + (c.type === 'amortissable' ? (() => { try { return capitalRestantDu(tableauAmortissement(c), auj, c.capitalCentimes); } catch { return c.capitalCentimes || 0; } })() : encoursCredit(c, auj)), 0)
+    + etat.prets.filter((p) => p.sens === 'empruntéParMoi').reduce((t, p) => t + resteDuPret(p), 0);
   return h('div', {},
-    h('p', { class: 'petit' }, 'Les dettes ne sont pas des poches d’épargne : ce sont des charges datées qui passent avant toute épargne et sont déduites du reste à dépenser.'),
-    credits.length ? h('div', {}, credits) : null,
-    carte('Dettes envers des proches', h('div', {}, prets.length ? prets : h('p', { class: 'petit' }, 'Aucune dette enregistrée.'), bouton('Ajouter un prêt ou une dette', () => editerPret(null), { icone: 'plus' }))),
-    bouton('Ajouter un crédit bancaire', () => editerCredit(null), { icone: 'plus' }));
+    h('div', { class: 'resume-dettes' }, h('span', { class: 'petit' }, 'Total à rembourser'), h('span', { class: 'grand-montant' }, mt(totalDu))),
+    credits.length ? h('div', { class: 'zone-onglet' }, credits) : null,
+    carte('Proches', h('div', { class: 'liste-dettes' }, prets.length ? prets : h('p', { class: 'petit' }, 'Aucune dette enregistrée.')), { id: 'proches' }),
+    h('div', { class: 'groupe-boutons' }, bouton('Ajouter une dette', () => editerPret(null), { icone: 'plus' }), bouton('Ajouter un crédit', () => editerCredit(null), { icone: 'plus' })));
 }
 
 function carteInstantane(c, auj) {
   const encours = encoursCredit(c, auj);
+  const ech = c.echeancier || [];
+  const prochaine = ech.find((e) => !e.payee);
   return carte(c.libelle, h('div', {},
-    statistique('Reste à rembourser', mt(encours), { detail: c.fraisCentimes ? `frais payés : ${formatEuros(c.fraisCentimes)}` : null }),
-    h('div', { class: 'liste-cles' }, (c.echeancier || []).map((e) => h('div', { class: 'ligne-cle' }, h('span', {}, formatDate(e.date)), h('span', {}, mt(e.montantCentimes), ' ', e.payee ? h('span', { class: 'etiquette vert' }, 'payée') : (e.date <= ajouterJours(auj, 3) ? bouton("C'est fait", () => payerEcheanceCredit(c.id, e.date), { classe: 'btn-petit' }) : h('span', { class: 'etiquette' }, 'à venir')))))),
-    h('p', { class: 'petit' }, 'Sortir de ce cycle passe avant l’objectif d’épargne : aucun nouveau déblocage. Les échéances sont dans la projection de découvert.')), { classe: 'carte-alerte' });
+    h('div', { class: 'poche-tete' }, h('span', { class: 'petit' }, 'Reste à rembourser'), mt(encours, { classe: 'poche-solde' })),
+    prochaine ? h('div', { class: 'prochaine' }, h('span', { class: 'petit' }, `Prochaine échéance : ${formatEuros(prochaine.montantCentimes)} le ${formatDateCourte(prochaine.date)}`),
+      prochaine.date <= ajouterJours(auj, 3) ? bouton("C'est fait", () => payerEcheanceCredit(c.id, prochaine.date), { classe: 'btn-petit btn-principal' }) : null) : null,
+    h('details', { class: 'details-discret' }, h('summary', {}, 'Échéancier'), h('div', { class: 'details-contenu' },
+      h('div', { class: 'liste-cles' }, ech.map((e) => h('div', { class: 'ligne-cle' }, h('span', {}, formatDate(e.date)), h('span', {}, mt(e.montantCentimes), e.payee ? h('span', { class: 'etiquette vert' }, 'payée') : null)))),
+      c.fraisCentimes ? h('p', { class: 'petit' }, `Frais payés : ${formatEuros(c.fraisCentimes)}. Aucun nouveau déblocage : sortir de ce cycle passe avant l’épargne.`) : null))), { classe: 'carte-alerte' });
 }
 
 function carteAmortissable(c, auj) {
@@ -254,15 +274,18 @@ function carteAmortissable(c, auj) {
   const sim = h('div', { class: 'simulateur' }, champ('Versement anticipé', champMontant({ valeur: montantSim, onValeur: (v) => { montantSim = v; simuler(); } })), resultatSim);
   setTimeout(simuler, 0);
   return carte(c.libelle, h('div', {},
-    c.aConfirmer?.length ? h('div', { class: 'a-confirmer' }, icone('info'), ' Paramètres à confirmer avec ton offre de prêt : ', bouton('Compléter', () => editerCredit(c), { classe: 'btn-petit btn-principal' })) : null,
-    coh && !coh.coherent ? h('p', { class: 'avertissement', role: 'alert' }, icone('alerte'), ` Incohérence : ${formatEuros(c.mensualiteCentimes)}/mois rembourse ${formatEuros(c.capitalCentimes)} en ${coh.dureeMin} à ${coh.dureeMax} mois (taux 5 à 9 %). ${coh.mensualitesParDuree.map((m) => `Sur ${m.dureeMois / 12} ans, la mensualité serait de ${formatEuros(m.min)} à ${formatEuros(m.max)}`).join(' ; ')}.`) : null,
-    statistique('Capital restant dû', mt(restant), { detail: c.dateDebut > auj ? `1re échéance le ${formatDate(c.dateDebut)}${c.differe ? ` · différé actuel ${formatEuros(c.differe.mensualiteCentimes)}/mois` : ''}` : null }),
-    h('div', { class: 'liste-cles' }, ligne('Mensualité', c.mensualiteCentimes || 0), h('div', { class: 'ligne-cle' }, h('span', {}, 'Taux (TAEG)'), h('span', {}, `${String(c.tauxPourcent ?? '—').replace('.', ',')} %`)), tableau ? ligne('Intérêts totaux', totalInterets(tableau)) : null, tableau ? h('div', { class: 'ligne-cle' }, h('span', {}, 'Fin'), h('span', {}, formatDate(tableau[tableau.length - 1].date))) : null),
+    c.aConfirmer?.length ? h('div', { class: 'a-confirmer' }, icone('info'), ' À confirmer avec ton offre de prêt ', bouton('Compléter', () => editerCredit(c), { classe: 'btn-petit btn-principal' })) : null,
+    coh && !coh.coherent ? h('details', { class: 'avertissement avertissement-replie', role: 'alert' }, h('summary', {}, icone('alerte'), ` Mensualité de ${formatEuros(c.mensualiteCentimes)} à vérifier`), h('p', { class: 'petit' }, `Elle rembourse ${formatEuros(c.capitalCentimes)} en ${coh.dureeMin} à ${coh.dureeMax} mois (taux 5 à 9 %). ${coh.mensualitesParDuree.map((m) => `Sur ${m.dureeMois / 12} ans, elle serait de ${formatEuros(m.min)} à ${formatEuros(m.max)}`).join(' ; ')}.`)) : null,
+    h('div', { class: 'poche-tete' }, h('span', { class: 'petit' }, 'Capital restant dû'), mt(restant, { classe: 'poche-solde' })),
+    h('p', { class: 'petit' }, `${formatEuros(c.mensualiteCentimes || 0)} par mois`, c.dateDebut > auj ? `, à partir du ${formatDate(c.dateDebut)}` : ''),
     erreur ? h('p', { class: 'erreur' }, erreur) : null,
+    h('details', { class: 'details-discret' }, h('summary', {}, 'Détails et simulateur'), h('div', { class: 'details-contenu' },
+      c.differe && c.dateDebut > auj ? h('p', { class: 'petit' }, `Différé actuel : ${formatEuros(c.differe.mensualiteCentimes)} par mois.`) : null,
+    h('div', { class: 'liste-cles' }, ligne('Mensualité', c.mensualiteCentimes || 0), h('div', { class: 'ligne-cle' }, h('span', {}, 'Taux (TAEG)'), h('span', {}, `${String(c.tauxPourcent ?? '—').replace('.', ',')} %`)), tableau ? ligne('Intérêts totaux', totalInterets(tableau)) : null, tableau ? h('div', { class: 'ligne-cle' }, h('span', {}, 'Fin'), h('span', {}, formatDate(tableau[tableau.length - 1].date))) : null),
     tableau ? h('details', {}, h('summary', {}, `Tableau d'amortissement (${tableau.length} échéances)`), h('div', { class: 'tableau-defile' }, h('table', { class: 'tableau' }, h('caption', { class: 'sr' }, 'Tableau d’amortissement'),
       h('thead', {}, h('tr', {}, ['N°', 'Date', 'Mensualité', 'Capital', 'Intérêts', 'Restant dû'].map((x) => h('th', { scope: 'col' }, x)))),
       h('tbody', {}, tableau.map((l) => h('tr', {}, h('td', {}, String(l.numero)), h('td', {}, formatDate(l.date)), h('td', {}, mt(l.mensualiteCentimes)), h('td', {}, mt(l.capitalCentimes)), h('td', {}, mt(l.interetsCentimes)), h('td', {}, mt(l.capitalRestantCentimes)))))))) : null,
-    h('h3', { class: 'sous-titre' }, 'Simulateur de remboursement anticipé'), sim));
+      h('h3', { class: 'sous-titre' }, 'Remboursement anticipé'), sim))));
 }
 
 function editerCredit(credit) {
