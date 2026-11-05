@@ -58,7 +58,8 @@ export function repartirVersement(montantCentimes, poches, soldes = {}) {
   const res = new Map();
   let reste = montantCentimes;
   const triees = [...poches].filter((p) => p.actif !== false).sort((a, b) => (a.priorite || 9) - (b.priorite || 9));
-  const prioritaires = triees.filter((p) => p.type === 'coussin');
+  // Coussin sans part chiffrée : il se remplit en premier. Avec une part (ex. 25 %), il partage le versement avec les autres poches.
+  const prioritaires = triees.filter((p) => p.type === 'coussin' && (p.partRepartition === null || p.partRepartition === undefined));
   for (const p of prioritaires) {
     const solde = soldes[p.id] ?? soldePoche(p);
     const place = Math.max(0, (p.cibleCentimes || 0) - solde);
@@ -66,7 +67,7 @@ export function repartirVersement(montantCentimes, poches, soldes = {}) {
     if (v > 0) { res.set(p.id, (res.get(p.id) || 0) + v); reste -= v; }
   }
   // Poches suivantes : répartition par parts, en reversant le surplus d'une poche pleine sur les autres
-  let autres = triees.filter((p) => p.type !== 'coussin');
+  let autres = triees.filter((p) => !prioritaires.includes(p));
   let garde = 0;
   while (reste > 0 && autres.length && garde++ < 10) {
     const parts = autres.map((p) => p.partRepartition ?? Math.round(100 / autres.length));
@@ -84,7 +85,8 @@ export function repartirVersement(montantCentimes, poches, soldes = {}) {
     reste = surplus;
     autres = encore;
   }
-  if (reste > 0 && prioritaires[0]) res.set(prioritaires[0].id, (res.get(prioritaires[0].id) || 0) + reste);
+  const secours = prioritaires[0] || triees.find((p) => p.type === 'coussin') || triees[0];
+  if (reste > 0 && secours) res.set(secours.id, (res.get(secours.id) || 0) + reste);
   return [...res.entries()].map(([pocheId, montantCentimes]) => ({ pocheId, montantCentimes }));
 }
 

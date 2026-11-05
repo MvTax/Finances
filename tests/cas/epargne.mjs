@@ -46,6 +46,15 @@ export default [
     const p2 = p.map((x) => (x.id === 'v' ? { ...x, partRepartition: 100 } : x.id === 'r' ? { ...x, partRepartition: 0 } : x));
     egal(repartirVersement(50000, p2, { c: 100000, v: 0, r: 0 }).find((x) => x.pocheId === 'v').montantCentimes, 50000);
   } },
+  { nom: 'poches : Coussin avec une part chiffrée, versement partagé (25 / 15 / 60) et surplus reversé', fn: () => {
+    const p = poches().map((x) => ({ ...x, partRepartition: x.id === 'c' ? 25 : x.id === 'v' ? 15 : 60 }));
+    const r = repartirVersement(10000, p);
+    egal(r.find((x) => x.pocheId === 'c').montantCentimes, 2500); egal(r.find((x) => x.pocheId === 'v').montantCentimes, 1500); egal(r.find((x) => x.pocheId === 'r').montantCentimes, 6000);
+    // Coussin presque plein : il ne prend que sa place, le reste repart sur les autres poches
+    const r2 = repartirVersement(10000, p, { c: 99000, v: 0, r: 0 });
+    egal(r2.find((x) => x.pocheId === 'c').montantCentimes, 1000);
+    egal(r2.reduce((t, x) => t + x.montantCentimes, 0), 10000);
+  } },
   { nom: 'plan mensuel : 4 mois synthétiques recalculés au centime (sécurité, sécurité, rattrapage, croisière)', fn: () => {
     const R = 151234; const C = 35111;
     const m1 = proposerAllocation({ revenusCentimes: R, chargesFixesCentimes: C, dettesCentimes: 65500, creditCourtEnCours: true, dettesCourtTermeRestantes: true });

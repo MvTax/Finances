@@ -129,10 +129,10 @@ function editerPoche(poche) {
     titre: poche ? p.nom : 'Nouvelle poche', plein: true,
     contenu: h('div', { class: 'formulaire' },
       champ('Nom', h('input', { class: 'input', value: p.nom, oninput: (e) => { p.nom = e.target.value; } })),
-      champ('Type', selectionner([['coussin', 'Coussin de sécurité (priorité absolue)'], ['projet', 'Projet (voiture…)'], ['remboursementAnticipe', 'Remboursement anticipé d’un prêt'], ['autre', 'Autre']], p.type, (v) => { p.type = v; })),
-      champ('Cible', champMontant({ valeur: p.cibleCentimes, onValeur: (v) => { p.cibleCentimes = v; } }), p.type === 'projet' ? 'Voiture : entre 2 000 et 2 500 €.' : null),
+      champ('Type', selectionner([['coussin', 'Coussin de sécurité'], ['projet', 'Projet (achats, voiture…)'], ['remboursementAnticipe', 'Remboursement anticipé d’un prêt'], ['autre', 'Autre']], p.type, (v) => { p.type = v; })),
+      champ('Cible', champMontant({ valeur: p.cibleCentimes, onValeur: (v) => { p.cibleCentimes = v; } }), null),
       champ('Solde de départ (déjà sur le livret)', champMontant({ valeur: p.soldeInitialCentimes, onValeur: (v) => { p.soldeInitialCentimes = v || 0; } })),
-      p.type !== 'coussin' ? champ('Part de la répartition après le Coussin (%)', h('input', { class: 'input', inputmode: 'numeric', value: String(p.partRepartition ?? 0), oninput: (e) => { p.partRepartition = Math.max(0, Math.min(100, Number(e.target.value) || 0)); } })) : null,
+      champ('Part de l’épargne du mois (%)', h('input', { class: 'input', inputmode: 'numeric', value: String(p.partRepartition ?? 0), oninput: (e) => { p.partRepartition = Math.max(0, Math.min(100, Number(e.target.value) || 0)); } })),
       p.type === 'remboursementAnticipe' ? champ('Palier de remboursement anticipé', champMontant({ valeur: p.palierCentimes || 50000, onValeur: (v) => { p.palierCentimes = v; } })) : null,
       champ('Placement', selectionner([['Livret A', 'Livret A'], ['LEP', 'LEP (si éligible)'], ['Autre livret', 'Autre livret']], p.compteSupport, (v) => { p.compteSupport = v; p.tauxAnnuel = v === 'LEP' ? etat.parametres.tauxLEP : v === 'Livret A' ? etat.parametres.tauxLivretA : p.tauxAnnuel; })),
       interrupteur('Poche active', p.actif !== false, (v) => { p.actif = v; })),
@@ -184,23 +184,34 @@ function vuePlan() {
           gain > 0 ? h('span', { class: 'ligne-cle-valeur' }, mt(gain, { classe: 'vert-texte' }), h('small', {}, ' d’intérêts en moins')) : h('span', { class: 'ligne-cle-valeur' }, 'référence'));
       })),
     h('p', { class: 'petit' }, `Chaque euro remboursé par anticipation rapporte le taux du prêt (${String(sc.credit.tauxPourcent).replace('.', ',')} % saisi) contre ${String(etat.parametres.tauxLivretA).replace('.', ',')} % sur le Livret A.`),
-    reglageRepartition())) : null;
-  return h('div', {}, allocation, carte('Pour aller plus loin', h('div', { class: 'liste-liens' }, tableau, scen), { id: 'plus-plan' }));
+    )) : null;
+  return h('div', {}, allocation, carte('Pour aller plus loin', h('div', { class: 'liste-liens' }, reglageRepartition() ? detailsLigne('Répartition entre les poches', reglageRepartition()) : null, tableau, scen), { id: 'plus-plan' }));
 }
 
 function detailsLigne(titre, ...contenus) {
   return h('details', { class: 'details-ligne' }, h('summary', {}, titre), h('div', { class: 'details-contenu' }, contenus));
 }
 
+/** Répartition de l'épargne du mois entre les poches actives : un curseur par poche, le prêt prend le reste. */
 function reglageRepartition() {
-  const projet = etat.poches.find((p) => p.type === 'projet');
-  const pret = etat.poches.find((p) => p.type === 'remboursementAnticipe');
-  if (!projet || !pret) return null;
-  const val = projet.partRepartition ?? 50;
-  const sortie = h('output', {}, `${val} % projet / ${100 - val} % prêt`);
-  return h('div', { class: 'champ' }, h('label', { for: 'repartition' }, 'Répartition après le Coussin'),
-    h('input', { id: 'repartition', type: 'range', min: '0', max: '100', step: '10', value: String(val), class: 'curseur', oninput: (e) => { sortie.textContent = `${e.target.value} % projet / ${100 - e.target.value} % prêt`; },
-      onchange: async (e) => { const v = Number(e.target.value); await enregistrerLot([{ collection: 'poches', valeur: { ...projet, partRepartition: v } }, { collection: 'poches', valeur: { ...pret, partRepartition: 100 - v } }]); } }), sortie);
+  const actives = etat.poches.filter((p) => p.actif !== false);
+  const pret = actives.find((p) => p.type === 'remboursementAnticipe');
+  const autres = actives.filter((p) => p !== pret);
+  if (!pret || !autres.length) return null;
+  const parts = Object.fromEntries(autres.map((p) => [p.id, p.partRepartition ?? 0]));
+  const restePret = () => Math.max(0, 100 - Object.values(parts).reduce((t, v) => t + v, 0));
+  const sortiePret = h('output', { class: 'repartition-pret' });
+  const majSortie = () => { sortiePret.textContent = `${pret.nom} : ${restePret()} %`; };
+  majSortie();
+  const curseurs = autres.map((p) => {
+    const sortie = h('output', {}, `${parts[p.id]} %`);
+    const id = `rep-${p.id}`;
+    return h('div', { class: 'champ' }, h('label', { for: id }, p.nom, ' ', sortie),
+      h('input', { id, type: 'range', min: '0', max: '50', step: '5', value: String(parts[p.id]), class: 'curseur',
+        oninput: (e) => { const autresTotal = Object.entries(parts).filter(([k]) => k !== p.id).reduce((t, [, v]) => t + v, 0); const v = Math.min(Number(e.target.value), 100 - autresTotal); e.target.value = String(v); parts[p.id] = v; sortie.textContent = `${v} %`; majSortie(); },
+        onchange: async () => { await enregistrerLot([...autres.map((x) => ({ collection: 'poches', valeur: { ...x, partRepartition: parts[x.id] } })), { collection: 'poches', valeur: { ...pret, partRepartition: restePret() } }]); } }));
+  });
+  return h('div', { class: 'formulaire' }, h('p', { class: 'champ-libelle' }, 'Répartition de l’épargne du mois'), curseurs, sortiePret);
 }
 
 async function accepterPlan(plan) {

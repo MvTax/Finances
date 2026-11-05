@@ -92,7 +92,13 @@ export function scenariosPret(etat, depuisMois, nbMois = 48) {
       if (l.stocke) versPret = l.plan.allocationsPoches.filter((a) => a.pocheId === pochePret.id).reduce((s, a) => s + a.montantCentimes, 0);
       else if (sc === 'pret') versPret = total;
       else if (sc === 'projet') { const place = pocheProjet?.cibleCentimes ? Math.max(0, pocheProjet.cibleCentimes - projet) : 0; versPret = Math.max(0, total - place); }
-      else { const place = pocheProjet?.cibleCentimes ? Math.max(0, pocheProjet.cibleCentimes - projet) : 0; const moitie = Math.floor(total / 2); const versProjet = Math.min(place, total - moitie); versPret = total - versProjet; }
+      else {
+        // Répartition réglée entre la poche projet (achats) et la poche prêt
+        const place = pocheProjet?.cibleCentimes ? Math.max(0, pocheProjet.cibleCentimes - projet) : 0;
+        const pp = pocheProjet?.partRepartition ?? 50; const pr = pochePret.partRepartition ?? 50;
+        const versProjet = Math.min(place, Math.round(total * (pp + pr ? pp / (pp + pr) : 0.5)));
+        versPret = total - versProjet;
+      }
       projet += total - versPret;
       parMois.set(l.mois, versPret);
     }

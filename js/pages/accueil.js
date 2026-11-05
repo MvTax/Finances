@@ -166,10 +166,12 @@ function bandeaux(r, auj) {
     }
   }
   // Échéances proches (proches et crédits) arrivées
-  for (const p of etat.prets.filter((x) => x.statut !== 'solde' && x.sens === 'empruntéParMoi')) {
-    for (const e of p.echeancier.filter((x) => !x.payee && x.date <= ajouterJours(auj, 2))) {
-      res.push(({ type: 'action', icone: 'personnes', titre: `Rembourser ${p.personneAlias} : ${formatEuros(e.montantCentimes)}`, texte: `Prévu le ${formatDate(e.date)}${p.objet ? ` (${p.objet})` : ''}.`, actions: [bouton("C'est fait", async () => { await payerEcheancePret(p.id, e.date); toast('Remboursement enregistré.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit' })] }));
-    }
+  // Remboursements aux proches arrivés à échéance, le plus proche d'abord
+  const echeances = etat.prets.filter((x) => x.statut !== 'solde' && x.sens === 'empruntéParMoi')
+    .flatMap((p) => p.echeancier.filter((x) => !x.payee && x.date <= ajouterJours(auj, 2)).map((e) => ({ p, e })))
+    .sort((a, b) => (a.e.date < b.e.date ? -1 : a.e.date > b.e.date ? 1 : 0));
+  for (const { p, e } of echeances) {
+    res.push(({ type: 'action', icone: 'personnes', titre: `Rembourser ${p.personneAlias} : ${formatEuros(e.montantCentimes)}`, texte: `Prévu ${e.date === auj ? 'aujourd’hui' : `le ${formatDate(e.date)}`}${p.objet ? ` (${p.objet})` : ''}.`, actions: [bouton("C'est fait", async () => { await payerEcheancePret(p.id, e.date); toast('Remboursement enregistré.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit' })] }));
   }
   // Prélèvements dans les 3 jours
   const proj3 = projectionDecouvert(etat, auj, { inclureRythme: false, jours: 3 });
