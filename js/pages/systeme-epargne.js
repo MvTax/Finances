@@ -14,9 +14,10 @@ import { echeancesEntre } from '../dettes.js';
 import { aujourdhui, ajouterJours, formatMois } from '../dates.js';
 import { formatEuros } from '../money.js';
 
-/** Poche des efforts (arrondis, repas à la maison, privations) : réglage des arrondis, sinon la poche prêt. */
+/** Poche des efforts (arrondis, repas à la maison, privations) : réglage des arrondis, sinon la poche prêt. Null si partagés. */
 export function pocheEfforts(e = etat) {
   const id = e.profil?.arrondi?.pocheId;
+  if (id === 'partage') return null;
   return e.poches.find((p) => p.id === id && p.actif !== false) || e.poches.find((p) => p.type === 'remboursementAnticipe' && p.actif !== false) || e.poches.find((p) => p.actif !== false);
 }
 
@@ -27,6 +28,7 @@ export function carteSysteme() {
   const securite = actives.find((p) => p.type === 'coussin');
   const pret = actives.find((p) => p.type === 'remboursementAnticipe');
   const efforts = pocheEfforts();
+  const versEfforts = efforts ? `→ ${efforts.nom}` : '→ partagés entre les deux épargnes';
   const nom = (id) => etat.poches.find((p) => p.id === id)?.nom || 'Épargne';
   const vise = r.epargneCibleCentimes;
   const split = repartirVersement(vise, actives);
@@ -56,12 +58,12 @@ export function carteSysteme() {
     h('div', { class: 'flux-liste' },
       flux('tirelire', 'Chaque mois, après le salaire', 'Épargne du mois', vise,
         split.length ? split.map((s) => `${formatEuros(s.montantCentimes)} ${nom(s.pocheId)}`).join(' + ') : 'rien ce mois-ci'),
-      flux('pieces', 'Chaque semaine', 'Arrondis à l’euro', arrondis, `→ ${efforts?.nom || 'épargne'}`),
-      flux('burger', 'Chaque jour', 'Repas à la maison et privations', priv.moisCentimes, `→ ${efforts?.nom || 'épargne'}`),
+      flux('pieces', 'Chaque semaine', 'Arrondis à l’euro', arrondis, versEfforts),
+      flux('burger', 'Chaque jour', 'Repas à la maison et privations', priv.moisCentimes, versEfforts),
       flux('calendrier', 'Au salaire', 'Le reste du mois', null, `réparti comme l’épargne du mois`)),
     securite && pret ? champ('Part pour la sécurité', segment([['0', '0 %'], ['10', '10 %'], ['25', '25 %'], ['50', '50 %']], String(partSecu), changerPart, 'Part pour la sécurité'),
-      `Le prêt passe en premier : il reçoit le reste (${100 - partSecu} %), plus tous les arrondis, repas et privations.${securite.cibleCentimes && partSecu ? ` Une fois ${securite.nom} à ${formatEuros(securite.cibleCentimes)}, tout va au prêt.` : ''}${pleineSecu ? ' C’est déjà le cas.' : ''}`) : null,
-    efforts ? champ('Arrondis, repas et privations vont dans', selectionner(actives.map((p) => [p.id, p.nom]), efforts.id, (v) => majProfil({ arrondi: { ...etat.profil.arrondi, pocheId: v } }))) : null,
+      `Le prêt reçoit le reste (${100 - partSecu} %)${efforts ? `, et ${efforts.nom} reçoit tous les arrondis, repas et privations` : '. Les arrondis, repas et privations sont partagés de la même façon'}.${securite.cibleCentimes && partSecu ? ` Une fois ${securite.nom} à ${formatEuros(securite.cibleCentimes)}, tout va au prêt.` : ''}${pleineSecu ? ' C’est déjà le cas.' : ''}`) : null,
+    actives.length ? champ('Arrondis, repas et privations vont dans', selectionner([['partage', 'Les deux épargnes (même partage)'], ...actives.map((p) => [p.id, p.nom])], efforts ? efforts.id : 'partage', (v) => majProfil({ arrondi: { ...etat.profil.arrondi, pocheId: v } }))) : null,
     pret ? h('div', { class: 'systeme-pret' },
       h('p', {}, h('strong', {}, `${pret.nom} : ${formatEuros(soldePoche(pret))}`), pret.cibleCentimes ? ` sur ${formatEuros(pret.cibleCentimes)}` : ''),
       h('p', { class: 'petit' }, att ? `Au rythme du plan (sans compter les arrondis ni les repas), la poche est pleine en ${formatMois(att)}.` : 'Au rythme actuel, la poche ne se remplit pas dans les 4 prochaines années : chaque arrondi et chaque repas à la maison compte.'),

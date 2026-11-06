@@ -48,4 +48,26 @@ export default [
     const v = aVirerEpargne(e, '2026-11-10');
     egal(v.semaineCentimes, 0); egal(v.totalCentimes, 0); egal(v.parPoche.length, 0);
   } },
+  { nom: 'à virer : arrondis et privations partagés entre les deux épargnes (réglage « partage »)', fn: () => {
+    const e = etat({ transactions: [tx({ date: '2026-11-09', montant: 300 })], privations: [{ id: 'p', date: '2026-11-09', libelle: 'Menu', montantCentimes: 1000, vireLe: null }] });
+    e.profil.arrondi.pocheId = 'partage';
+    const v = aVirerEpargne(e, '2026-11-10');
+    egal(v.arrondisCentimes, 50, '3,00 € rond : 0,50 €');
+    const pret = v.parPoche.find((x) => x.pocheId === 'pret').montantCentimes;
+    const secu = v.parPoche.find((x) => x.pocheId === 'secu').montantCentimes;
+    egal(pret + secu, v.semaineCentimes);
+    vrai(Math.abs(pret - secu) <= 2, `partage 50/50 (${pret} / ${secu})`);
+  } },
+  { nom: 'date du virement : jeudi de la semaine, aujourd’hui si en retard, semaine suivante si fait', fn: () => {
+    const e = etat();
+    const mardi = aVirerEpargne(e, '2026-11-10');
+    egal(mardi.dateVirement, '2026-11-12'); egal(mardi.enRetard, false);
+    const vendredi = aVirerEpargne(e, '2026-11-13');
+    egal(vendredi.dateVirement, '2026-11-13'); egal(vendredi.enRetard, true); egal(vendredi.datePrevue, '2026-11-12');
+    e.transactions.push(tx({ date: '2026-11-13', montant: vendredi.moisSemaineCentimes, categorie: 'epargne', epargne: true, typeEpargne: 'virementLivret' }));
+    const apres = aVirerEpargne(e, '2026-11-13');
+    egal(apres.semaineCentimes, 0); egal(apres.dateVirement, '2026-11-19');
+    e.profil.arrondi.jourVirement = 1;
+    egal(aVirerEpargne(etat(), '2026-11-10').dateVirement, '2026-11-12', 'jeudi par défaut');
+  } },
 ];

@@ -7,12 +7,16 @@
 import { resteADepenser } from './calculs.js';
 import { epargneNettePeriode, cagnotteEnAttente, repartirVersement } from './epargne.js';
 import { bilanPrivations } from './privations.js';
-import { diffJours, debutSemaine, maxIso, ajouterJours } from './dates.js';
+import { diffJours, debutSemaine, maxIso, ajouterJours, prochainJourSemaine } from './dates.js';
 
-/** Poche qui reçoit les efforts (arrondis, repas, privations) : réglage des arrondis, sinon le prêt, sinon la première active. */
+/** Valeur du réglage « arrondis, repas et privations » qui les partage entre les épargnes (comme l'épargne du mois). */
+export const PARTAGE = 'partage';
+
+/** Poche qui reçoit les efforts (arrondis, repas, privations), ou null s'ils sont partagés entre les épargnes. */
 export function pocheDesEfforts(etat) {
   const actives = (etat.poches || []).filter((p) => p.actif !== false);
   const id = etat.profil?.arrondi?.pocheId;
+  if (id === PARTAGE) return null;
   return actives.find((p) => p.id === id) || actives.find((p) => p.type === 'remboursementAnticipe') || actives[0] || null;
 }
 
@@ -42,13 +46,24 @@ export function aVirerEpargne(etat, dateIso) {
   const auto = r.privationsAuto || [];
   const privations = bilanPrivations(etat, per, auto).aVirerCentimes;
 
+  // Répartition par épargne, montant par montant (exactement comme ils seront enregistrés au virement)
   const parPoche = new Map();
   const ajouter = (id, c) => { if (id && c > 0) parPoche.set(id, (parPoche.get(id) || 0) + c); };
-  for (const x of repartirVersement(moisSemaine, etat.poches || [])) ajouter(x.pocheId, x.montantCentimes);
-  ajouter(pocheDesEfforts(etat)?.id, arrondis + privations);
+  const repartir = (c) => { for (const x of repartirVersement(c, etat.poches || [])) ajouter(x.pocheId, x.montantCentimes); };
+  repartir(moisSemaine);
+  const efforts = pocheDesEfforts(etat);
+  if (efforts) ajouter(efforts.id, arrondis + privations);
+  else { repartir(arrondis); repartir(privations); }
+
+  // Date du virement : le jour réglé (jeudi par défaut) de cette semaine ; passé et pas fait → aujourd'hui ; fait → semaine prochaine
+  const jour = etat.profil?.arrondi?.jourVirement || 4;
+  const ceJour = prochainJourSemaine(debutSemaine(dateIso), jour, true);
+  const semaine = moisSemaine + arrondis + privations;
+  const enRetard = semaine > 0 && ceJour < dateIso;
+  const dateVirement = semaine > 0 ? (enRetard ? dateIso : ceJour) : prochainJourSemaine(dateIso, jour, false);
 
   return {
-    semaineCentimes: moisSemaine + arrondis + privations,
+    semaineCentimes: semaine, dateVirement, datePrevue: ceJour, enRetard, jourVirement: jour,
     totalCentimes: moisRestant + arrondis + privations,
     moisCibleCentimes: moisCible, moisDejaCentimes: moisDeja, moisRestantCentimes: moisRestant, moisSemaineCentimes: moisSemaine,
     arrondisCentimes: arrondis, privationsCentimes: privations,

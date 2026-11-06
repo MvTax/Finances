@@ -249,7 +249,9 @@ Le virement de la semaine regroupe :
 2. les arrondis en attente ;
 3. les repas à la maison et les privations pas encore virés.
 
-La case indique combien mettre sur chaque poche (50/50 pour l'épargne du mois, arrondis et privations sur le prêt), et le total d'ici le salaire. Si le virement ferait passer le compte courant sous 0 €, elle le signale. « J'ai fait le virement » ouvre le détail : la part de l'épargne du mois est modifiable, et la confirmation enregistre tout en une fois. Le rappel séparé des arrondis sur l'Accueil est remplacé par cette case.
+La case indique **la date du virement** : le jour réglé (jeudi par défaut, Réglages → Arrondis → « Jour du virement »). Si ce jour est passé et que le virement n'est pas fait, elle affiche « À faire aujourd'hui ». Une fois le virement fait, elle annonce celui de la semaine suivante. « Rappel chaque semaine » ajoute un rappel hebdomadaire au calendrier.
+
+Les deux cases d'épargne sont **mises à jour tout de suite** : dès que la cagnotte augmente (arrondi, repas à la maison, privation, part de l'épargne du mois), le montant est partagé entre les deux épargnes et ajouté à leur total, avec « dont X € à virer » et une partie hachurée sur la barre. Depuis la version 1.24, arrondis, repas et privations sont partagés comme l'épargne du mois (50/50) ; on peut encore les envoyer sur une seule poche dans « Mon système d'épargne ». La case « Reste à virer » donne aussi le partage, et le total d'ici le salaire. Si le virement ferait passer le compte courant sous 0 €, elle le signale. « J'ai fait le virement » ouvre le détail : la part de l'épargne du mois est modifiable, et la confirmation enregistre tout en une fois. Le rappel séparé des arrondis sur l'Accueil est remplacé par cette case.
 
 ## Épargne sans intérêts
 

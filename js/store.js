@@ -19,7 +19,7 @@ export const PROFIL_DEFAUT = {
   jourLoyer: null,
   heuresMensuelles: 151.67,
   objectifEpargneCentimes: 0,
-  arrondi: { actif: true, frequence: 'hebdomadaire', jourVirement: 4, jourDuMois: 6, inclureChargesFixes: false, depuis: null, premierVirement: null, pocheId: 'poche-coussin' },
+  arrondi: { actif: true, frequence: 'hebdomadaire', jourVirement: 4, jourDuMois: 6, inclureChargesFixes: false, depuis: null, premierVirement: null, pocheId: 'partage' },
   regleRevolut: { actif: true, minCentimes: 1000, maxCentimes: 1800 },
   emetteursSalaire: [],
   parametresPlan: {},
@@ -171,6 +171,18 @@ export function rangerPoches() {
   return ops;
 }
 
+/**
+ * Une seule fois : arrondis, repas et privations partagés entre les deux épargnes (comme l'épargne du mois),
+ * au lieu d'aller tous sur une seule poche. Réglable ensuite dans « Mon système d'épargne ».
+ */
+export function partagerEfforts() {
+  if (etat.meta.effortsPartages) return [];
+  const m = maintenant();
+  etat.profil.arrondi = { ...etat.profil.arrondi, pocheId: 'partage' };
+  etat.meta.effortsPartages = m;
+  return [{ store: 'profil', valeur: etat.profil }, { store: 'meta', valeur: { cle: 'effortsPartages', valeur: m } }];
+}
+
 /** Charge tout l'état depuis IndexedDB. */
 export async function charger() {
   await db.ouvrirBase();
@@ -187,6 +199,7 @@ export async function charger() {
   ops.push(...rangerComptes());
   if (assurerRepasAuto()) ops.push({ store: 'profil', valeur: etat.profil });
   ops.push(...rangerPoches());
+  ops.push(...partagerEfforts());
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });

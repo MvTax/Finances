@@ -127,7 +127,7 @@ function cartesSection(id) {
       champ('Fréquence du virement', segment([['hebdomadaire', 'Semaine'], ['quinzaine', '15 jours'], ['mensuelle', 'Mois']], p.arrondi?.frequence || 'hebdomadaire', (v) => majProfil({ arrondi: { ...p.arrondi, frequence: v } }), 'Fréquence')),
       champ('Jour du virement', selectionner(JOURS_LONGS.map((j, i) => [String(i + 1), j]), String(p.arrondi?.jourVirement || 4), (v) => majProfil({ arrondi: { ...p.arrondi, jourVirement: Number(v) } })), 'Hebdomadaire par défaut : petits montants réguliers, moins de risque de découvert.'),
       interrupteur('Arrondir aussi les charges fixes', p.arrondi?.inclureChargesFixes, (v) => majProfil({ arrondi: { ...p.arrondi, inclureChargesFixes: v } })),
-      champ('Poche alimentée', selectionner(etat.poches.map((x) => [x.id, x.nom]), p.arrondi?.pocheId || 'poche-coussin', (v) => majProfil({ arrondi: { ...p.arrondi, pocheId: v } }))))),
+      champ('Poche alimentée', selectionner([['partage', 'Les deux épargnes (même partage)'], ...etat.poches.filter((x) => x.actif !== false).map((x) => [x.id, x.nom])], p.arrondi?.pocheId || 'partage', (v) => majProfil({ arrondi: { ...p.arrondi, pocheId: v } }))))),
   ];
   if (id === 'operations') return [
     carte(null, h('div', { class: 'liste-liens' },

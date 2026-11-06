@@ -582,7 +582,15 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .coffre-nom { font-size: 14px; font-weight: 600; color: var(--texte-2); }
 .coffre-solde { font-family: var(--police-chiffres); font-size: 26px; font-weight: 650; letter-spacing: -.5px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .coffre-barre { display: block; width: 100%; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
-.coffre-barre > span { display: block; height: 100%; border-radius: 3px; background: var(--pc); }
+.coffre-barre { display: flex; }
+.coffre-barre-vire { display: block; height: 100%; background: var(--pc); }
+.coffre-barre-attente { display: block; height: 100%; background: var(--pc); opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgb(255 255 255 / 25%) 3px 6px); }
+.coffre-attente { font-size: 13px; font-weight: 600; color: var(--pc); }
+.coffre-virer-date { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--texte); }
+.coffre-virer-date .ic { width: 17px; height: 17px; color: var(--laiton); flex: none; }
+.coffre-virer.en-retard .coffre-virer-date { color: var(--orange); }
+.coffre-virer.a-jour .coffre-virer-date .ic { color: var(--vert); }
+.coffre-virer-boutons { margin-top: 4px; }
 .coffre-detail { margin: 0; font-size: 13px; color: var(--texte-3); }
 .coffre-virer { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: var(--rayon); background: var(--laiton-doux); }
 .coffre-virer.a-jour { background: var(--vert-doux); }
@@ -593,5 +601,4 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .coffre-virer .coffre-detail { color: var(--texte-2); font-size: 14px; }
 .coffre-alerte { color: var(--orange) !important; display: flex; gap: 6px; align-items: flex-start; }
 .coffre-alerte .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
-.coffre-virer-btn { align-self: flex-start; margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { .coffre:active { transform: none; } }
