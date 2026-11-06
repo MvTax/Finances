@@ -118,7 +118,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Gemini et tout le reste : réseau direct, jamais en cache
   // Vérification de version (sw.js) et requêtes « sans cache » : toujours le réseau, jamais une copie gardée ici
-  if (url.pathname.endsWith('/sw.js') || req.cache === 'no-store') return;
+  if (url.pathname.split('/').pop() === 'sw.js' || req.cache === 'no-store') return;
   if (url.pathname.includes('vendor/pdfjs/') || url.pathname.includes('vendor/tesseract/')) {
     e.respondWith((async () => {
       const c = await caches.open(url.pathname.includes('vendor/tesseract/') ? CACHE_TESSERACT : CACHE_PDFJS);
