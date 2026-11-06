@@ -1,7 +1,8 @@
 // virements.mjs — « Reste à virer vers l'épargne » : un virement par semaine (épargne du mois + arrondis + privations).
 import { egal, vrai } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
-import { aVirerEpargne } from '../../js/virements.js';
+import { aVirerEpargne, historiqueCagnotte, compteEpargne } from '../../js/virements.js';
+import * as store from '../../js/store.js';
 import { resteADepenser, jaugeDuJour } from '../../js/calculs.js';
 
 const revenus = (mois, c) => ({ mois, salaireCentimes: c, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' });
@@ -99,5 +100,30 @@ export default [
     egal(j1.parJourCentimes, j0.parJourCentimes, 'la part du jour ne bouge pas');
     egal(j1.depensesDuJourCentimes - j0.depensesDuJourCentimes, 1399 + 1, 'dépense du jour + son arrondi');
     vrai(r1.resteCentimes <= r0.resteCentimes);
+  } },
+  { nom: 'historique de la cagnotte : chaque ajout avec sa source, le total à virer = le virement de la semaine', fn: () => {
+    const e = etat({ transactions: [tx({ date: '2026-11-06', montant: 1207, categorie: 'abonnements', marchand: 'Streaming' }), tx({ date: '2026-11-09', montant: 340, marchand: 'Boulangerie' })],
+      privations: [{ id: 'p', date: '2026-11-09', libelle: 'Un menu au fast-food', montantCentimes: 1000, vireLe: null }] });
+    const hst = historiqueCagnotte(e, '2026-11-10');
+    const v = aVirerEpargne(e, '2026-11-10');
+    egal(hst.aVirerCentimes, v.semaineCentimes);
+    const arr = hst.lignes.filter((l) => l.source === 'arrondi');
+    egal(arr.length, 2); egal(arr.find((l) => l.libelle === 'Streaming').montantCentimes, 93);
+    vrai(/12,07.*13,00/.test(arr.find((l) => l.libelle === 'Streaming').detail));
+    egal(hst.lignes.filter((l) => l.source === 'privation').length, 1);
+    egal(hst.lignes.filter((l) => l.source === 'mois').length, 1);
+    egal(hst.lignes[0].date, '2026-11-10', 'le plus récent d’abord');
+  } },
+  { nom: 'épargnes rangées : Sécurité sur Revolut, prêt sur le Livret A LCL (une fois, si les deux banques sont là)', fn: () => {
+    store.etat.meta = {};
+    store.etat.comptes = [{ id: 'lcl', nom: 'LCL', banque: 'lcl' }, { id: 'revolut', nom: 'Revolut', banque: 'revolut' }];
+    store.etat.poches = poches();
+    store.etat.poches.push({ id: 'old', type: 'projet', actif: false, compteSupport: 'Livret A' });
+    vrai(store.placerEpargnes().length > 0);
+    egal(store.etat.poches.find((p) => p.id === 'secu').compteSupport, 'Revolut');
+    egal(store.etat.poches.find((p) => p.id === 'pret').compteSupport, 'Livret A LCL');
+    egal(store.etat.poches.find((p) => p.id === 'old').compteSupport, 'Livret A');
+    egal(store.placerEpargnes().length, 0);
+    egal(compteEpargne({ compteSupport: 'Compte épargne sans intérêts' }), null);
   } },
 ];

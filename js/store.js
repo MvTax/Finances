@@ -183,6 +183,28 @@ export function partagerEfforts() {
   return [{ store: 'profil', valeur: etat.profil }, { store: 'meta', valeur: { cle: 'effortsPartages', valeur: m } }];
 }
 
+/**
+ * Une seule fois : où est rangée chaque épargne. Avec un compte LCL et un compte Revolut :
+ * la Sécurité est sur le compte Revolut, la poche du prêt sur le Livret A LCL.
+ */
+export function placerEpargnes() {
+  if (etat.meta.supportsEpargne) return [];
+  const banques = new Set((etat.comptes || []).map((c) => c.banque || (/revolut/i.test(c.nom) ? 'revolut' : /lcl/i.test(c.nom) ? 'lcl' : null)));
+  if (!banques.has('lcl') || !banques.has('revolut')) return [];
+  const m = maintenant();
+  const ops = [];
+  etat.poches = etat.poches.map((p) => {
+    const support = p.actif === false ? null : p.type === 'coussin' ? 'Revolut' : p.type === 'remboursementAnticipe' ? 'Livret A LCL' : null;
+    if (!support || p.compteSupport === support) return p;
+    const q = { ...p, compteSupport: support, tauxAnnuel: 0, modifieLe: m };
+    ops.push({ store: 'poches', valeur: q });
+    return q;
+  });
+  etat.meta.supportsEpargne = m;
+  ops.push({ store: 'meta', valeur: { cle: 'supportsEpargne', valeur: m } });
+  return ops;
+}
+
 /** Charge tout l'état depuis IndexedDB. */
 export async function charger() {
   await db.ouvrirBase();
@@ -200,6 +222,7 @@ export async function charger() {
   if (assurerRepasAuto()) ops.push({ store: 'profil', valeur: etat.profil });
   ops.push(...rangerPoches());
   ops.push(...partagerEfforts());
+  ops.push(...placerEpargnes());
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });

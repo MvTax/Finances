@@ -17,7 +17,8 @@ import { periodeBudget, epargneCible, cagnotteArrondis } from '../calculs.js';
 import { carteprivations } from './privation.js';
 import { paliersPoche, palierFranchi } from '../paliers.js';
 import { carteSysteme } from './systeme-epargne.js';
-import { blocCoffres } from './coffres.js';
+import { blocCoffres, feuilleHistorique } from './coffres.js';
+import { aVirerEpargne, compteEpargne } from '../virements.js';
 
 /** Épargne sans intérêts (choix du profil) : 0 %, pas de livret rémunéré ni de simulateur d'intérêts. */
 const sansInterets = () => !!etat.profil.epargneSansInterets;
@@ -50,20 +51,26 @@ function vuePoches() {
   const per = periodeBudget(aujourdhui(), etat.profil);
   const nette = epargneNettePeriode(etat.transactions, per.debut, per.fin);
   const planMois = proj[0]?.plan;
+  // Comme en haut : chaque épargne compte déjà sa part de ce qui reste à virer
+  const aVirer = aVirerEpargne(etat, aujourdhui());
   const cartesPoches = etat.poches.filter((p) => p.actif !== false).sort((a, b) => (a.priorite || 9) - (b.priorite || 9)).map((p) => {
-    const s = soldePoche(p);
+    const vire = soldePoche(p);
+    const enAttente = aVirer.parPoche.find((x) => x.pocheId === p.id)?.montantCentimes || 0;
+    const s = vire + enAttente;
+    const support = compteEpargne(p);
     const n = epargneNettePoche(p);
     const dateAtt = att[p.id];
     // L'essentiel visible (solde, objectif, boutons) ; le reste replié dans « Détails »
     const notes = [
-      h('p', { class: 'petit' }, sansInterets() || !p.tauxAnnuel ? 'Sur ton compte épargne, sans intérêts (0 %).' : `Placé sur ${/^(livret|lep|ldds)/i.test(p.compteSupport || '') ? `le ${p.compteSupport}` : p.compteSupport} à ${String(p.tauxAnnuel).replace('.', ',')} %.`),
+      h('p', { class: 'petit' }, support && (sansInterets() || !p.tauxAnnuel) ? `Sur ${/^livret/i.test(support) ? 'ton ' : 'ton compte '}${support}. L’app ne compte aucun intérêt : seulement ce que tu verses.` : sansInterets() || !p.tauxAnnuel ? 'Sur ton compte épargne, sans intérêts (0 %).' : `Placé sur ${/^(livret|lep|ldds)/i.test(p.compteSupport || '') ? `le ${p.compteSupport}` : p.compteSupport} à ${String(p.tauxAnnuel).replace('.', ',')} %.`),
       h('p', { class: 'petit' }, 'Épargne nette : ', mt(n.nette), n.reprises ? ` (versé ${formatEuros(n.versements)}, repris ${formatEuros(n.reprises)})` : ''),
       p.type === 'coussin' ? h('p', { class: 'petit' }, 'Uniquement pour les vrais imprévus. Le reprendre pour une dépense courante déclenche l’alerte « épargne reprise ».') : null,
       p.type === 'projet' && /voiture/i.test(p.nom) ? h('p', { class: 'petit' }, 'Avant l’achat, prévois le coût mensuel d’une voiture (assurance, carburant, entretien, stationnement) et ajoute-le aux charges fixes.') : null,
       (p.mouvements || []).length ? h('div', { class: 'liste-cles' }, [...p.mouvements].reverse().slice(0, 30).map((m) => h('div', { class: 'ligne-cle' }, h('span', {}, `${formatDate(m.date)}, ${m.motif || (m.sens === 'versement' ? 'versement' : 'reprise')}`), h('span', { class: m.sens === 'reprise' ? 'negatif-texte' : '' }, m.sens === 'reprise' ? '−' : '+', mt(m.montantCentimes))))) : null,
     ];
     return h('article', { class: 'poche', id: `poche-${p.id}` },
-      h('div', { class: 'poche-tete' }, h('h3', {}, p.nom), h('span', { class: 'poche-solde' }, mt(s))),
+      h('div', { class: 'poche-tete' }, h('h3', {}, p.nom, support ? h('small', { class: 'poche-compte' }, support) : null), h('span', { class: 'poche-solde' }, mt(s))),
+      enAttente ? h('p', { class: 'poche-attente' }, `dont ${formatEuros(enAttente)} à virer`, ' · ', h('button', { type: 'button', class: 'lien', onclick: () => feuilleHistorique() }, 'd’où ça vient')) : null,
       paliersPoche(p, s) ? blocPaliers(p, s) : p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
       h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)}` : ''] : 'Sans objectif chiffré'),
       p.type === 'remboursementAnticipe' && s >= (p.palierCentimes || 50000) ? h('p', { class: 'petit vert-texte' }, icone('ok'), ` Palier atteint : tu peux rembourser ${formatEuros(s)} par anticipation.`) : null,
@@ -167,7 +174,7 @@ function editerPoche(poche) {
       champ('Solde de départ (déjà sur le compte épargne)', champMontant({ valeur: p.soldeInitialCentimes, onValeur: (v) => { p.soldeInitialCentimes = v || 0; } })),
       champ('Part de l’épargne du mois (%)', h('input', { class: 'input', inputmode: 'numeric', value: String(p.partRepartition ?? 0), oninput: (e) => { p.partRepartition = Math.max(0, Math.min(100, Number(e.target.value) || 0)); } })),
       p.type === 'remboursementAnticipe' ? champ('Palier de remboursement anticipé', champMontant({ valeur: p.palierCentimes || 50000, onValeur: (v) => { p.palierCentimes = v; } })) : null,
-      champ('Placement', selectionner(sansInterets() ? [['Compte épargne sans intérêts', 'Compte épargne sans intérêts (0 %)']] : [['Compte épargne sans intérêts', 'Compte sans intérêts (0 %)'], ['Livret A', 'Livret A'], ['LEP', 'LEP (si éligible)'], ['Autre livret', 'Autre livret']], p.compteSupport, (v) => { p.compteSupport = v; p.tauxAnnuel = v === 'LEP' ? etat.parametres.tauxLEP : v === 'Livret A' ? etat.parametres.tauxLivretA : v === 'Compte épargne sans intérêts' ? 0 : p.tauxAnnuel; })),
+      champ('Placement', selectionner([...new Set([p.compteSupport, 'Livret A LCL', 'Revolut', 'Compte épargne sans intérêts', ...(sansInterets() ? [] : ['Livret A', 'LEP', 'Autre livret'])].filter(Boolean))].map((c) => [c, c === 'Compte épargne sans intérêts' ? 'Compte épargne sans intérêts (0 %)' : c === 'LEP' ? 'LEP (si éligible)' : c]), p.compteSupport, (v) => { p.compteSupport = v; p.tauxAnnuel = sansInterets() || v === 'Compte épargne sans intérêts' || v === 'Revolut' ? 0 : v === 'LEP' ? etat.parametres.tauxLEP : /^Livret A/.test(v) ? etat.parametres.tauxLivretA : p.tauxAnnuel; })),
       interrupteur('Poche active', p.actif !== false, (v) => { p.actif = v; })),
     actions: [bouton('Annuler', () => f.fermer()), bouton('Enregistrer', async () => { if (!p.nom.trim()) { toast('Donne un nom.', { type: 'erreur' }); return; } await enregistrer('poches', p); f.fermer(); toast('Poche enregistrée.', { type: 'succes' }); }, { classe: 'btn-principal' })],
   });

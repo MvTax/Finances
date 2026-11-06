@@ -5,7 +5,8 @@
 // Le montant est aussi réparti par poche (prêt / sécurité), pour savoir quoi mettre où.
 
 import { resteADepenser, cagnotteArrondis } from './calculs.js';
-import { epargneNettePeriode, repartirVersement } from './epargne.js';
+import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrondis } from './epargne.js';
+import { formatEuros } from './money.js';
 import { bilanPrivations } from './privations.js';
 import { diffJours, debutSemaine, maxIso, ajouterJours, prochainJourSemaine } from './dates.js';
 
@@ -71,4 +72,48 @@ export function aVirerEpargne(etat, dateIso) {
     parPoche: [...parPoche.entries()].map(([pocheId, montantCentimes]) => ({ pocheId, montantCentimes })),
     privationsAuto: auto,
   };
+}
+
+/** Compte où se trouve une épargne, en clair (« Revolut », « Livret A LCL »), ou null. */
+export function compteEpargne(poche) {
+  const c = poche?.compteSupport;
+  return c && !/^compte épargne sans intérêts$/i.test(c) ? c : null;
+}
+
+/**
+ * Historique de la cagnotte du mois : chaque ajout, d'où il vient, et s'il est viré.
+ * Sources : arrondi d'une sortie du compte, repas à la maison, privation, épargne du mois.
+ * @returns {{ lignes: Array<{ date, source, libelle, detail, montantCentimes, vireLe }>, aVirerCentimes, vireCentimes, periode }}
+ */
+export function historiqueCagnotte(etat, dateIso) {
+  const r = resteADepenser(etat, dateIso);
+  const per = r.periode;
+  const lignes = [];
+  // Arrondis : toutes les sorties du compte depuis le début du mois (ou du suivi)
+  const ar = etat.profil?.arrondi;
+  if (ar?.actif) {
+    const depuis = debutArrondis(ar, etat.profil?.debutSuivi || etat.profil?.premierImportLe, per.debut);
+    const vires = new Map((etat.cagnotteArrondis || []).filter((c) => c.vireLe).map((c) => [c.transactionId, c.vireLe]));
+    for (const t of etat.transactions || []) {
+      if (t.date < per.debut || t.date > per.fin || t.date < depuis) continue;
+      const a = arrondiTransaction(t, ar);
+      if (!a) continue;
+      lignes.push({ date: t.date, source: 'arrondi', libelle: t.marchand || t.libelle || 'Dépense', detail: `${formatEuros(t.montantCentimes)} arrondi à ${formatEuros(t.montantCentimes + a)}`, montantCentimes: a, vireLe: vires.get(t.id) || null });
+    }
+  }
+  // Repas à la maison (automatiques) et privations
+  for (const p of [...(etat.privations || []).filter((x) => x.date >= per.debut && x.date <= per.fin), ...(r.privationsAuto || [])]) {
+    const repas = p.auto || /repas à la maison/i.test(p.libelle || '');
+    lignes.push({ date: p.date, source: repas ? 'repas' : 'privation', libelle: repas ? 'Repas à la maison' : p.libelle, detail: repas ? (p.libelle || 'pas de repas dehors noté') : 'Je me suis privé', montantCentimes: p.montantCentimes, vireLe: p.vireLe || null });
+  }
+  // Épargne du mois : virements déjà faits, puis la part de cette semaine
+  for (const t of etat.transactions || []) {
+    if (t.date < per.debut || t.date > per.fin || !t.epargne?.estEpargne || t.sens !== 'debit' || (t.epargne.type || 'virementLivret') !== 'virementLivret') continue;
+    lignes.push({ date: t.date, source: 'mois', libelle: 'Épargne du mois', detail: t.marchand || t.libelle || 'Virement vers l’épargne', montantCentimes: t.montantCentimes, vireLe: t.date });
+  }
+  const v = aVirerEpargne(etat, dateIso);
+  if (v.moisSemaineCentimes) lignes.push({ date: dateIso, source: 'mois', libelle: 'Épargne du mois', detail: `part de cette semaine (reste ${formatEuros(v.moisRestantCentimes)} ce mois-ci)`, montantCentimes: v.moisSemaineCentimes, vireLe: null });
+  lignes.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.vireLe ? 1 : 0) - (b.vireLe ? 1 : 0)));
+  const somme = (l) => l.reduce((s, x) => s + x.montantCentimes, 0);
+  return { lignes, aVirerCentimes: somme(lignes.filter((x) => !x.vireLe)), vireCentimes: somme(lignes.filter((x) => x.vireLe)), periode: per };
 }

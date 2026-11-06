@@ -253,6 +253,14 @@ La case indique **la date du virement** : le jour réglé (jeudi par défaut, R�
 
 Les deux cases d'épargne sont **mises à jour tout de suite** : dès que la cagnotte augmente (arrondi, repas à la maison, privation, part de l'épargne du mois), le montant est partagé entre les deux épargnes et ajouté à leur total, avec « dont X € à virer » et une partie hachurée sur la barre. Depuis la version 1.24, arrondis, repas et privations sont partagés comme l'épargne du mois (50/50) ; on peut encore les envoyer sur une seule poche dans « Mon système d'épargne ». La case « Reste à virer » donne aussi le partage, et le total d'ici le salaire. Si le virement ferait passer le compte courant sous 0 €, elle le signale. « J'ai fait le virement » ouvre le détail : la part de l'épargne du mois est modifiable, et la confirmation enregistre tout en une fois. Le rappel séparé des arrondis sur l'Accueil est remplacé par cette case.
 
+### Où est chaque épargne, et l'historique de la cagnotte
+
+Chaque épargne indique son compte. Au premier lancement de la version 1.26, si tu as un compte LCL et un compte Revolut, la Sécurité est rangée sur **Revolut** et la poche du prêt sur le **Livret A LCL** (une seule fois ; modifiable dans « Modifier cette poche » → Placement). La case « Reste à virer » dit sur quel compte virer chaque part. L'app ne compte jamais d'intérêts : seulement les sommes versées.
+
+Les cartes des poches, sous « Mon système d'épargne », affichent le même montant qu'en haut (déjà viré + part à virer, « dont X € à virer »).
+
+Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
+
 ## Épargne sans intérêts
 
 Réglages → Épargne et arrondis → « Épargne sans intérêts (0 %) ». Avec ce réglage, les poches sont sur un compte épargne qui ne rapporte rien. Le simulateur Livret A / LEP et les taux sont masqués, et les textes parlent de « compte épargne », pas de livret. L'app ne compte jamais d'intérêts dans les montants mis de côté : ce sont exactement les sommes versées.

@@ -594,7 +594,10 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .coffre-detail { margin: 0; font-size: 13px; color: var(--texte-3); }
 .coffre-virer { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: var(--rayon); background: var(--laiton-doux); }
 .coffre-virer.a-jour { background: var(--vert-doux); }
-.coffre-virer-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.coffre-virer-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.coffre-virer-montant { display: inline-flex; align-items: center; gap: 2px; }
+.coffre-virer-montant .ic { width: 18px; height: 18px; color: var(--texte-3); }
+.coffre-compte { margin-top: -4px; font-size: 13px; color: var(--texte-3); }
 .coffre-virer .coffre-nom { color: var(--texte); font-size: 15px; }
 .coffre-virer-montant { font-family: var(--police-chiffres); font-size: 26px; font-weight: 650; color: var(--laiton); font-variant-numeric: tabular-nums; }
 .coffre-virer.a-jour .coffre-virer-montant { color: var(--vert); }
@@ -602,3 +605,33 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .coffre-alerte { color: var(--orange) !important; display: flex; gap: 6px; align-items: flex-start; }
 .coffre-alerte .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .coffre:active { transform: none; } }
+
+/* Historique de la cagnotte */
+.histo { display: flex; flex-direction: column; gap: 14px; }
+.histo-resume { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.histo-resume > div { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: var(--rayon-petit); background: var(--surface-2); }
+.histo-resume small { font-size: 13px; color: var(--texte-2); }
+.histo-resume strong { font-family: var(--police-chiffres); font-size: 22px; font-weight: 650; }
+.histo-resume > div:first-child strong { color: var(--laiton); }
+.histo-filtres { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -2px; padding: 2px; }
+.histo-filtre { flex: none; min-height: 36px; padding: 0 14px; border: 0; border-radius: var(--rayon-pastille); background: var(--surface-2); color: var(--texte-2); font: inherit; font-size: 14px; cursor: pointer; }
+.histo-filtre.actif { background: var(--accent); color: var(--accent-texte); font-weight: 600; }
+.histo-liste { display: flex; flex-direction: column; }
+.histo-jour { margin: 14px 0 4px; font-size: 13px; font-weight: 600; color: var(--texte-3); }
+.histo-jour:first-child { margin-top: 0; }
+.histo-ligne { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--separateur); }
+.histo-icone { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--laiton-doux); color: var(--laiton); }
+.histo-repas .histo-icone, .histo-privation .histo-icone { background: var(--vert-doux); color: var(--vert); }
+.histo-mois .histo-icone { background: var(--accent-doux); color: var(--accent); }
+.histo-icone .ic { width: 18px; height: 18px; }
+.histo-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.histo-texte strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.histo-texte small { font-size: 13px; color: var(--texte-3); }
+.histo-droite { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.histo-montant { font-family: var(--police-chiffres); font-weight: 650; color: var(--vert); }
+.histo-attente { font-size: 12px; color: var(--laiton); }
+.histo-vire { font-size: 12px; color: var(--texte-3); }
+.poche-tete h3 { display: flex; flex-direction: column; gap: 1px; }
+.poche-compte { font-size: 13px; font-weight: 400; color: var(--texte-3); }
+.poche-attente { margin: -2px 0 0; font-size: 14px; color: var(--laiton); }
+.poche-attente .lien { font-size: 14px; min-height: 0; padding: 0; }
