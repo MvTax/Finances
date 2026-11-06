@@ -6,7 +6,7 @@ import { champ, champMontant, pastillesCategories, segment, bouton, interrupteur
 import { toast, toastErreur } from '../ui/toast.js';
 import { etat } from '../store.js';
 import { formatEuros, arrondiEuroSuperieur, versChamp } from '../money.js';
-import { aujourdhui, estIso } from '../dates.js';
+import { aujourdhui, estIso, ajouterJours, diffJours, formatDateCourte } from '../dates.js';
 import { categoriesDepense, categoriesEntree, categorie } from '../categories.js';
 import { nouvelleTransaction, ajouterTransaction, supprimerTransaction, categoriesFrequentes } from '../actions.js';
 import { tauxHoraire, equivalentTravail, periodeBudget } from '../calculs.js';
@@ -68,6 +68,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       ia.ok ? indicationEnvoiGemini('l’enregistrement audio (30 s max), la date du jour et la liste des catégories. Rien n’est ajouté sans ta confirmation.') : null,
       micro, etatTexte, annuler,
       h('button', { class: 'btn btn-principal btn-large', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier'); } }, icone('clavier'), h('span', {}, 'Je ne peux pas parler, écrire')),
+      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier', { passee: true }); } }, icone('calendrier'), h('span', {}, 'Déclarer une dépense passée')),
       h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => photoTicket() }, icone('camera'), h('span', {}, 'Photographier un ticket')),
       h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Depuis une capture d’écran')));
   }
@@ -81,7 +82,8 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
     let montant = d.montantCentimes ?? null;
     let libelle = d.libelle || '';
     let cat = d.categorie || null;
-    let date = d.date || aujourdhui();
+    const hier = ajouterJours(aujourdhui(), -1);
+    let date = d.date || (d.passee ? hier : aujourdhui());
     let compteId = d.compteId || (etat.comptes.find((c) => c.type === 'courant') || etat.comptes[0])?.id;
     let sansArrondi = false;
     const source = d.source || 'texte';
@@ -125,7 +127,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
         impact.textContent = tr ? `Cet achat représente ${tr} de travail.` : '';
         const a = arrondiEuroSuperieur(montant);
         const actif = etat.profil.arrondi?.actif && a > 0;
-        arrondiInfo.replaceChildren(actif ? interrupteur(`+${formatEuros(a)} dans ta cagnotte d'arrondis`, !sansArrondi, (v) => { sansArrondi = !v; }) : null);
+        arrondiInfo.replaceChildren(actif ? interrupteur(`+${formatEuros(a)} dans ta cagnotte d'arrondis`, !sansArrondi, (v) => { sansArrondi = !v; }) : '');
       } else { impact.textContent = ''; arrondiInfo.replaceChildren(); }
     }
     const segZone = h('div');
@@ -157,7 +159,23 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       finally { btnIA.disabled = false; }
     } }, icone('ia'), 'Gemini') : null;
 
-    const dateInput = h('input', { class: 'input', type: 'date', value: date, max: aujourdhui(), oninput: (e) => { date = e.target.value; } });
+    const notePassee = h('p', { class: 'petit note-passee', 'aria-live': 'polite' });
+    const majNotePassee = () => {
+      const per = periodeBudget(aujourdhui(), etat.profil);
+      notePassee.textContent = !estIso(date) ? '' : date < per.debut
+        ? `Avant ton dernier salaire (${formatDateCourte(per.debut)}) : elle comptera dans les statistiques de ce mois-là, pas dans ton budget actuel.`
+        : date === aujourdhui() ? 'C’est aujourd’hui : elle compte dans ta part du jour.'
+          : `Elle compte dans ton mois en cours : ta part du jour est recalculée sur les ${diffJours(aujourdhui(), per.fin) + 1} jours qui restent.`;
+    };
+    const dateInput = h('input', { class: 'input', type: 'date', value: date, max: aujourdhui(), oninput: (e) => { date = e.target.value; majNotePassee(); majPuces(); } });
+    // Dépense passée : choix rapide du jour, ou n'importe quelle date
+    const puces = h('div', { class: 'puces-date', role: 'group', 'aria-label': 'Jour de la dépense', style: { '--c': 'var(--accent)' } });
+    const majPuces = () => puces.replaceChildren(...[[hier, 'Hier'], [ajouterJours(aujourdhui(), -2), 'Avant-hier']].map(([v, l]) => h('button', { type: 'button', class: `pastille ${date === v ? 'active' : ''}`, 'aria-pressed': String(date === v), onclick: () => { date = v; dateInput.value = v; majNotePassee(); majPuces(); } }, l)));
+    const blocPassee = d.passee ? h('div', { class: 'bloc-passee' },
+      h('p', { class: 'bloc-passee-titre' }, icone('calendrier'), ' Dépense passée : quel jour ?'),
+      puces, champ('Ou choisis la date', dateInput), notePassee) : null;
+    if (d.passee) { majPuces(); majNotePassee(); }
+    const passerEnPassee = () => montrer('clavier', { ...d, sens, montantCentimes: montant, libelle, categorie: cat, compteId, passee: true, date: hier });
     const compteSel = selectionner(etat.comptes.map((c) => [c.id, c.nom]), compteId, (v) => { compteId = v; });
     const erreur = h('p', { class: 'erreur', role: 'alert', hidden: true });
 
@@ -174,18 +192,21 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       f.fermer('ajout');
       vibrer(15);
       const arr = estEligibleArrondi(tx, etat.profil.arrondi) && etat.profil.arrondi?.actif ? arrondiEuroSuperieur(tx.montantCentimes) : 0;
-      toast(`${sens === 'debit' ? 'Dépense' : 'Entrée'} ajoutée : ${formatEuros(montant)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}`, { action: { libelle: 'Annuler', fn: () => supprimerTransaction(tx) }, duree: 5000 });
+      toast(`${sens === 'debit' ? 'Dépense' : 'Entrée'}${date !== aujourdhui() ? ` du ${formatDateCourte(date)}` : ''} ajoutée : ${formatEuros(montant)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}`, { action: { libelle: 'Annuler', fn: () => supprimerTransaction(tx) }, duree: 5000 });
     };
 
     rendreCats(); maj(); majRecurrent();
     return h('form', { class: 'vue-clavier formulaire', onsubmit: (e) => { e.preventDefault(); ajouter(); } },
       d.confirmation ? h('p', { class: 'confirmation-ia' }, icone('ok'), ` Vérifie puis ajoute${d.confiance !== undefined && d.confiance < 0.7 ? ' (je ne suis pas sûr de tout)' : ''}.`) : null,
       segZone,
-      d.confirmation ? null : h('button', { type: 'button', class: 'lien-capture', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Importer une capture d’écran')),
+      blocPassee,
+      d.confirmation || d.passee ? null : h('div', { class: 'liens-saisie' },
+        h('button', { type: 'button', class: 'lien-capture', onclick: () => passerEnPassee() }, icone('calendrier'), h('span', {}, 'Déclarer une dépense passée')),
+        h('button', { type: 'button', class: 'lien-capture', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Importer une capture d’écran'))),
       h('div', { class: 'montant-bloc' }, champM, ajusteurs, impact, arrondiInfo, recurrent),
       champ('Libellé', libInput),
       h('div', { class: 'champ' }, h('span', { class: 'champ-libelle' }, 'Catégorie'), zoneCats),
-      h('div', { class: 'deux-colonnes' }, champ('Date', dateInput), champ('Compte', compteSel)),
+      d.passee ? champ('Compte', compteSel) : h('div', { class: 'deux-colonnes' }, champ('Date', dateInput), champ('Compte', compteSel)),
       h('details', { class: 'phrase-rapide' }, h('summary', {}, 'Saisie en une phrase'), h('div', { class: 'ligne-phrase' }, phrase, h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: analyserPhraseLocale }, 'Remplir'), btnIA), h('small', { class: 'aide' }, 'Tu peux utiliser le micro du clavier iOS : la phrase est analysée sur l’iPhone.')),
       erreur,
       h('div', { class: 'actions-saisie' },

@@ -489,3 +489,12 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .lien-avenir span { flex: 1; }
 .lien-avenir strong { font-family: var(--police-chiffres); }
 .lien-avenir .ic { width: 18px; height: 18px; color: var(--texte-3); }
+
+/* Saisie : dépense passée */
+.liens-saisie { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: -2px 0 2px; }
+.liens-saisie .lien-capture { margin: 0; }
+.bloc-passee { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 2px solid var(--accent); border-radius: var(--rayon); background: var(--accent-doux); }
+.bloc-passee-titre { margin: 0; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.bloc-passee-titre .ic { width: 18px; height: 18px; }
+.puces-date { display: flex; gap: 8px; flex-wrap: wrap; }
+.note-passee { margin: 0; color: var(--texte-2); }
