@@ -13,7 +13,7 @@ import { aujourdhui, formatDate, formatMois, formatDateCourte, ajouterJours, ajo
 import { formatEuros } from '../money.js';
 import { virerArrondis, enregistrerVirementEpargne, enregistrerReprise, payerEcheanceCredit, payerEcheancePret } from '../actions.js';
 import { ajouterAuCalendrier } from '../ics.js';
-import { periodeBudget } from '../calculs.js';
+import { periodeBudget, epargneCible } from '../calculs.js';
 
 export const titre = 'Épargne';
 let ongletActif = 'poches';
@@ -42,7 +42,6 @@ function vuePoches() {
   const att = atteintes(etat, proj);
   const per = periodeBudget(aujourdhui(), etat.profil);
   const nette = epargneNettePeriode(etat.transactions, per.debut, per.fin);
-  const objectif = etat.profil.objectifEpargneCentimes || 0;
   const planMois = proj[0]?.plan;
   const cartesPoches = etat.poches.filter((p) => p.actif !== false).map((p) => {
     const s = soldePoche(p);
@@ -74,7 +73,7 @@ function vuePoches() {
       bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur le Livret', description: 'Ouvre Budget pour voir le montant.', date: prochaine, heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence || 'hebdomadaire'], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' })) : null,
     ar.actif ? h('details', { class: 'details-discret' }, h('summary', {}, 'Comment ça marche'), h('p', { class: 'petit' }, `${cag.lignes.length} dépense${cag.lignes.length > 1 ? 's' : ''} arrondie${cag.lignes.length > 1 ? 's' : ''} à l'euro supérieur, à virer ${({ hebdomadaire: 'chaque semaine', quinzaine: 'tous les 15 jours', mensuelle: 'chaque mois' })[ar.frequence || 'hebdomadaire']}. C'est distinct de l'arrondi System'Épargne de la banque : les deux comptent, une seule fois chacun.`)) : null), { id: 'arrondis' });
   // Sources et objectif
-  const progression = planMois ? planMois.allocationsPoches.reduce((s, a) => s + a.montantCentimes, 0) + (planMois.arrondisEstimesCentimes || 0) : 0;
+  const possible = epargneCible(etat, per.mois, per);
   const sources = h('div', {},
     h('div', { class: 'liste-cles' },
       ligne('Épargne nette réelle', nette.nette),
@@ -82,7 +81,7 @@ function vuePoches() {
       ligne("Arrondi System'Épargne (banque)", nette.parType.arrondiBanque || 0),
       ligne("Arrondis de l'app virés", nette.parType.arrondiApp || 0),
       nette.reprises ? ligne('Repris', nette.reprises) : null),
-    objectif ? h('p', { class: 'petit' }, `Palier de ce mois : ${formatEuros(progression)} sur un objectif de ${formatEuros(objectif)}. Les 500 € viendront quand les dettes court terme seront soldées.`) : null);
+    h('p', { class: 'petit' }, possible ? `Ce mois-ci, l’app vise ${formatEuros(possible)} d’épargne : le maximum qui reste après tes dépenses obligatoires. Pas de montant fixe.` : 'Ce mois-ci, tes dépenses obligatoires prennent tout : pas d’épargne visée. Elle reprendra dès qu’elles baissent.'));
   const histo = historiqueMensuel();
   const plus = carte('Pour aller plus loin', h('div', { class: 'liste-liens' },
     h('details', { class: 'details-ligne' }, h('summary', {}, `Épargne de ${formatMois(per.mois)}`), sources),
@@ -164,9 +163,9 @@ function vuePlan() {
       h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Disponible'), mt(cur.disponibleCentimes)),
       ...cur.allocationsPoches.map((a) => ligne(`Épargne → ${nomPoche(a.pocheId)}${a.date ? ` (le ${formatDateCourte(a.date)})` : ''}`, a.montantCentimes)),
       cur.arrondisEstimesCentimes ? ligne('Arrondis estimés', cur.arrondisEstimesCentimes) : null,
-      ligne('Vie courante', cur.vieCouranteCentimes),
+      ligne('Quotidien obligatoire (courses, transports, santé)', cur.vieCouranteCentimes),
       h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Marge'), mt(cur.margeCentimes))),
-    cur.vieDetail ? h('details', { class: 'details-discret' }, h('summary', {}, 'Détail de la vie courante'), h('div', { class: 'liste-cles' }, cur.vieDetail.map((v) => ligne(v.libelle, v.montantCentimes)))) : null,
+    h('p', { class: 'petit' }, 'L’épargne passe après tes dépenses obligatoires : elle prend tout ce qui reste au-delà, sans montant fixe. Si les obligations prennent tout, elle est à 0.'),
     cur.objectif ? h('p', { class: 'objectif' }, icone('etoile'), ` Objectif n° 1 du mois : ${cur.objectif}.`) : null,
     proj[0].stocke && cur.statut !== 'accepte' ? bouton('Accepter ce plan', () => accepterPlan(cur), { classe: 'btn-principal' }) : !proj[0].stocke ? bouton('Accepter ce plan', () => accepterPlan(cur), { classe: 'btn-principal' }) : h('p', { class: 'vert-texte' }, icone('ok'), ' Plan accepté.')), { id: 'allocation' });
 

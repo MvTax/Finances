@@ -167,45 +167,27 @@ export const PARAMETRES_PLAN_DEFAUT = {
   vieCibleCentimes: 45000,    // vie courante confortable
   margeMinCentimes: 1000,     // marge de sécurité visée quand c'est possible
   arrondisEstimesCentimes: 2000,
-  objectifMensuelCentimes: 50000,
-  pasEpargneCentimes: 10000,  // l'épargne proposée se fait par paliers de 100 €
 };
 
 const plancher = (c, pas) => Math.floor(c / pas) * pas;
 
 /**
- * Propose l'allocation d'un mois.
- * Règles (documentées dans ARCHITECTURE.md) :
+ * Propose l'allocation d'un mois. L'épargne passe APRÈS les dépenses obligatoires :
  *  - disponible = revenus − charges fixes − dettes du mois (crédits + proches) ;
- *  - tant qu'un crédit bancaire COURT (crédit instantané) a une échéance dans le mois : priorité au coussin,
- *    la vie courante est ramenée vers son plancher et les arrondis s'ajoutent à l'épargne ;
- *  - ensuite : la vie courante cible passe d'abord, l'épargne prend le reste par paliers de 100 €
- *    (arrondis inclus), plafonnée à l'objectif mensuel une fois toutes les dettes court terme soldées ;
- *  - jamais de marge négative : si le disponible ne couvre pas le plancher, l'épargne est à 0.
+ *  - vie courante obligatoire = besoins vitaux mesurés (courses, transports, santé…), jamais sous le plancher ;
+ *  - épargne = tout ce qui reste au-delà, moins une petite marge, par paliers de 10 € (arrondis inclus) :
+ *    pas d'objectif fixe, le maximum possible ; 0 si les obligations prennent tout ;
+ *  - jamais de marge négative.
  */
-export function proposerAllocation({ revenusCentimes, chargesFixesCentimes, dettesCentimes, creditCourtEnCours, dettesCourtTermeRestantes }, parametres = {}) {
+export function proposerAllocation({ revenusCentimes, chargesFixesCentimes, dettesCentimes, besoinsVitauxCentimes = 0 }, parametres = {}) {
   const P = { ...PARAMETRES_PLAN_DEFAUT, ...parametres };
   const dispo = revenusCentimes - chargesFixesCentimes - dettesCentimes;
-  let epargne = 0; let arrondis = 0; let vie = 0; let mode;
-  if (dispo <= P.vieMinCentimes) {
-    mode = 'survie';
-    vie = Math.max(0, dispo);
-  } else if (creditCourtEnCours) {
-    mode = 'securite';
-    arrondis = Math.min(P.arrondisEstimesCentimes, dispo - P.vieMinCentimes);
-    epargne = plancher(Math.max(0, dispo - arrondis - P.vieMinCentimes), P.pasEpargneCentimes);
-    const reste = dispo - epargne - arrondis;
-    vie = Math.max(Math.min(P.vieCibleCentimes, plancher(reste - P.margeMinCentimes, 1000)), Math.min(P.vieMinCentimes, plancher(reste, 500)));
-  } else {
-    mode = dettesCourtTermeRestantes ? 'rattrapage' : 'croisiere';
-    vie = Math.min(P.vieCibleCentimes, plancher(dispo - P.margeMinCentimes, 500));
-    let e = plancher(Math.max(0, dispo - vie - P.margeMinCentimes), P.pasEpargneCentimes);
-    if (!dettesCourtTermeRestantes) e = Math.min(e, P.objectifMensuelCentimes);
-    epargne = e; // arrondis inclus dans ce montant
-    if (vie < P.vieMinCentimes) { vie = Math.min(P.vieMinCentimes, dispo - epargne); }
-  }
-  const marge = dispo - epargne - arrondis - vie;
-  return { mode, disponibleCentimes: dispo, epargneCentimes: epargne, arrondisCentimes: arrondis, epargneTotaleCentimes: epargne + arrondis, vieCouranteCentimes: vie, margeCentimes: marge };
+  const vieObligatoire = Math.max(P.vieMinCentimes, besoinsVitauxCentimes || 0);
+  const total = Math.max(0, plancher(dispo - vieObligatoire - P.margeMinCentimes, 1000));
+  const arrondis = Math.min(P.arrondisEstimesCentimes, total);
+  const vie = total > 0 ? vieObligatoire : Math.max(0, Math.min(dispo, vieObligatoire));
+  const mode = dispo <= vieObligatoire ? 'survie' : total > 0 ? 'maximum' : 'minimum';
+  return { mode, disponibleCentimes: dispo, epargneCentimes: total - arrondis, arrondisCentimes: arrondis, epargneTotaleCentimes: total, vieCouranteCentimes: vie, vieObligatoireCentimes: vieObligatoire, margeCentimes: dispo - total - vie };
 }
 
 /**

@@ -55,21 +55,19 @@ export default [
     egal(r2.find((x) => x.pocheId === 'c').montantCentimes, 1000);
     egal(r2.reduce((t, x) => t + x.montantCentimes, 0), 10000);
   } },
-  { nom: 'plan mensuel : 4 mois synthétiques recalculés au centime (sécurité, sécurité, rattrapage, croisière)', fn: () => {
+  { nom: 'plan mensuel : l’épargne passe après les obligations, le maximum possible, sans plafond à 500 €', fn: () => {
     const R = 151234; const C = 35111;
-    const m1 = proposerAllocation({ revenusCentimes: R, chargesFixesCentimes: C, dettesCentimes: 65500, creditCourtEnCours: true, dettesCourtTermeRestantes: true });
-    egal(m1.mode, 'securite'); egal(m1.disponibleCentimes, 50623); egal(m1.epargneCentimes, 10000); egal(m1.arrondisCentimes, 2000); egal(m1.vieCouranteCentimes, 37500); egal(m1.margeCentimes, 1123);
-    const m2 = proposerAllocation({ revenusCentimes: R, chargesFixesCentimes: C, dettesCentimes: 45000, creditCourtEnCours: true, dettesCourtTermeRestantes: true });
-    egal(m2.disponibleCentimes, 71123); egal(m2.epargneCentimes, 30000); egal(m2.vieCouranteCentimes, 38000); egal(m2.margeCentimes, 1123);
-    const m3 = proposerAllocation({ revenusCentimes: R, chargesFixesCentimes: C, dettesCentimes: 11000, creditCourtEnCours: false, dettesCourtTermeRestantes: true });
-    egal(m3.mode, 'rattrapage'); egal(m3.disponibleCentimes, 105123); egal(m3.epargneCentimes, 50000); egal(m3.vieCouranteCentimes, 45000); egal(m3.margeCentimes, 10123);
-    const m4 = proposerAllocation({ revenusCentimes: R, chargesFixesCentimes: 58626, dettesCentimes: 0, creditCourtEnCours: false, dettesCourtTermeRestantes: false });
-    egal(m4.mode, 'croisiere'); egal(m4.disponibleCentimes, 92608); egal(m4.epargneCentimes, 40000); egal(m4.vieCouranteCentimes, 45000); egal(m4.margeCentimes, 7608);
+    const m1 = proposerAllocation({ revenusCentimes: R, chargesFixesCentimes: C, dettesCentimes: 65500 });
+    egal(m1.mode, 'maximum'); egal(m1.disponibleCentimes, 50623); egal(m1.epargneTotaleCentimes, 12000); egal(m1.arrondisCentimes, 2000); egal(m1.epargneCentimes, 10000); egal(m1.vieCouranteCentimes, 37500); egal(m1.margeCentimes, 1123);
     const m6 = proposerAllocation({ revenusCentimes: 160000, chargesFixesCentimes: 50000, dettesCentimes: 0 });
-    egal(m6.epargneCentimes, 50000, 'plafonné à l\u2019objectif de 500 € une fois les dettes soldées'); egal(m6.margeCentimes, 160000 - 50000 - 50000 - 45000);
+    egal(m6.epargneTotaleCentimes, 71000, 'pas de plafond : tout ce qui dépasse les obligations'); egal(m6.margeCentimes, 160000 - 50000 - 71000 - 37500);
+    const m7 = proposerAllocation({ revenusCentimes: 160000, chargesFixesCentimes: 50000, dettesCentimes: 0, besoinsVitauxCentimes: 60000 });
+    egal(m7.vieCouranteCentimes, 60000, 'les besoins vitaux mesurés passent avant'); egal(m7.epargneTotaleCentimes, 49000); egal(m7.margeCentimes, 1000);
+    const m8 = proposerAllocation({ revenusCentimes: 100000, chargesFixesCentimes: 62000, dettesCentimes: 0 });
+    egal(m8.mode, 'minimum'); egal(m8.epargneTotaleCentimes, 0); egal(m8.vieCouranteCentimes, 37500); egal(m8.margeCentimes, 500);
     const m5 = proposerAllocation({ revenusCentimes: 100000, chargesFixesCentimes: 70000, dettesCentimes: 0 });
-    egal(m5.mode, 'survie'); egal(m5.epargneCentimes, 0); egal(m5.margeCentimes, 0);
-    for (const m of [m1, m2, m3, m4, m5]) vrai(m.margeCentimes >= 0, 'jamais de découvert projeté');
+    egal(m5.mode, 'survie'); egal(m5.epargneTotaleCentimes, 0); egal(m5.margeCentimes, 0);
+    for (const m of [m1, m5, m6, m7, m8]) vrai(m.margeCentimes >= 0, 'jamais de découvert projeté');
   } },
   { nom: 'plan mensuel : recalcul après saisie des revenus exacts (vie courante puis épargne, jamais négatif)', fn: () => {
     const plan = { mois: '2026-11', allocationsPoches: [{ pocheId: 'c', montantCentimes: 10000 }], vieCouranteCentimes: 37500 };

@@ -1,6 +1,6 @@
 import { egal, vrai } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
-import { periodeBudget, reliquat, datesDeSalaire, revenusDuMois, resteADepenser, jaugeDuJour, soldes, projectionDecouvert, tauxHoraire, equivalentTravail, depensesVariables } from '../../js/calculs.js';
+import { periodeBudget, reliquat, datesDeSalaire, revenusDuMois, resteADepenser, jaugeDuJour, soldes, projectionDecouvert, tauxHoraire, equivalentTravail, depensesVariables, besoinsVitaux } from '../../js/calculs.js';
 
 function etatNovembre() {
   const e = etatBase({
@@ -76,7 +76,7 @@ export default [
     egal(reste.revenus.totalCentimes, 155000, 'l’aide au logement ne doit pas augmenter les revenus');
     egal(reste.depensesVariablesCentimes, 0, 'ni diminuer les dépenses');
   } },
-  { nom: 'reste à dépenser = revenus − épargne cible (arrondis inclus) − charges fixes − dettes − dépenses variables', fn: () => {
+  { nom: 'reste à dépenser = revenus − charges fixes − dettes − dépenses variables − épargne (le maximum après les obligatoires)', fn: () => {
     const e = etatNovembre();
     e.transactions.push(
       tx({ date: '2026-11-06', montant: 1250, categorie: 'courses' }),
@@ -86,13 +86,36 @@ export default [
       tx({ date: '2026-11-08', montant: 400, sens: 'credit', categorie: 'courses', remboursementDe: 'x' }), // remboursement netté
     );
     const r = resteADepenser(e, '2026-11-10');
-    egal(r.epargneCibleCentimes, 12000); egal(r.chargesCentimes, 31000, 'loyer à payer du profil (300 €) + téléphone payé'); egal(r.dettesCentimes, 25000); egal(r.depensesVariablesCentimes, 850);
-    egal(r.resteCentimes, 155000 - 12000 - 31000 - 25000 - 850);
+    egal(r.chargesCentimes, 31000, 'loyer à payer du profil (300 €) + téléphone payé'); egal(r.dettesCentimes, 25000); egal(r.depensesVariablesCentimes, 850);
+    // Sans historique : 375 € gardés pour le quotidien obligatoire, 10 € de marge, le reste (par 10 €) va à l'épargne
+    egal(r.besoinsVitauxCentimes, 37500);
+    egal(r.epargneCibleCentimes, 60000, 'pas d’objectif fixe : le maximum possible, et non le plan stocké (120 €)');
+    egal(r.resteCentimes, 155000 - 31000 - 25000 - 850 - 60000);
+  } },
+  { nom: 'l’épargne passe après : un dépassement la fait baisser d’abord, puis le budget passe en négatif', fn: () => {
+    const e = etatNovembre();
+    e.transactions.push(tx({ date: '2026-11-06', montant: 70000, categorie: 'restaurants' }));
+    let r = resteADepenser(e, '2026-11-10');
+    egal(r.epargneViseeCentimes, 60000); egal(r.epargneCibleCentimes, 155000 - 31000 - 25000 - 70000); egal(r.resteCentimes, 0);
+    e.transactions.push(tx({ date: '2026-11-07', montant: 30000, categorie: 'restaurants' }));
+    r = resteADepenser(e, '2026-11-10');
+    egal(r.epargneCibleCentimes, 0); egal(r.resteCentimes, 155000 - 31000 - 25000 - 100000);
+  } },
+  { nom: 'besoins vitaux mesurés sur 3 mois (courses, transports…), les restaurants n’en font pas partie', fn: () => {
+    const e = etatNovembre();
+    for (const d of ['2026-08-05', '2026-09-10', '2026-10-10']) e.transactions.push(tx({ date: d, montant: 60000, categorie: 'courses' }), tx({ date: d, montant: 50000, categorie: 'restaurants' }));
+    e.transactions.push(tx({ date: '2026-11-04', montant: 100, categorie: 'courses' }));
+    const per = periodeBudget('2026-11-10', e.profil);
+    const b = besoinsVitaux(e, per);
+    egal(b.nbMois, 3);
+    vrai(b.centimes > 57000 && b.centimes < 60500, String(b.centimes));
+    const r = resteADepenser(e, '2026-11-10');
+    egal(r.epargneCibleCentimes, Math.floor((155000 - 31000 - 25000 - b.centimes - 1000) / 1000) * 1000);
   } },
   { nom: 'jauge du jour : figée à la première ouverture puis diminuée des dépenses du jour', fn: () => {
     const e = etatNovembre();
     const j1 = jaugeDuJour(e, '2026-11-05');
-    egal(j1.joursRestants, 30); egal(j1.parJourCentimes, Math.round((155000 - 12000 - 31000 - 25000) / 30));
+    egal(j1.joursRestants, 30); egal(j1.parJourCentimes, Math.round((155000 - 60000 - 31000 - 25000) / 30));
     e.transactions.push(tx({ date: '2026-11-05', montant: 900 }));
     const j2 = jaugeDuJour(e, '2026-11-05', j1.instantane);
     egal(j2.parJourCentimes, j1.parJourCentimes, 'instantané figé'); egal(j2.restantAujourdhuiCentimes, j1.parJourCentimes - 900);

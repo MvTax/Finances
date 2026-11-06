@@ -79,17 +79,14 @@ export function rendre(vue) {
   }
 
   function ecranObjectif() {
-    let objectif = etat.profil.objectifEpargneCentimes || 50000;
     const plaisirEnv = etat.enveloppes.find((e) => e.sanctuarisee);
     let plaisir = plaisirEnv?.plafondMensuelCentimes ?? 5000;
     const coussin = etat.poches.find((p) => p.type === 'coussin');
-    return h('div', { class: 'onboarding-ecran' }, ...entete('Ton objectif d’épargne', 'Par poches : d’abord les dettes du mois, puis le Coussin de sécurité, puis tes projets. L’app propose des paliers réalistes : c’est une progression, pas un échec.'),
-      champ('Objectif mensuel', champMontant({ valeur: objectif, onValeur: (v) => { objectif = v; } })),
+    return h('div', { class: 'onboarding-ecran' }, ...entete('Ton épargne', 'Elle passe après tes dépenses obligatoires (loyer, prélèvements, dettes, courses, transports) : chaque mois, l’app met de côté le maximum de ce qui reste, sans montant fixe. Puis elle le répartit dans tes poches.'),
       coussin ? h('p', { class: 'petit' }, `Poche « ${coussin.nom} » : cible ${formatEuros(coussin.cibleCentimes)}, uniquement pour les vrais imprévus.`) : null,
       h('div', { class: 'liste-cles' }, etat.poches.filter((p) => p.actif !== false).map((p) => h('div', { class: 'ligne-cle' }, h('span', {}, p.nom), p.cibleCentimes ? mt(p.cibleCentimes) : h('span', {}, '—')))),
       champ('Enveloppe « Plaisir sans culpabilité »', champMontant({ valeur: plaisir, onValeur: (v) => { plaisir = v; } }), 'Dépensée sans alerte bloquante : un budget plaisir assumé évite de craquer ailleurs.'),
       nav(async () => {
-        await majProfil({ objectifEpargneCentimes: objectif || 0 });
         if (plaisirEnv) await enregistrer('enveloppes', { ...plaisirEnv, plafondMensuelCentimes: plaisir || 0 });
         else await enregistrer('enveloppes', { id: nouvelId('env'), nom: 'Plaisir sans culpabilité', categories: ['plaisir'], categorie: 'plaisir', plafondMensuelCentimes: plaisir || 0, vitale: false, sanctuarisee: true, report: false });
       }));

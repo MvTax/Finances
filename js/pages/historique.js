@@ -102,12 +102,11 @@ function vueRemedier() {
   const locales = planActionLocal(etat);
   const parId = new Map(cartesStockees.map((c) => [c.id, c]));
   const cartes = [...cartesStockees.filter((c) => c.source === 'gemini'), ...locales.map((c) => ({ ...c, ...(parId.get(c.id) ? { statut: parId.get(c.id).statut } : {}) }))];
-  const objectif = etat.profil.objectifEpargneCentimes || 50000;
   const total = totalEconomies(cartes);
   const ia = iaDisponible();
   const zone = h('div', { class: 'cartes-action' }, cartes.length ? cartes.map(carteAction) : etatVide('ampoule', 'Rien à signaler', 'Importe quelques semaines de dépenses pour obtenir des actions chiffrées.'));
   return h('div', {},
-    carte(null, h('div', {}, h('p', { class: 'petit' }, 'Économie potentielle des actions'), h('p', { class: 'grand-montant' }, mt(total), h('small', {}, ' / mois')), h('p', { class: 'petit' }, `soit ${formatEuros(total * 12)} par an, pour un objectif d'épargne de ${formatEuros(objectif)} par mois.`))),
+    carte(null, h('div', {}, h('p', { class: 'petit' }, 'Économie potentielle des actions'), h('p', { class: 'grand-montant' }, mt(total), h('small', {}, ' / mois')), h('p', { class: 'petit' }, `soit ${formatEuros(total * 12)} par an, qui iraient directement à l’épargne.`))),
     ia.ok ? h('div', { class: 'bloc-ia' }, indicationEnvoiGemini('des totaux anonymisés : marchands normalisés, montants, nombres de passages, frais et crédits. Aucun libellé bancaire, IBAN ni nom de particulier.'), bouton('Demander au coach Gemini', async (e) => {
       const btn = e.currentTarget; btn.disabled = true;
       try {

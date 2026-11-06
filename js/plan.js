@@ -1,6 +1,6 @@
 // plan.js — « Mon plan » : allocation du mois et projection mois par mois jusqu'à l'atteinte des cibles.
 
-import { periodeBudget, revenusDuMois, chargesFixesPeriode, dettesPeriode } from './calculs.js';
+import { periodeBudget, revenusDuMois, chargesFixesPeriode, prelevementsHorsCharges, dettesPeriode, besoinsVitaux } from './calculs.js';
 import { proposerAllocation, repartirVersement, soldePoche } from './epargne.js';
 import { simulerPretAvecPoche, echeancesEntre } from './dettes.js';
 import { ajouterMois, dateDuMois, ajouterJours, aujourdhui } from './dates.js';
@@ -13,7 +13,8 @@ function periodeDuMois(etat, mois) {
 export function entreesDuMois(etat, mois) {
   const per = periodeDuMois(etat, mois);
   const revenus = revenusDuMois(etat, mois).totalCentimes;
-  const charges = chargesFixesPeriode(etat, per).reduce((s, c) => s + c.montantPrevuCentimes, 0);
+  // Mêmes charges que le budget du jour : charges fixes + prélèvements payés sans charge correspondante
+  const charges = [...chargesFixesPeriode(etat, per), ...prelevementsHorsCharges(etat, per.debut, per.fin)].reduce((s, c) => s + c.montantPrevuCentimes, 0);
   const dettes = dettesPeriode(etat, per);
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
   // Les échéances d'un prêt amortissable sont des charges de long terme, pas des dettes « court terme »
@@ -21,6 +22,7 @@ export function entreesDuMois(etat, mois) {
   const futur = echeancesEntre(etat, ajouterJours(per.fin, 1), '9999-12-31').filter((d) => !d.payee && (d.court || (d.type === 'proche' && d.sens === 'empruntéParMoi')));
   return {
     periode: per, revenusCentimes: revenus, chargesFixesCentimes: charges, dettesCentimes: totalDettes,
+    besoinsVitauxCentimes: besoinsVitaux(etat, per).centimes,
     creditCourtEnCours: dettes.some((d) => d.court),
     dettesCourtTermeRestantes: court.length > 0 || futur.length > 0,
   };
@@ -35,26 +37,19 @@ export function planDesMois(etat, depuisMois, nbMois = 24) {
   const res = [];
   for (let k = 0; k < nbMois; k++) {
     const mois = ajouterMois(depuisMois, k);
+    // Les mois déjà planifiés gardent leurs notes ; les montants suivent toujours la règle « l'épargne passe après »
     const stocke = etat.planMensuel.find((p) => p.mois === mois);
-    let plan;
-    if (stocke) {
-      plan = stocke;
-      for (const a of stocke.allocationsPoches) soldes[a.pocheId] = (soldes[a.pocheId] || 0) + a.montantCentimes;
-      const arr = stocke.arrondisEstimesCentimes || 0;
-      const pocheArr = etat.profil.arrondi?.pocheId || 'poche-coussin';
-      if (arr && soldes[pocheArr] !== undefined) soldes[pocheArr] += arr;
-    } else {
-      const e = entreesDuMois(etat, mois);
-      const a = proposerAllocation(e, etat.profil.parametresPlan || {});
-      const actives = etat.poches.filter((p) => p.actif !== false);
-      const allocations = repartirVersement(a.epargneCentimes + a.arrondisCentimes, actives, soldes);
-      for (const x of allocations) soldes[x.pocheId] = (soldes[x.pocheId] || 0) + x.montantCentimes;
-      plan = {
-        mois, revenusCentimes: e.revenusCentimes, chargesFixesCentimes: e.chargesFixesCentimes, dettesDuMoisCentimes: e.dettesCentimes,
-        disponibleCentimes: a.disponibleCentimes, allocationsPoches: allocations, arrondisEstimesCentimes: 0, vieCouranteCentimes: a.vieCouranteCentimes,
-        margeCentimes: a.margeCentimes, mode: a.mode, statut: 'propose', periode: e.periode,
-      };
-    }
+    const e = entreesDuMois(etat, mois);
+    const a = proposerAllocation(e, etat.profil.parametresPlan || {});
+    const actives = etat.poches.filter((p) => p.actif !== false);
+    const allocations = repartirVersement(a.epargneTotaleCentimes, actives, soldes);
+    for (const x of allocations) soldes[x.pocheId] = (soldes[x.pocheId] || 0) + x.montantCentimes;
+    const plan = {
+      ...(stocke ? { note: stocke.note, objectif: stocke.objectif, vieDetail: stocke.vieDetail } : {}),
+      mois, revenusCentimes: e.revenusCentimes, chargesFixesCentimes: e.chargesFixesCentimes, dettesDuMoisCentimes: e.dettesCentimes,
+      disponibleCentimes: a.disponibleCentimes, allocationsPoches: allocations, arrondisEstimesCentimes: 0, vieCouranteCentimes: a.vieCouranteCentimes,
+      besoinsVitauxCentimes: a.vieObligatoireCentimes, margeCentimes: a.margeCentimes, mode: a.mode, statut: stocke?.statut || 'propose', periode: e.periode,
+    };
     res.push({ mois, stocke: !!stocke, plan, soldes: { ...soldes } });
   }
   return res;

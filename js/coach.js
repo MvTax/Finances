@@ -5,6 +5,7 @@ import { analyser } from './detecteurs.js';
 import { ajouterJours, diffJours, moisDe } from './dates.js';
 import { formatEuros } from './money.js';
 import { nomCategorie } from './categories.js';
+import { epargneCible, periodeBudget } from './calculs.js';
 
 const eur = (c) => formatEuros(c);
 const parMois = (total, nbMois) => Math.round(total / Math.max(1, nbMois));
@@ -137,7 +138,8 @@ export function agregatsPourCoach(etat, { fin, nbMois = 3 } = {}) {
     periode: { debut, fin: derniere, nbMois },
     revenusMensuelsCentimes: Math.round(a.mensuel.reduce((s, m) => s + m.revenus, 0) / Math.max(1, a.mensuel.length)),
     chargesFixes: (etat.chargesFixes || []).filter((c) => c.actif).map((c) => ({ libelle: c.libelle, montantCentimes: c.montantCentimes, categorie: nomCategorie(c.categorie) })),
-    objectifEpargneMensuelCentimes: etat.profil?.objectifEpargneCentimes || 50000,
+    // L'épargne passe après les dépenses obligatoires : montant possible ce mois-ci, pas un objectif fixe
+    epargnePossibleCeMoisCentimes: epargneCible(etat, periodeBudget(derniere, etat.profil || {}).mois, periodeBudget(derniere, etat.profil || {})),
     marchands: a.topMarchands.map((m) => ({ marchand: anonymiser(m.marchand), categorie: nomCategorie(m.categorie), totalCentimes: m.montantCentimes, passages: m.passages })),
     livraison: { commandes: a.livraison.commandes, totalCentimes: a.livraison.totalCentimes, viaTiers: a.livraison.nbTiers },
     vtc: { trajets: a.vtc.nb, totalCentimes: a.vtc.totalCentimes, passTransport: a.vtc.passTransport.length > 0 },

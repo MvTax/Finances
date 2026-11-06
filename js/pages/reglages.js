@@ -7,7 +7,7 @@ import { toast, toastErreur } from '../ui/toast.js';
 import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, majParametres, effacerTout, nouvelId } from '../store.js';
 import { aller } from '../router.js';
 import { demanderPersistance } from '../db.js';
-import { revenusDuMois, periodeBudget, soldes } from '../calculs.js';
+import { revenusDuMois, periodeBudget, soldes, epargneCible } from '../calculs.js';
 import { aujourdhui, formatDate, formatMois, ajouterJours, JOURS_LONGS } from '../dates.js';
 import { formatEuros, versChamp } from '../money.js';
 import { CATEGORIES, categorie, nomCategorie, definirNomsCategories } from '../categories.js';
@@ -69,7 +69,7 @@ function rendreAccueilReglages(vue) {
     carte('Mes données', h('div', { class: 'liste-liens' },
       nbQuestions ? lien('Questions sur tes relevés', `${nbQuestions} en attente`, () => aller('reglages/questions'), 'info') : null,
       sect('revenus', `${formatEuros(rev.totalCentimes)} ce mois-ci`),
-      sect('epargne', `${formatEuros(p.objectifEpargneCentimes || 0)} par mois`),
+      sect('epargne', `${formatEuros(epargneCible(etat, periodeBudget(aujourdhui(), p).mois, periodeBudget(aujourdhui(), p)))} possibles ce mois-ci`),
       sect('operations', 'relevés, prélèvements, catégories'),
       sect('sauvegarde', pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'))),
     carte('L’app', h('div', { class: 'liste-liens' },
@@ -110,11 +110,9 @@ function cartesSection(id) {
         champ('Aide au logement', champMontant({ valeur: p.aideLogementCentimes, onValeur: (v) => majProfil({ aideLogementCentimes: v }) }), 'Aide versée au bailleur, non comptabilisée dans vos revenus.')))),
   ];
   if (id === 'epargne') return [
-    carte('Objectif et plan', h('div', { class: 'formulaire' },
-      champ('Objectif d’épargne mensuel', champMontant({ valeur: p.objectifEpargneCentimes || null, onValeur: (v) => v !== null && majProfil({ objectifEpargneCentimes: v }) })),
-      h('div', { class: 'deux-colonnes' },
-        champ('Vie courante minimum', champMontant({ valeur: p.parametresPlan?.vieMinCentimes ?? 37500, onValeur: (v) => v !== null && majProfil({ parametresPlan: { ...p.parametresPlan, vieMinCentimes: v } }) })),
-        champ('Vie courante cible', champMontant({ valeur: p.parametresPlan?.vieCibleCentimes ?? 45000, onValeur: (v) => v !== null && majProfil({ parametresPlan: { ...p.parametresPlan, vieCibleCentimes: v } }) }))),
+    carte('Comment l’épargne est calculée', h('div', { class: 'formulaire' },
+      h('p', { class: 'petit' }, `L’épargne passe après tes dépenses obligatoires : prélèvements, remboursements, et le nécessaire du quotidien (courses, transports, santé, d’après tes 3 derniers mois). Elle prend le maximum de ce qui reste, sans montant fixe. Ce mois-ci : ${formatEuros(epargneCible(etat, periodeBudget(aujourdhui(), p).mois, periodeBudget(aujourdhui(), p)))}.`),
+      champ('Quotidien obligatoire, au minimum', champMontant({ valeur: p.parametresPlan?.vieMinCentimes ?? 37500, onValeur: (v) => v !== null && majProfil({ parametresPlan: { ...p.parametresPlan, vieMinCentimes: v } }) }), 'Si tes 3 derniers mois montrent plus, c’est ce montant mesuré qui est gardé pour vivre.'),
       h('div', { class: 'deux-colonnes' },
         champ('Taux Livret A (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLivretA).replace('.', ','), onchange: (e) => majParametres({ tauxLivretA: Number(e.target.value.replace(',', '.')) || 0 }) })),
         champ('Taux LEP (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLEP).replace('.', ','), onchange: (e) => majParametres({ tauxLEP: Number(e.target.value.replace(',', '.')) || 0 }) }))),

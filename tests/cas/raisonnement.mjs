@@ -72,7 +72,21 @@ export default [
     vrai(/s’allège en décembre/.test(p.donc), p.donc);
     vrai(/Proche A terminé/.test(p.donc), p.donc);
     vrai(/libère 200,00/u.test(p.donc), p.donc);
-    egal(a.points.find((x) => x.id === 'epargne').titre, 'Rembourser passe avant épargner');
+    // 1 500 € − 200 € de dette − 375 € de quotidien obligatoire − 10 € de marge → 910 € : le maximum, pas 500 €
+    vrai(/^Tu peux mettre 910,00\s€ de côté$/u.test(a.points.find((x) => x.id === 'epargne').titre), a.points.find((x) => x.id === 'epargne').titre);
+  } },
+  { nom: 'raisonnement : obligations trop lourdes → pas d’épargne ce mois-ci, expliqué', fn: () => {
+    const e = etatBase({
+      revenusMensuels: [revenus('2026-11', 100000)],
+      chargesFixes: [{ id: 'l', libelle: 'Loyer', estLoyer: true, montantCentimes: 50000, jourPrelevement: 8, categorie: 'logement', actif: true }],
+      prets: [{ id: 'p1', sens: 'empruntéParMoi', personneAlias: 'Proche A', montantCentimes: 40000, echeancier: [{ date: '2026-11-10', montantCentimes: 40000, payee: false }] }],
+      transactions: [],
+    });
+    const a = raisonner(e, '2026-11-06');
+    sansTrou(a);
+    const p = a.points.find((x) => x.id === 'epargne');
+    egal(p.titre, 'Pas d’épargne ce mois-ci, et c’est normal');
+    vrai(/passe après tes dépenses obligatoires/.test(p.pourquoi), p.pourquoi);
   } },
   { nom: 'raisonnement : budget positif mais compte courant vide → alerte découvert, pas un reproche sur les habitudes', fn: () => {
     const e = etatBase({

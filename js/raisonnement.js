@@ -62,7 +62,7 @@ function moisSuivant(etat, r) {
   const revenus = revenusDuMois(etat, p2.mois).totalCentimes || r.revenus.totalCentimes;
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
   const totalCharges = charges.reduce((s, c) => s + c.montantPrevuCentimes, 0);
-  const cible = epargneCible(etat, p2.mois);
+  const cible = epargneCible(etat, p2.mois, p2);
   const quotidien = revenus - cible - totalCharges - totalDettes;
   const cle = (d) => d.creditId || d.pretId || d.libelle;
   const finies = [...new Map(r.dettes.filter((d) => !dettes.some((x) => cle(x) === cle(d))).map((d) => [cle(d), d])).values()];
@@ -153,7 +153,7 @@ export function raisonner(etat, dateIso = aujourdhui()) {
       const plusEpargne = suivant.cibleCentimes - r.epargneCibleCentimes;
       donc = `Ça s’allège en ${moisNom(suivant.periode.mois)} : les remboursements passent à ${exact(suivant.dettesCentimes)}${noms.length ? ` (${noms.join(', ')} terminé${noms.length > 1 ? 's' : ''})` : ''}, ce qui libère ${exact(libere)}.`
         + (plusEpargne > libere / 2
-          ? ` Ton plan en met ${exact(suivant.cibleCentimes)} de côté ce mois-là (contre ${exact(r.epargneCibleCentimes)} maintenant) : l’argent libéré part surtout dans l’épargne, et ton budget du jour reste autour de ${env(suivant.parJourCentimes)}.`
+          ? ` Comme l’épargne prend tout ce qui dépasse tes dépenses obligatoires, elle monte à ${exact(suivant.cibleCentimes)} ce mois-là (contre ${exact(r.epargneCibleCentimes)} maintenant), et ton budget du jour reste autour de ${env(suivant.parJourCentimes)}.`
           : ` Ton budget passerait à environ ${env(suivant.parJourCentimes)} par jour.`);
     } else if (suivant && suivant.dettesCentimes > r.dettesCentimes) {
       const noms = suivant.nouvelles.map((d) => d.libelle).slice(0, 2);
@@ -170,22 +170,32 @@ export function raisonner(etat, dateIso = aujourdhui()) {
     });
   }
 
-  // 4. L'épargne : pourquoi ce montant, et où se joue la différence.
+  // 4. L'épargne passe après les dépenses obligatoires : le maximum possible, pas un montant fixe.
   const cible = r.epargneCibleCentimes;
-  if (r.dettesCentimes > cible && r.dettesCentimes > 0) {
+  const visee = r.epargneViseeCentimes ?? cible;
+  const obligatoires = `tes prélèvements (${exact(r.chargesCentimes)})${r.dettesCentimes ? `, tes remboursements (${exact(r.dettesCentimes)})` : ''} et le nécessaire du quotidien (environ ${env(r.besoinsVitauxCentimes || 0)} de courses, transports, santé)`;
+  if (visee === 0) {
     points.push({
-      id: 'epargne', ton: 'neutre', titre: 'Rembourser passe avant épargner',
-      constat: `Ce mois-ci, ${exact(cible)} vont à l’épargne et ${exact(r.dettesCentimes)} aux remboursements.`,
-      pourquoi: 'C’est le bon ordre : une dette coûte plus cher (intérêts, frais, confiance d’un proche) qu’un livret ne rapporte.',
-      donc: `Ce qui te restera au salaire du ${salaire} partira dans l’épargne : chaque euro non dépensé ce mois-ci y va directement.`,
+      id: 'epargne', ton: 'neutre', titre: 'Pas d’épargne ce mois-ci, et c’est normal',
+      constat: `Après ${obligatoires}, il ne reste rien à mettre de côté.`,
+      pourquoi: 'L’épargne passe après tes dépenses obligatoires : épargner maintenant voudrait dire manquer pour vivre, ou passer à découvert.',
+      donc: r.dettesCentimes ? 'Dès que des remboursements se terminent, l’app remet automatiquement de l’argent de côté.' : 'Si un prélèvement baisse ou que tes revenus montent, l’épargne reprendra toute seule.',
       action: { libelle: 'Voir mon plan', route: 'epargne/plan' },
     });
-  } else if (cible > 0) {
+  } else if (cible < visee) {
     points.push({
-      id: 'epargne', ton: 'bien', titre: 'Ton épargne est prévue',
-      constat: `${exact(cible)} sont mis de côté ce mois-ci, soit ${Math.round((cible / rev) * 100)} % de tes revenus.`,
-      pourquoi: 'Ce montant est retiré avant de calculer ton budget : tu ne peux pas le dépenser par erreur.',
-      donc: `Ce qui te restera en plus au salaire du ${salaire} s’ajoutera à l’épargne.`,
+      id: 'epargne', ton: 'attention', titre: 'Ton épargne baisse ce mois-ci',
+      constat: `L’app visait ${exact(visee)} d’épargne ; avec tes dépenses, il en reste ${exact(cible)}.`,
+      pourquoi: 'L’épargne passe après tes dépenses : quand elles dépassent, c’est elle qui baisse d’abord, avant que ton compte soit en difficulté.',
+      donc: `Chaque euro non dépensé d’ici le salaire du ${salaire} retourne à l’épargne.`,
+      action: { libelle: 'Voir mon plan', route: 'epargne/plan' },
+    });
+  } else {
+    points.push({
+      id: 'epargne', ton: 'bien', titre: `Tu peux mettre ${exact(cible)} de côté`,
+      constat: `C’est le maximum possible ce mois-ci : ce qui reste après ${obligatoires}.`,
+      pourquoi: 'Pas de montant fixe : l’épargne passe après tes dépenses obligatoires. Quand elles baissent, l’épargne monte ; quand elles montent, elle baisse, sans te mettre à découvert.',
+      donc: `Si tu dépenses moins que prévu, le surplus au salaire du ${salaire} s’ajoute aussi à l’épargne.`,
       action: { libelle: 'Voir mon plan', route: 'epargne/plan' },
     });
   }

@@ -30,7 +30,7 @@ Quand Budget est ouvert dans Safari sans être installé, il affiche cette aide.
 
 ## Première ouverture
 
-L'accueil de démarrage tient en 4 écrans : revenus exacts, logement et charges fixes, objectif d'épargne, confidentialité. Tu peux passer un écran ou le reprendre plus tard.
+L'accueil de démarrage tient en 4 écrans : revenus exacts, logement et charges fixes, épargne, confidentialité. Tu peux passer un écran ou le reprendre plus tard.
 
 Pour démarrer avec ton historique, va dans **Réglages → Importer → choisir ton fichier `budget-import-prive.json` → Remplacer**. L'accueil de démarrage est alors pré-rempli : tu n'as plus qu'à confirmer.
 
@@ -181,3 +181,14 @@ Bouton + → « Importer une capture d'écran ». Tu peux choisir une ou plusieu
 - Les dépenses sont **ajoutées directement**. Celles déjà dans l'app (même montant, à 3 jours près) sont ignorées.
 - Dans Dépenses, elles restent encadrées sous l'étiquette « Nouvelles dépenses » pendant 24 h, ou jusqu'à « C'est bon », puis elles rejoignent la liste normale. Une lecture incertaine porte « À vérifier », et « Retirer ces dépenses » annule l'import.
 - Si rien n'est lu et que Gemini est activé, « Relire avec Gemini » envoie la capture recompressée, après l'avoir indiqué.
+
+## L'épargne passe après les dépenses obligatoires
+
+Pas de montant fixe (plus de 500 € imposés). Chaque mois :
+
+1. **Disponible** = revenus − prélèvements − remboursements du mois.
+2. **Quotidien obligatoire** = courses, transports, santé… Le montant est mesuré sur tes 3 derniers mois de salaire (médiane), et ne descend jamais sous le plancher réglable (375 € par défaut). Les restaurants, la livraison et les sorties n'en font pas partie.
+3. **Épargne** = tout ce qui reste au-delà, moins 10 € de marge, par paliers de 10 €. Si les obligations prennent tout, elle est à 0.
+4. Pendant le mois, l'épargne passe **après** les dépenses : si tu dépenses plus que prévu, c'est elle qui baisse d'abord, jusqu'à 0, avant que le budget soit « dépassé ».
+
+Le plan mois par mois suit la même règle : quand des remboursements se terminent, l'épargne monte toute seule.

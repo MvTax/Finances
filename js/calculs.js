@@ -1,10 +1,10 @@
 // calculs.js — formules de l'Accueil : revenus du mois, reste à dépenser, jauge du jour,
 // position globale, projection de découvert. Fonctions pures sur l'état de l'app.
 
-import { natureTransaction, contributionDepense, montantSigne } from './categories.js';
+import { natureTransaction, contributionDepense, montantSigne, categorie } from './categories.js';
 import { ajouterJours, ajouterMois, diffJours, dateDuMois, moisDe, joursDansMois, aujourdhui } from './dates.js';
 import { echeancesEntre } from './dettes.js';
-import { cagnotteEnAttente, epargneNettePeriode } from './epargne.js';
+import { cagnotteEnAttente, epargneNettePeriode, PARAMETRES_PLAN_DEFAUT } from './epargne.js';
 import { divArrondiBancaire } from './money.js';
 
 export const HEURES_MENSUELLES_DEFAUT = 151.67;
@@ -183,29 +183,86 @@ export function depensesVariables(etat, debut, fin, filtre = () => true) {
   return total;
 }
 
-/** Épargne cible du mois : allocations du plan (arrondis estimés inclus) ou objectif du profil. */
-export function epargneCible(etat, mois) {
-  const plan = (etat.planMensuel || []).find((p) => p.mois === mois);
-  if (plan) return (plan.allocationsPoches || []).reduce((s, a) => s + a.montantCentimes, 0) + (plan.arrondisEstimesCentimes || 0);
-  return etat.profil?.objectifEpargneCentimes || 0;
+const mediane = (xs) => { const t = [...xs].sort((a, b) => a - b); const m = Math.floor(t.length / 2); return t.length % 2 ? t[m] : (t[m - 1] + t[m]) / 2; };
+const parametresPlan = (etat) => ({ ...PARAMETRES_PLAN_DEFAUT, ...(etat.profil?.parametresPlan || {}) });
+
+/**
+ * Dépenses OBLIGATOIRES du quotidien sur une période : catégories vitales (courses, transports, santé…),
+ * hors prélèvements (déjà dans les charges). Mesure : médiane par jour des 3 derniers mois de salaire complets
+ * × jours de la période ; jamais sous le plancher de vie du plan (375 € par défaut).
+ */
+export function besoinsVitaux(etat, periode) {
+  const plancherVie = parametresPlan(etat).vieMinCentimes;
+  const tx = etat.transactions || [];
+  let premiere = '9999-12-31'; let derniere = '0000-00-00';
+  for (const t of tx) { if (t.date < premiere) premiere = t.date; if (t.date > derniere) derniere = t.date; }
+  const parJour = [];
+  let p = periode;
+  for (let k = 0; k < 15 && parJour.length < 3; k++) {
+    p = periodeBudget(ajouterJours(p.debut, -1), etat.profil || {}, { reference: p.debut });
+    if (p.debut < premiere) break;
+    if (p.fin > derniere) continue; // mois pas encore terminé dans les données
+    let total = 0;
+    for (const t of tx) {
+      if (t.date < p.debut || t.date > p.fin || t.ajustement || !estDepenseQuotidienne(t) || !categorie(t.categorie).vitale) continue;
+      total += contributionDepense(t);
+    }
+    parJour.push(Math.max(0, total) / p.nbJours);
+  }
+  const mesure = parJour.length ? Math.round(mediane(parJour) * periode.nbJours) : 0;
+  return { centimes: Math.max(plancherVie, mesure), mesureCentimes: mesure, plancherCentimes: plancherVie, nbMois: parJour.length };
+}
+
+/**
+ * L'épargne passe APRÈS les dépenses obligatoires : charges fixes, dettes du mois et besoins vitaux.
+ * Pas de montant fixe : on met le maximum de ce qui reste (par paliers de 10 €, une petite marge gardée),
+ * et rien du tout si les obligations prennent tout.
+ */
+export function epargnePossible(etat, periode, { revenusCentimes, chargesCentimes, dettesCentimes }) {
+  const P = parametresPlan(etat);
+  const besoins = besoinsVitaux(etat, periode);
+  const libre = revenusCentimes - chargesCentimes - dettesCentimes - besoins.centimes - P.margeMinCentimes;
+  return { centimes: Math.max(0, Math.floor(libre / 1000) * 1000), besoins, libreCentimes: libre };
+}
+
+/** Période budgétaire d'un mois (« 2026-12 »), d'après le jour de salaire. */
+export function periodeDuMois(etat, mois) {
+  const actuelle = periodeBudget(aujourdhui(), etat.profil || {});
+  if (actuelle.mois === mois) return actuelle;
+  return periodeBudget(dateDuMois(mois, etat.profil?.jourSalaireHabituel || 1), etat.profil || {});
+}
+
+/** Épargne visée d'un mois : le maximum possible après les dépenses obligatoires (voir epargnePossible). */
+export function epargneCible(etat, mois, periode = periodeDuMois(etat, mois)) {
+  const revenus = revenusDuMois(etat, periode.mois).totalCentimes;
+  const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin)].reduce((s, c) => s + c.montantPrevuCentimes, 0);
+  const dettes = dettesPeriode(etat, periode).reduce((s, d) => s + d.montantCentimes, 0);
+  return epargnePossible(etat, periode, { revenusCentimes: revenus, chargesCentimes: charges, dettesCentimes: dettes }).centimes;
 }
 
 /**
  * Reste à dépenser de la période budgétaire :
- * revenus réels − épargne cible − charges fixes − dettes du mois − dépenses variables.
- * Les arrondis sont inclus dans l'épargne cible : ils ne sont pas retirés une deuxième fois.
+ * revenus réels − charges fixes − dettes du mois − dépenses variables − épargne.
+ * L'épargne visée est le maximum possible après les dépenses obligatoires (arrondis inclus) ; elle passe
+ * après les dépenses : en cas de dépassement elle baisse jusqu'à 0 avant que le budget soit « dépassé ».
  */
 export function resteADepenser(etat, dateIso = aujourdhui()) {
   const periode = periodeBudget(dateIso, etat.profil);
   const revenus = revenusDuMois(etat, periode.mois);
   const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin)];
   const dettes = dettesPeriode(etat, periode);
-  const cible = epargneCible(etat, periode.mois);
   const variables = depensesVariables(etat, periode.debut, periode.fin);
   const totalCharges = charges.reduce((s, c) => s + c.montantPrevuCentimes, 0);
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
-  const reste = revenus.totalCentimes - cible - totalCharges - totalDettes - variables;
-  return { periode, revenus, charges, dettes, epargneCibleCentimes: cible, chargesCentimes: totalCharges, dettesCentimes: totalDettes, depensesVariablesCentimes: variables, resteCentimes: reste };
+  const possible = epargnePossible(etat, periode, { revenusCentimes: revenus.totalCentimes, chargesCentimes: totalCharges, dettesCentimes: totalDettes });
+  // L'épargne passe après les dépenses : si elles dépassent, c'est l'épargne qui baisse d'abord
+  const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - variables;
+  const cible = Math.max(0, Math.min(possible.centimes, avantEpargne));
+  const reste = avantEpargne - cible;
+  return {
+    periode, revenus, charges, dettes, epargneCibleCentimes: cible, epargneViseeCentimes: possible.centimes, besoinsVitauxCentimes: possible.besoins.centimes,
+    chargesCentimes: totalCharges, dettesCentimes: totalDettes, depensesVariablesCentimes: variables, resteCentimes: reste,
+  };
 }
 
 /**
@@ -351,7 +408,7 @@ export function epargneDuMois(etat, dateIso = aujourdhui()) {
   const periode = periodeBudget(dateIso, etat.profil);
   const nette = epargneNettePeriode(etat.transactions || [], periode.debut, periode.fin);
   const cagnotte = cagnotteEnAttente(etat.transactions || [], etat.profil?.arrondi, etat.cagnotteArrondis || [], { debutSuivi: etat.profil?.debutSuivi || etat.profil?.premierImportLe });
-  const cible = epargneCible(etat, periode.mois);
+  const cible = epargneCible(etat, periode.mois, periode);
   return { periode, nette, cagnotteCentimes: cagnotte.total, cagnotteLignes: cagnotte.lignes, cibleCentimes: cible, projectionCentimes: nette.nette + cagnotte.total };
 }
 

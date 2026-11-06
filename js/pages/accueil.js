@@ -98,7 +98,6 @@ function feuilleCalcul(r, j, a = raisonner(etat, aujourdhui())) {
   const lien = (texte, route) => h('button', { type: 'button', class: 'lien calcul-lien', onclick: typeof route === 'function' ? route : aller2(route) }, texte);
   const liste = (items) => h('details', { class: 'details-discret' }, h('summary', {}, `Voir les ${items.length} lignes`),
     h('div', { class: 'liste-mini' }, items.map((x) => h('div', { class: 'ligne-mini' }, h('span', {}, h('span', { class: 'ligne-mini-date' }, formatDateCourte(x.date)), x.libelle, x.paye || x.payee ? h('span', { class: 'etiquette vert' }, 'payé') : null), mt(x.montantPrevuCentimes ?? x.montantCentimes)))));
-  const plan = etat.planMensuel.find((p) => p.mois === r.periode.mois);
   const rev = r.revenus;
   const nbDep = etat.transactions.filter((t) => t.date >= r.periode.debut && t.date <= aujourdhui() && t.sens === 'debit' && contributionDepense(t) > 0 && estDepenseQuotidienne(t)).length;
   // Anomalies visibles (import mélangé avec l'accueil de démarrage)
@@ -107,7 +106,6 @@ function feuilleCalcul(r, j, a = raisonner(etat, aujourdhui())) {
   if (loyers.length > 1) anomalies.push(`Le loyer est compté ${loyers.length} fois (${loyers.map((c) => formatEuros(c.montantPrevuCentimes)).join(' + ')}).`);
   const courants = etat.comptes.filter((c) => c.type === 'courant');
   if (courants.length > 1) anomalies.push(`Il y a ${courants.length} comptes courants (${courants.map((c) => c.nom).join(', ')}).`);
-  if (!plan && etat.profil.objectifEpargneCentimes) anomalies.push(`Aucun plan pour ce mois : l’épargne prise est ton objectif de démarrage (${formatEuros(etat.profil.objectifEpargneCentimes)}).`);
   f = ouvrirFeuille({
     titre: 'Mon mois expliqué',
     contenu: h('div', { class: 'calcul' },
@@ -118,7 +116,7 @@ function feuilleCalcul(r, j, a = raisonner(etat, aujourdhui())) {
       h('details', { class: 'calcul-details' }, h('summary', {}, 'Le calcul, ligne par ligne'),
       h('p', { class: 'petit' }, `Mois du ${formatDateCourte(r.periode.debut)} (arrivée du salaire) au ${formatDateCourte(r.periode.fin)}.`),
       ligne('+', 'Revenus du mois', rev.totalCentimes, `salaire ${formatEuros(rev.salaireCentimes || 0)} + prime d’activité ${formatEuros(rev.primeActiviteCentimes || 0)}${rev.statut === 'attendu' ? ' — attendus, pas encore confirmés' : ''}`, lien('Modifier', () => { f.fermer(); feuilleRevenus(r.periode.mois); })),
-      ligne('−', 'Épargne prévue', r.epargneCibleCentimes, plan ? `plan de ${formatMois(plan.mois).replace(/ \d{4}$/, '')} : ${formatEuros((plan.allocationsPoches || []).reduce((s, a) => s + a.montantCentimes, 0))} sur les poches + ${formatEuros(plan.arrondisEstimesCentimes || 0)} d’arrondis` : 'objectif d’épargne du profil (aucun plan pour ce mois)', lien('Mon plan', 'epargne/plan')),
+      ligne('−', 'Épargne (le maximum possible)', r.epargneCibleCentimes, `ce qui reste après les charges, les dettes et ${formatEuros(r.besoinsVitauxCentimes || 0)} pour le quotidien obligatoire (courses, transports, santé)${r.epargneCibleCentimes < (r.epargneViseeCentimes ?? 0) ? ` ; prévu ${formatEuros(r.epargneViseeCentimes)}, réduit par les dépenses du mois` : ''}`, lien('Mon plan', 'epargne/plan')),
       ligne('−', 'Charges et abonnements', r.chargesCentimes, `${r.charges.length} prélèvements (loyer, téléphone, transport, abonnements…)`, h('span', {}, liste(r.charges), lien('Charges fixes', 'reglages/charges'))),
       ligne('−', 'Dettes du mois', r.dettesCentimes, `${r.dettes.length} échéances, payées ou à venir`, h('span', {}, liste(r.dettes), lien('Mes dettes', 'epargne/dettes'))),
       ligne('−', 'Dépenses du quotidien', r.depensesVariablesCentimes, `${nbDep} dépense${nbDep > 1 ? 's' : ''} depuis le salaire (hors prélèvements et abonnements)`, lien('Voir', 'depenses')),
