@@ -116,7 +116,7 @@ export function ligneTransaction(tx, onClick, o = {}) {
     puceCategorie(tx.categorie),
     h('span', { class: 'ligne-tx-texte' },
       h('span', { class: 'ligne-tx-titre' }, tx.libelle || tx.marchand || 'Sans libellé'),
-      h('span', { class: 'ligne-tx-sous' }, tx.aQualifier ? h('span', { class: 'a-qualifier' }, 'À vérifier') : null, c.nom)),
+      h('span', { class: 'ligne-tx-sous' }, tx.aQualifier || o.aVerifier ? h('span', { class: 'a-qualifier' }, 'À vérifier') : null, c.nom)),
     h('span', { class: 'ligne-tx-droite' },
       h('span', { class: 'ligne-tx-montant' }, h('span', { class: 'signe', 'aria-hidden': 'true' }, signe), mt(tx.montantCentimes), h('span', { class: 'sr' }, tx.sens === 'credit' ? ' en entrée' : ' en sortie')),
       o.avecDate ? h('span', { class: 'ligne-tx-date' }, libelleRelatif(tx.date)) : null));

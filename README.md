@@ -174,9 +174,10 @@ node tests/outils/generer-fixtures.mjs  # régénère les PDF/CSV SYNTHÉTIQUES
 
 ## Dépenses depuis une capture d'écran
 
-Bouton + → « Depuis une capture d'écran ». Tu peux choisir une ou plusieurs captures : la liste des opérations de ton appli bancaire, un reçu ou un mail de commande.
+Bouton + → « Importer une capture d'écran ». Tu peux choisir une ou plusieurs captures : un achat, un reçu, un mail de commande ou la liste des opérations de ta banque.
 
 - La lecture se fait **sur le téléphone** (Tesseract, dans `vendor/tesseract`, téléchargé à la première capture puis gardé hors ligne). Rien n'est envoyé.
 - L'app repère les montants en €, les dates (« Aujourd'hui », « Hier », « Mardi 3 novembre », « 05/11 ») et les libellés. Elle ignore les soldes et les plafonds. Sur un reçu, elle garde seulement le total.
-- Chaque opération est à vérifier avant l'ajout. Celles déjà dans l'app (même montant, à 3 jours près) arrivent décochées. Une lecture incertaine est signalée.
-- Avec Gemini activé, « Relire avec Gemini » envoie la capture recompressée, après l'avoir indiqué.
+- Les dépenses sont **ajoutées directement**. Celles déjà dans l'app (même montant, à 3 jours près) sont ignorées.
+- Dans Dépenses, elles restent encadrées sous l'étiquette « Nouvelles dépenses » pendant 24 h, ou jusqu'à « C'est bon », puis elles rejoignent la liste normale. Une lecture incertaine porte « À vérifier », et « Retirer ces dépenses » annule l'import.
+- Si rien n'est lu et que Gemini est activé, « Relire avec Gemini » envoie la capture recompressée, après l'avoir indiqué.

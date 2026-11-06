@@ -208,3 +208,15 @@ export async function lireCapture(fichier, { surProgres } = {}) {
   // Ordre de lecture : de haut en bas, puis de gauche à droite pour les lignes à la même hauteur
   return lignes.sort((a, b) => (Math.abs(a.y - b.y) < 12 ? a.x - b.x : a.y - b.y)).map(({ texte, confiance }) => ({ texte, confiance }));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Dépenses ajoutées depuis une capture : encadrées « Nouvelles dépenses » dans la liste pendant 24 h
+// (ou jusqu'à « C'est bon »), puis rangées normalement.
+
+export const DUREE_NOUVELLES_MS = 24 * 3600 * 1000;
+
+/** La dépense vient d'une capture récente et n'a pas encore été validée. */
+export function estNouvelle(t, maintenant = Date.now()) {
+  const le = t?.nouveauCapture?.le;
+  return !!le && maintenant - Date.parse(le) < DUREE_NOUVELLES_MS;
+}

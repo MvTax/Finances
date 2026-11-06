@@ -4,7 +4,7 @@ import { h, icone, mt, annoncer } from '../ui/dom.js';
 import { ligneTransaction, etatVide, segment, champ, champMontant, pastillesCategories, bouton, selectionner, interrupteur } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
-import { etat } from '../store.js';
+import { etat, enregistrerLot } from '../store.js';
 import { CATEGORIES, FAMILLES, categorie, famille, natureTransaction, contributionDepense, categoriesDepense, categoriesEntree } from '../categories.js';
 import { libelleRelatif, formatDate, aujourdhui, ajouterJours, estIso } from '../dates.js';
 import { formatEuros } from '../money.js';
@@ -13,6 +13,7 @@ import { normaliserTexte } from '../rules.js';
 import { modifierTransaction, supprimerTransaction, recategoriser, enregistrerReprise } from '../actions.js';
 import { coutAnnuelRecurrent } from '../detecteurs.js';
 import { aller } from '../router.js';
+import { estNouvelle } from '../capture.js';
 
 export const titre = 'Dépenses';
 
@@ -33,15 +34,21 @@ export function rendre(vue) {
   const rendreAffichage = () => zoneAffichage.replaceChildren(segment([['jours', 'Liste'], ['categories', 'Par catégorie']], affichage, (v) => { affichage = v; dessiner(); }, 'Affichage'));
   rendreAffichage();
   const puceFiltre = h('div', { class: 'filtre-actif' });
+  const zoneNouvelles = h('div');
 
   vue.replaceChildren(
     h('h1', { class: 'titre-page' }, 'Dépenses'),
     zoneAffichage,
     h('div', { class: 'barre-filtres' }, h('div', { class: 'barre-recherche' }, icone('recherche'), recherche), boutonFiltres),
-    puceFiltre, resume, liste);
+    puceFiltre, zoneNouvelles, resume, liste);
 
   function dessiner() {
-    const tx = filtrer();
+    // Dépenses tout juste ajoutées depuis une capture : encadrées en haut, puis rangées normalement
+    const maintenant = Date.now();
+    const nouvelles = etat.transactions.filter((t) => estNouvelle(t, maintenant)).sort((a, b) => (a.date < b.date ? 1 : -1));
+    zoneNouvelles.replaceChildren(nouvelles.length ? blocNouvelles(nouvelles, dessiner) : '');
+    const idsNouvelles = new Set(nouvelles.map((t) => t.id));
+    const tx = filtrer().filter((t) => !idsNouvelles.has(t.id));
     const total = tx.reduce((s, t) => s + contributionDepense(t), 0);
     const per = periodeBudget(aujourdhui(), etat.profil);
     const quand = { mois: ` depuis le salaire du ${per.debut.slice(8)}/${per.debut.slice(5, 7)}`, moisPrecedent: ' le mois précédent', 90: ' en 3 mois', 365: ' en 12 mois', tout: '' }[filtres.periode] ?? '';
@@ -80,6 +87,30 @@ export function rendre(vue) {
     lot();
   }
   dessiner();
+}
+
+/** Encadré « Nouvelles dépenses » : ajoutées depuis une capture, à jeter un œil avant de les ranger. */
+function blocNouvelles(nouvelles, apres) {
+  const total = nouvelles.reduce((s, t) => s + contributionDepense(t), 0);
+  const ranger = async () => {
+    await enregistrerLot(nouvelles.map((t) => { const v = { ...t }; delete v.nouveauCapture; return { collection: 'transactions', valeur: v }; }));
+    toast('Rangées dans la liste.', { type: 'succes' });
+  };
+  const annulerImport = async () => {
+    const ok = await confirmer({ titre: 'Retirer ces dépenses ?', message: `Les ${nouvelles.length} dépenses ajoutées depuis la capture seront supprimées.`, ok: 'Retirer', danger: true });
+    if (!ok) return;
+    await enregistrerLot(nouvelles.map((t) => ({ collection: 'transactions', valeur: t, supprimer: true })));
+    toast('Dépenses retirées.');
+  };
+  return h('section', { class: 'bloc-nouvelles', 'aria-label': 'Nouvelles dépenses' },
+    h('div', { class: 'bloc-nouvelles-entete' },
+      h('span', { class: 'etiquette-nouvelles' }, 'Nouvelles dépenses'),
+      h('span', { class: 'bloc-nouvelles-total' }, total ? mt(total) : '')),
+    h('p', { class: 'bloc-nouvelles-aide' }, 'Ajoutées depuis ta capture d’écran. Touche une ligne pour la corriger.'),
+    h('div', { class: 'groupe-jour-corps' }, nouvelles.map((t) => glissable(ligneTransaction(t, ouvrirDetail, { avecDate: true, aVerifier: t.nouveauCapture?.aVerifier }), t, apres))),
+    h('div', { class: 'bloc-nouvelles-actions' },
+      bouton('C’est bon', ranger, { classe: 'btn-principal btn-petit' }),
+      bouton('Retirer ces dépenses', annulerImport, { classe: 'btn-secondaire btn-petit' })));
 }
 
 /** Vue « Par catégorie » : une barre de répartition, puis chaque famille avec ses catégories. */

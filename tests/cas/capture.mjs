@@ -1,6 +1,6 @@
 // capture.mjs — dépenses lues sur une capture d'écran (lignes telles que les rend la lecture sur le téléphone).
 import { egal, vrai } from '../outils/assert.mjs';
-import { extraireOperations, montantsDansLigne, dateDansTexte, fusionnerCaptures, dejaPresente, devinerBanque } from '../../js/capture.js';
+import { extraireOperations, montantsDansLigne, dateDansTexte, fusionnerCaptures, dejaPresente, devinerBanque, estNouvelle } from '../../js/capture.js';
 import { validerCapture } from '../../js/ia.js';
 
 const AUJ = '2026-11-06'; // un vendredi
@@ -71,5 +71,12 @@ export default [
     egal(v.operations.length, 2);
     egal(v.operations[1].categorie, 'autres');
     egal(validerCapture({}), null);
+  } },
+  { nom: 'nouvelles dépenses : encadrées 24 h après l’ajout, puis dans la liste normale', fn: () => {
+    const le = '2026-11-06T10:00:00.000Z';
+    const t = { nouveauCapture: { lot: 'cap-1', le } };
+    vrai(estNouvelle(t, Date.parse(le) + 3600e3));
+    vrai(!estNouvelle(t, Date.parse(le) + 25 * 3600e3));
+    vrai(!estNouvelle({}, Date.parse(le)), 'une dépense saisie autrement n’est jamais « nouvelle »');
   } },
 ];
