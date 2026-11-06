@@ -17,6 +17,9 @@ import { periodeBudget, epargneCible } from '../calculs.js';
 import { carteprivations } from './privation.js';
 import { carteSysteme } from './systeme-epargne.js';
 
+/** Épargne sans intérêts (choix du profil) : 0 %, pas de livret rémunéré ni de simulateur d'intérêts. */
+const sansInterets = () => !!etat.profil.epargneSansInterets;
+
 export const titre = 'Épargne';
 let ongletActif = 'poches';
 
@@ -51,7 +54,7 @@ function vuePoches() {
     const dateAtt = att[p.id];
     // L'essentiel visible (solde, objectif, boutons) ; le reste replié dans « Détails »
     const notes = [
-      h('p', { class: 'petit' }, `Placé sur ${p.compteSupport ? (/^(livret|lep|ldds)/i.test(p.compteSupport) ? `le ${p.compteSupport}` : p.compteSupport) : 'le livret'}${p.tauxAnnuel ? ` à ${String(p.tauxAnnuel).replace('.', ',')} %` : ''}.`),
+      h('p', { class: 'petit' }, sansInterets() || !p.tauxAnnuel ? 'Sur ton compte épargne, sans intérêts (0 %).' : `Placé sur ${/^(livret|lep|ldds)/i.test(p.compteSupport || '') ? `le ${p.compteSupport}` : p.compteSupport} à ${String(p.tauxAnnuel).replace('.', ',')} %.`),
       h('p', { class: 'petit' }, 'Épargne nette : ', mt(n.nette), n.reprises ? ` (versé ${formatEuros(n.versements)}, repris ${formatEuros(n.reprises)})` : ''),
       p.type === 'coussin' ? h('p', { class: 'petit' }, 'Uniquement pour les vrais imprévus. Le reprendre pour une dépense courante déclenche l’alerte « épargne reprise ».') : null,
       p.type === 'projet' && /voiture/i.test(p.nom) ? h('p', { class: 'petit' }, 'Avant l’achat, prévois le coût mensuel d’une voiture (assurance, carburant, entretien, stationnement) et ajoute-le aux charges fixes.') : null,
@@ -72,14 +75,14 @@ function vuePoches() {
   const arrondis = carte('Arrondis à virer', h('div', {},
     ar.actif ? h('div', { class: 'poche-tete' }, h('span', { class: 'petit' }, `Prochain virement le ${formatDate(prochaine)}`), h('span', { class: 'poche-solde' }, mt(cag.total))) : h('p', {}, 'Arrondis désactivés (Réglages → Arrondis).'),
     ar.actif ? h('div', { class: 'groupe-boutons' }, bouton("C'est fait", async () => { if (!cag.total) { toast('Rien à virer pour l’instant.'); return; } await virerArrondis(); toast('Arrondis virés.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit', disabled: !cag.total }),
-      bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur le Livret', description: 'Ouvre Budget pour voir le montant.', date: prochaine, heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence || 'hebdomadaire'], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' })) : null,
+      bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur ton compte épargne', description: 'Ouvre Budget pour voir le montant.', date: prochaine, heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence || 'hebdomadaire'], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' })) : null,
     ar.actif ? h('details', { class: 'details-discret' }, h('summary', {}, 'Comment ça marche'), h('p', { class: 'petit' }, `${cag.lignes.length} dépense${cag.lignes.length > 1 ? 's' : ''} arrondie${cag.lignes.length > 1 ? 's' : ''} à l'euro supérieur, à virer ${({ hebdomadaire: 'chaque semaine', quinzaine: 'tous les 15 jours', mensuelle: 'chaque mois' })[ar.frequence || 'hebdomadaire']}. C'est distinct de l'arrondi System'Épargne de la banque : les deux comptent, une seule fois chacun.`)) : null), { id: 'arrondis' });
   // Sources et objectif
   const possible = epargneCible(etat, per.mois, per);
   const sources = h('div', {},
     h('div', { class: 'liste-cles' },
       ligne('Épargne nette réelle', nette.nette),
-      ligne('Virements vers le livret', nette.parType.virementLivret || 0),
+      ligne('Virements vers l’épargne', nette.parType.virementLivret || 0),
       ligne("Arrondi System'Épargne (banque)", nette.parType.arrondiBanque || 0),
       ligne("Arrondis de l'app virés", nette.parType.arrondiApp || 0),
       nette.reprises ? ligne('Repris', nette.reprises) : null),
@@ -90,7 +93,7 @@ function vuePoches() {
     histo ? h('details', { class: 'details-ligne' }, h('summary', {}, 'Historique des 12 derniers mois (de salaire à salaire)'), histo) : null), { id: 'plus-epargne' });
   const liens = carte(null, h('div', { class: 'liste-liens' },
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'plan'; aller('epargne/plan'); } }, icone('calendrier'), h('span', { class: 'ligne-lien-texte' }, 'Mon plan mois par mois', h('small', {}, 'combien mettre de côté chaque mois')), icone('suivant')),
-    h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'simulateur'; aller('epargne/simulateur'); } }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Simulateur Livret A / LEP', h('small', {}, 'ce que rapporte ton épargne')), icone('suivant'))));
+    sansInterets() ? null : h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'simulateur'; aller('epargne/simulateur'); } }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Simulateur Livret A / LEP', h('small', {}, 'ce que rapporte ton épargne')), icone('suivant'))));
   return h('div', {}, carteSysteme(), h('div', { class: 'poches' }, cartesPoches), carteprivations(), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
@@ -132,17 +135,17 @@ function feuilleMouvement(poche, sens) {
 }
 
 function editerPoche(poche) {
-  const p = poche ? { ...poche } : { id: nouvelId('poche'), nom: '', type: 'autre', cibleCentimes: null, priorite: 3, partRepartition: 0, soldeInitialCentimes: 0, mouvements: [], compteSupport: 'Livret A', tauxAnnuel: etat.parametres.tauxLivretA, actif: true };
+  const p = poche ? { ...poche } : { id: nouvelId('poche'), nom: '', type: 'autre', cibleCentimes: null, priorite: 3, partRepartition: 0, soldeInitialCentimes: 0, mouvements: [], compteSupport: sansInterets() ? 'Compte épargne sans intérêts' : 'Livret A', tauxAnnuel: etat.parametres.tauxLivretA, actif: true };
   const f = ouvrirFeuille({
     titre: poche ? p.nom : 'Nouvelle poche', plein: true,
     contenu: h('div', { class: 'formulaire' },
       champ('Nom', h('input', { class: 'input', value: p.nom, oninput: (e) => { p.nom = e.target.value; } })),
       champ('Type', selectionner([['coussin', 'Coussin de sécurité'], ['projet', 'Projet (achats, voiture…)'], ['remboursementAnticipe', 'Remboursement anticipé d’un prêt'], ['autre', 'Autre']], p.type, (v) => { p.type = v; })),
       champ('Cible', champMontant({ valeur: p.cibleCentimes, onValeur: (v) => { p.cibleCentimes = v; } }), null),
-      champ('Solde de départ (déjà sur le livret)', champMontant({ valeur: p.soldeInitialCentimes, onValeur: (v) => { p.soldeInitialCentimes = v || 0; } })),
+      champ('Solde de départ (déjà sur le compte épargne)', champMontant({ valeur: p.soldeInitialCentimes, onValeur: (v) => { p.soldeInitialCentimes = v || 0; } })),
       champ('Part de l’épargne du mois (%)', h('input', { class: 'input', inputmode: 'numeric', value: String(p.partRepartition ?? 0), oninput: (e) => { p.partRepartition = Math.max(0, Math.min(100, Number(e.target.value) || 0)); } })),
       p.type === 'remboursementAnticipe' ? champ('Palier de remboursement anticipé', champMontant({ valeur: p.palierCentimes || 50000, onValeur: (v) => { p.palierCentimes = v; } })) : null,
-      champ('Placement', selectionner([['Livret A', 'Livret A'], ['LEP', 'LEP (si éligible)'], ['Autre livret', 'Autre livret']], p.compteSupport, (v) => { p.compteSupport = v; p.tauxAnnuel = v === 'LEP' ? etat.parametres.tauxLEP : v === 'Livret A' ? etat.parametres.tauxLivretA : p.tauxAnnuel; })),
+      champ('Placement', selectionner(sansInterets() ? [['Compte épargne sans intérêts', 'Compte épargne sans intérêts (0 %)']] : [['Compte épargne sans intérêts', 'Compte sans intérêts (0 %)'], ['Livret A', 'Livret A'], ['LEP', 'LEP (si éligible)'], ['Autre livret', 'Autre livret']], p.compteSupport, (v) => { p.compteSupport = v; p.tauxAnnuel = v === 'LEP' ? etat.parametres.tauxLEP : v === 'Livret A' ? etat.parametres.tauxLivretA : v === 'Compte épargne sans intérêts' ? 0 : p.tauxAnnuel; })),
       interrupteur('Poche active', p.actif !== false, (v) => { p.actif = v; })),
     actions: [bouton('Annuler', () => f.fermer()), bouton('Enregistrer', async () => { if (!p.nom.trim()) { toast('Donne un nom.', { type: 'erreur' }); return; } await enregistrer('poches', p); f.fermer(); toast('Poche enregistrée.', { type: 'succes' }); }, { classe: 'btn-principal' })],
   });
@@ -191,7 +194,9 @@ function vuePlan() {
           h('span', { class: 'ligne-scenario' }, nom, h('small', {}, `Prêt soldé le ${formatDate(x.finLe)}`)),
           gain > 0 ? h('span', { class: 'ligne-cle-valeur' }, mt(gain, { classe: 'vert-texte' }), h('small', {}, ' d’intérêts en moins')) : h('span', { class: 'ligne-cle-valeur' }, 'référence'));
       })),
-    h('p', { class: 'petit' }, `Chaque euro remboursé par anticipation rapporte le taux du prêt (${String(sc.credit.tauxPourcent).replace('.', ',')} % saisi) contre ${String(etat.parametres.tauxLivretA).replace('.', ',')} % sur le Livret A.`),
+    h('p', { class: 'petit' }, sansInterets()
+      ? `Ton épargne est sans intérêts (0 %) : chaque euro remboursé en avance réduit d’autant ta dette et les intérêts du prêt (${String(sc.credit.tauxPourcent).replace('.', ',')} %) que tu paies.`
+      : `Chaque euro remboursé par anticipation rapporte le taux du prêt (${String(sc.credit.tauxPourcent).replace('.', ',')} % saisi) contre ${String(etat.parametres.tauxLivretA).replace('.', ',')} % sur le Livret A.`),
     )) : null;
   return h('div', {}, allocation, carte('Pour aller plus loin', h('div', { class: 'liste-liens' }, reglageRepartition() ? detailsLigne('Répartition entre les poches', reglageRepartition()) : null, tableau, scen), { id: 'plus-plan' }));
 }

@@ -156,7 +156,7 @@ export async function virerPrivations(pocheId = null, auto = []) {
   const date = aujourdhui();
   // Même poche que les arrondis (réglable dans « Mon système d'épargne »)
   const cible = pocheId || etat.poches.find((p) => p.id === etat.profil.arrondi?.pocheId && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'remboursementAnticipe' && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null;
-  const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: cible, type: 'privation', libelle: 'Privations virées sur le livret' });
+  const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: cible, type: 'privation', libelle: 'Privations virées sur l’épargne' });
   // Les repas automatiques virés sont enregistrés : leur jour est figé, une dépense ajoutée ensuite ne les change plus
   await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: tx.id } })));
   return tx;
@@ -166,7 +166,7 @@ export async function virerPrivations(pocheId = null, auto = []) {
 export async function virerArrondis() {
   const c = cagnotteEnAttente(etat.transactions, etat.profil.arrondi, etat.cagnotteArrondis, { debutSuivi: etat.profil.debutSuivi || etat.profil.premierImportLe });
   if (!c.total) return null;
-  const tx = await enregistrerVirementEpargne({ montantCentimes: c.total, pocheId: etat.profil.arrondi.pocheId || 'poche-coussin', type: 'arrondiApp', libelle: 'Arrondis virés sur le livret', lignesArrondis: c.lignes });
+  const tx = await enregistrerVirementEpargne({ montantCentimes: c.total, pocheId: etat.profil.arrondi.pocheId || 'poche-coussin', type: 'arrondiApp', libelle: 'Arrondis virés sur l’épargne', lignesArrondis: c.lignes });
   await majProfil({ arrondi: { ...etat.profil.arrondi, dernierVirement: aujourdhui() } });
   return tx;
 }

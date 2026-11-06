@@ -39,7 +39,7 @@ export function feuillePrivation() {
     await ajouterPrivation({ categorie: choix.id === 'autre' ? 'autres' : choix.categorie, libelle, montantCentimes: montant });
     vibrer(20); f.fermer();
     const b = bilanPrivations(etat, periodeBudget(aujourdhui(), etat.profil), resteADepenser(etat, aujourdhui()).privationsAuto || []);
-    toast(`Bravo : ${formatEuros(montant)} mis de côté. À virer sur ton livret : ${formatEuros(b.aVirerCentimes)}.`, { type: 'succes', duree: 5000 });
+    toast(`Bravo : ${formatEuros(montant)} mis de côté. À virer sur ton compte épargne : ${formatEuros(b.aVirerCentimes)}.`, { type: 'succes', duree: 5000 });
   });
   const f = ouvrirFeuille({
     titre: 'Je me suis privé',
@@ -62,7 +62,7 @@ export function carteprivations() {
   return carte('Je me suis privé', h('div', { class: 'carte-privations' },
     h('p', {}, b.nbMois ? `Ce mois-ci : ${formatEuros(b.moisCentimes)} mis de côté${b.nbAuto ? `, dont ${b.nbAuto} jour${b.nbAuto > 1 ? 's' : ''} de repas à la maison` : ''}.` : 'Quand tu renonces à manger dehors, à un VTC ou à un café, mets le montant de côté ici.'),
     reg?.actif ? h('p', { class: 'petit' }, `Automatique : chaque jour où tu ne notes pas de repas dehors, ${reg.repasParJour || 2} repas à ${formatEuros(prix)} (ton menu habituel) partent à l’épargne, sans dépasser ce qui reste de ta part du jour. Tu as mangé dehors sans le noter ? Ajoute la dépense : le montant s’ajuste.`) : null,
-    b.aVirerCentimes ? h('p', { class: 'privations-a-virer' }, icone('tirelire'), ' À virer sur ton livret : ', h('strong', {}, mt(b.aVirerCentimes))) : null,
+    b.aVirerCentimes ? h('p', { class: 'privations-a-virer' }, icone('tirelire'), ' À virer sur ton compte épargne : ', h('strong', {}, mt(b.aVirerCentimes))) : null,
     h('div', { class: 'groupe-boutons' },
       bouton('Je me suis privé', () => feuillePrivation(), { classe: 'btn-principal btn-petit', icone: 'plus' }),
       b.aVirerCentimes ? bouton('C’est viré', async () => { await virerPrivations(null, auto); toast(`${formatEuros(b.aVirerCentimes)} versés sur ton épargne.`, { type: 'succes' }); }, { classe: 'btn-petit' }) : null),

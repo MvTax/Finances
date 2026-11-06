@@ -202,7 +202,7 @@ function bandeaux(r, auj) {
   if (rel.precedent.montantCentimes > 0 && !faits[rel.precedent.mois]) {
     const m = rel.precedent.montantCentimes;
     res.push({ type: 'action', icone: 'tirelire', titre: `Reste de ${formatMois(rel.precedent.mois).replace(/ \d{4}$/, '')} : ${formatEuros(m)} → épargne`,
-      texte: `Ce que tu n’as pas dépensé entre le ${formatDateCourte(rel.precedent.debut)} et le ${formatDateCourte(rel.precedent.fin)} part sur ton livret${repartition ? ` (${repartition})` : ''}. Fais le virement, puis touche « C’est fait ».`,
+      texte: `Ce que tu n’as pas dépensé entre le ${formatDateCourte(rel.precedent.debut)} et le ${formatDateCourte(rel.precedent.fin)} part sur ton compte épargne${repartition ? ` (${repartition})` : ''}. Fais le virement, puis touche « C’est fait ».`,
       actions: [
         bouton("C'est fait", async () => { await enregistrerVirementEpargne({ montantCentimes: m, pocheId: null, date: auj, libelle: `Reste de ${formatMois(rel.precedent.mois)} vers l’épargne` }); await ecrireMeta('reliquats', { ...faits, [rel.precedent.mois]: { montantCentimes: m, le: auj, statut: 'vire' } }, { avertir: true }); toast(`${formatEuros(m)} versés sur ton épargne.`, { type: 'succes' }); }, { classe: 'btn-principal btn-petit' }),
         bouton('Garder sur le compte', async () => { await ecrireMeta('reliquats', { ...faits, [rel.precedent.mois]: { montantCentimes: m, le: auj, statut: 'garde' } }, { avertir: true }); toast('Gardé sur le compte.'); }, { classe: 'btn-petit' }),
@@ -232,7 +232,7 @@ function bandeaux(r, auj) {
   for (const v of etat.virementsPrevus.filter((x) => !x.fait && (x.rappelLe || x.date) <= auj)) {
     const proj = projectionDecouvert(etat, auj, { inclureRythme: false, jours: Math.max(3, diffJours(auj, v.date) + 3) });
     const risque = proj && proj.soldeApresChargesCentimes < 0;
-    res.push(({ type: 'action', icone: 'tirelire', titre: `Épargne : ${formatEuros(v.montantCentimes)} vers ${etat.poches.find((p) => p.id === v.pocheId)?.nom || 'ton livret'}`,
+    res.push(({ type: 'action', icone: 'tirelire', titre: `Épargne : ${formatEuros(v.montantCentimes)} vers ${etat.poches.find((p) => p.id === v.pocheId)?.nom || 'ton épargne'}`,
       texte: risque ? `Attention : avec ce virement, ton compte passerait sous 0 € avant le ${formatDate(v.date)}. Reporte-le.` : `Programme le virement pour le ${formatDate(v.date)} (après le loyer et les échéances).`,
       actions: [
         bouton("C'est fait", async () => { await enregistrerVirementEpargne({ montantCentimes: v.montantCentimes, pocheId: v.pocheId, virementPrevuId: v.id, date: auj }); toast('Virement d’épargne enregistré.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit' }),
@@ -248,10 +248,10 @@ function bandeaux(r, auj) {
     if (cag > 0 && prochaine <= auj) {
       const proj = projectionDecouvert(etat, auj, { inclureRythme: false, jours: 3 });
       const risque = proj && proj.soldeActuelCentimes - cag < 0;
-      res.push(({ type: 'action', icone: 'pieces', titre: `Vire ${formatEuros(cag)} sur ton Livret`, texte: risque ? 'Ton compte courant ne le permet pas sans découvert : reporte à la semaine prochaine.' : 'Cagnotte « Arrondis à virer » de la période.',
+      res.push(({ type: 'action', icone: 'pieces', titre: `Vire ${formatEuros(cag)} sur ton compte épargne`, texte: risque ? 'Ton compte courant ne le permet pas sans découvert : reporte à la semaine prochaine.' : 'Cagnotte « Arrondis à virer » de la période.',
         actions: [
           bouton("C'est fait", async () => { await virerArrondis(); toast('Arrondis virés : cagnotte remise à zéro.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit' }),
-          bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur le Livret', description: 'Ouvre Budget pour voir le montant exact.', date: prochainVirementArrondis(ar, ajouterJours(auj, 1), auj), heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' }),
+          bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur ton compte épargne', description: 'Ouvre Budget pour voir le montant exact.', date: prochainVirementArrondis(ar, ajouterJours(auj, 1), auj), heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' }),
         ] }));
     }
   }

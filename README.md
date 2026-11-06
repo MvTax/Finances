@@ -228,3 +228,7 @@ Trois flux alimentent ces poches :
 3. **Repas à la maison et privations**, chaque jour, vers la même poche.
 
 La carte affiche aussi quand la poche du prêt sera pleine au rythme du plan.
+
+## Épargne sans intérêts
+
+Réglages → Épargne et arrondis → « Épargne sans intérêts (0 %) ». Avec ce réglage, les poches sont sur un compte épargne qui ne rapporte rien. Le simulateur Livret A / LEP et les taux sont masqués, et les textes parlent de « compte épargne », pas de livret. L'app ne compte jamais d'intérêts dans les montants mis de côté : ce sont exactement les sommes versées.
