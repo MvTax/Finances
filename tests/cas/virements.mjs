@@ -1,0 +1,51 @@
+// virements.mjs — « Reste à virer vers l'épargne » : un virement par semaine (épargne du mois + arrondis + privations).
+import { egal, vrai } from '../outils/assert.mjs';
+import { tx, etatBase } from '../outils/etat.mjs';
+import { aVirerEpargne } from '../../js/virements.js';
+
+const revenus = (mois, c) => ({ mois, salaireCentimes: c, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' });
+const poches = () => [
+  { id: 'secu', nom: 'Sécurité', type: 'coussin', cibleCentimes: 100000, priorite: 2, partRepartition: 50, soldeInitialCentimes: 0, mouvements: [], actif: true },
+  { id: 'pret', nom: 'Prêt 8 000 €', type: 'remboursementAnticipe', cibleCentimes: 800000, priorite: 1, partRepartition: 50, soldeInitialCentimes: 0, mouvements: [], actif: true },
+];
+const etat = (extra = {}) => {
+  const e = etatBase({ revenusMensuels: [revenus('2026-11', 150000)], poches: poches(), privations: [], ...extra });
+  e.profil.arrondi.pocheId = 'pret';
+  e.profil.repasAuto = { actif: false };
+  return e;
+};
+
+export default [
+  { nom: 'à virer : part de la semaine de l’épargne du mois, arrondis et privations, répartis par poche', fn: () => {
+    const e = etat({ transactions: [tx({ date: '2026-11-09', montant: 340 })], privations: [{ id: 'p', date: '2026-11-09', libelle: 'Menu', montantCentimes: 1000, vireLe: null }] });
+    const v = aVirerEpargne(e, '2026-11-10');
+    vrai(v.moisCibleCentimes > 0, 'une épargne est visée');
+    egal(v.arrondisCentimes, 60);
+    egal(v.privationsCentimes, 1000);
+    egal(v.semaineCentimes, v.moisSemaineCentimes + 60 + 1000);
+    vrai(v.moisSemaineCentimes > 0 && v.moisSemaineCentimes < v.moisRestantCentimes, 'une partie seulement cette semaine');
+    egal(v.moisSemaineCentimes % 100, 0, 'arrondi à l’euro');
+    egal(v.parPoche.reduce((s, x) => s + x.montantCentimes, 0), v.semaineCentimes, 'rien ne se perd');
+    const pret = v.parPoche.find((x) => x.pocheId === 'pret').montantCentimes;
+    const secu = v.parPoche.find((x) => x.pocheId === 'secu').montantCentimes;
+    egal(pret - secu, 1060, 'efforts sur le prêt, épargne du mois en 50/50');
+    egal(v.totalCentimes, v.moisRestantCentimes + 1060);
+  } },
+  { nom: 'à virer : une fois le virement de la semaine fait, plus rien jusqu’à lundi, puis la part suivante', fn: () => {
+    const e = etat();
+    const v0 = aVirerEpargne(e, '2026-11-10');
+    e.transactions.push(tx({ date: '2026-11-10', montant: v0.moisSemaineCentimes, categorie: 'epargne', epargne: true, typeEpargne: 'virementLivret' }));
+    const v1 = aVirerEpargne(e, '2026-11-11');
+    egal(v1.moisSemaineCentimes, 0);
+    egal(v1.moisRestantCentimes, v0.moisRestantCentimes - v0.moisSemaineCentimes);
+    const v2 = aVirerEpargne(e, '2026-11-16');
+    vrai(v2.moisSemaineCentimes > 0, 'nouvelle semaine');
+  } },
+  { nom: 'à virer : rien quand l’épargne du mois est faite et que tout est viré', fn: () => {
+    const e = etat();
+    const v0 = aVirerEpargne(e, '2026-11-10');
+    e.transactions.push(tx({ date: '2026-11-06', montant: v0.moisCibleCentimes, categorie: 'epargne', epargne: true, typeEpargne: 'virementLivret' }));
+    const v = aVirerEpargne(e, '2026-11-10');
+    egal(v.semaineCentimes, 0); egal(v.totalCentimes, 0); egal(v.parPoche.length, 0);
+  } },
+];

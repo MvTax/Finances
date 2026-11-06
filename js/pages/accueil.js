@@ -18,6 +18,7 @@ import { exporterSauvegarde, feuilleRevenus } from './communs.js';
 import { enregistrerVirementEpargne, virerArrondis, payerEcheancePret, payerEcheanceCredit } from '../actions.js';
 import { ajouterAuCalendrier } from '../ics.js';
 import { plafondEffectif } from './budgets.js';
+import { blocCoffres } from './coffres.js';
 
 export const titre = 'Accueil';
 let dernierReste = null;
@@ -47,7 +48,7 @@ export function rendre(vue) {
   }
   const rappels = bandeaux(r, auj);
   const analyse = raisonner(etat, auj);
-  vue.replaceChildren(...[entete, hero(r, jauge, analyse), ajout, prive, carteAnalyse(r, jauge, analyse), essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
+  vue.replaceChildren(...[entete, hero(r, jauge, analyse), ajout, prive, blocCoffres(), carteAnalyse(r, jauge, analyse), essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
 }
 
 /** Le bloc sapin : ce que tu peux dépenser aujourd'hui, et le reste du mois. Rien d'autre. */
@@ -229,7 +230,8 @@ function bandeaux(r, auj) {
     res.push(({ type: 'alerte', icone: 'tirelire', titre: `Tu as repris ${formatEuros(ev.montantCentimes)} de ton épargne`, texte: `Le ${formatDate(ev.date)}${p ? ` (${p.nom})` : ''}. La prochaine fois, puise d'abord dans l'enveloppe Plaisir ou réduis une enveloppe non vitale.`, fermer: async () => { await enregistrer('evenements', { ...ev, vu: true }); } }));
   }
   // Virements d'épargne prévus
-  for (const v of etat.virementsPrevus.filter((x) => !x.fait && (x.rappelLe || x.date) <= auj)) {
+  // Les virements d'épargne du plan sont remplacés par le virement de la semaine (« Reste à virer vers l’épargne »)
+  for (const v of etat.virementsPrevus.filter((x) => !x.fait && x.type !== 'epargne' && (x.rappelLe || x.date) <= auj)) {
     const proj = projectionDecouvert(etat, auj, { inclureRythme: false, jours: Math.max(3, diffJours(auj, v.date) + 3) });
     const risque = proj && proj.soldeApresChargesCentimes < 0;
     res.push(({ type: 'action', icone: 'tirelire', titre: `Épargne : ${formatEuros(v.montantCentimes)} vers ${etat.poches.find((p) => p.id === v.pocheId)?.nom || 'ton épargne'}`,
@@ -240,21 +242,7 @@ function bandeaux(r, auj) {
         bouton('Reporter', async () => { await enregistrer('virementsPrevus', { ...v, rappelLe: ajouterJours(auj, 3), date: v.date < ajouterJours(auj, 3) ? ajouterJours(auj, 3) : v.date }); toast('Reporté de 3 jours.'); }, { classe: 'btn-petit' }),
       ] }));
   }
-  // Arrondis à virer
-  const ar = etat.profil.arrondi;
-  if (ar?.actif) {
-    const prochaine = prochainVirementArrondis(ar, auj, ar.dernierVirement || null);
-    const cag = epargneDuMois(etat, auj).cagnotteCentimes;
-    if (cag > 0 && prochaine <= auj) {
-      const proj = projectionDecouvert(etat, auj, { inclureRythme: false, jours: 3 });
-      const risque = proj && proj.soldeActuelCentimes - cag < 0;
-      res.push(({ type: 'action', icone: 'pieces', titre: `Vire ${formatEuros(cag)} sur ton compte épargne`, texte: risque ? 'Ton compte courant ne le permet pas sans découvert : reporte à la semaine prochaine.' : 'Cagnotte « Arrondis à virer » de la période.',
-        actions: [
-          bouton("C'est fait", async () => { await virerArrondis(); toast('Arrondis virés : cagnotte remise à zéro.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit' }),
-          bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur ton compte épargne', description: 'Ouvre Budget pour voir le montant exact.', date: prochainVirementArrondis(ar, ajouterJours(auj, 1), auj), heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' }),
-        ] }));
-    }
-  }
+  // Arrondis, repas et privations à virer : regroupés dans « Reste à virer vers l’épargne » (bloc Mon épargne, en haut)
   // Échéances proches (proches et crédits) arrivées
   // Remboursements aux proches arrivés à échéance, le plus proche d'abord
   const echeances = etat.prets.filter((x) => x.statut !== 'solde' && x.sens === 'empruntéParMoi')

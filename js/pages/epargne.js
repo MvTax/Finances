@@ -17,6 +17,7 @@ import { periodeBudget, epargneCible } from '../calculs.js';
 import { carteprivations } from './privation.js';
 import { paliersPoche, palierFranchi } from '../paliers.js';
 import { carteSysteme } from './systeme-epargne.js';
+import { blocCoffres } from './coffres.js';
 
 /** Épargne sans intérêts (choix du profil) : 0 %, pas de livret rémunéré ni de simulateur d'intérêts. */
 const sansInterets = () => !!etat.profil.epargneSansInterets;
@@ -61,7 +62,7 @@ function vuePoches() {
       p.type === 'projet' && /voiture/i.test(p.nom) ? h('p', { class: 'petit' }, 'Avant l’achat, prévois le coût mensuel d’une voiture (assurance, carburant, entretien, stationnement) et ajoute-le aux charges fixes.') : null,
       (p.mouvements || []).length ? h('div', { class: 'liste-cles' }, [...p.mouvements].reverse().slice(0, 30).map((m) => h('div', { class: 'ligne-cle' }, h('span', {}, `${formatDate(m.date)}, ${m.motif || (m.sens === 'versement' ? 'versement' : 'reprise')}`), h('span', { class: m.sens === 'reprise' ? 'negatif-texte' : '' }, m.sens === 'reprise' ? '−' : '+', mt(m.montantCentimes))))) : null,
     ];
-    return h('article', { class: 'poche' },
+    return h('article', { class: 'poche', id: `poche-${p.id}` },
       h('div', { class: 'poche-tete' }, h('h3', {}, p.nom), h('span', { class: 'poche-solde' }, mt(s))),
       paliersPoche(p, s) ? blocPaliers(p, s) : p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
       h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)}` : ''] : 'Sans objectif chiffré'),
@@ -95,7 +96,7 @@ function vuePoches() {
   const liens = carte(null, h('div', { class: 'liste-liens' },
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'plan'; aller('epargne/plan'); } }, icone('calendrier'), h('span', { class: 'ligne-lien-texte' }, 'Mon plan mois par mois', h('small', {}, 'combien mettre de côté chaque mois')), icone('suivant')),
     sansInterets() ? null : h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'simulateur'; aller('epargne/simulateur'); } }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Simulateur Livret A / LEP', h('small', {}, 'ce que rapporte ton épargne')), icone('suivant'))));
-  return h('div', {}, carteSysteme(), h('div', { class: 'poches' }, cartesPoches), carteprivations(), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
+  return h('div', {}, blocCoffres({ surPoche: (p) => document.getElementById(`poche-${p.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }), carteSysteme(), h('div', { class: 'poches' }, cartesPoches), carteprivations(), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
 function ligne(l, c) { return h('div', { class: 'ligne-cle' }, h('span', {}, l), mt(c)); }
@@ -249,15 +250,10 @@ function reglageRepartition() {
 }
 
 async function accepterPlan(plan) {
-  const js = etat.profil.jourSalaireHabituel || 1;
-  const lendemain = ajouterJours(dateDuMois(plan.mois, js), 1);
   const ops = [{ collection: 'planMensuel', valeur: { ...plan, id: plan.mois, statut: 'accepte' } }];
-  for (const a of plan.allocationsPoches) {
-    if (etat.virementsPrevus.some((v) => v.mois === plan.mois && v.pocheId === a.pocheId)) continue;
-    ops.push({ collection: 'virementsPrevus', valeur: { id: nouvelId('vp'), mois: plan.mois, date: a.date || lendemain, rappelLe: lendemain, libelle: `Virement ${etat.poches.find((p) => p.id === a.pocheId)?.nom || 'épargne'}`, montantCentimes: a.montantCentimes, pocheId: a.pocheId, fait: false, type: 'epargne' } });
-  }
+  // Pas de gros virement mensuel : l'épargne du mois se vire par semaine (« Reste à virer vers l’épargne »)
   await enregistrerLot(ops);
-  toast('Plan accepté : le rappel de virement apparaîtra le lendemain du salaire.', { type: 'succes' });
+  toast('Plan accepté : chaque semaine, « Reste à virer vers l’épargne » te dit combien virer.', { type: 'succes' });
 }
 
 // ---------------------------------------------------------------------------

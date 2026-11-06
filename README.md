@@ -235,6 +235,22 @@ Au premier lancement de la version 1.21, l'app range les poches une seule fois :
 
 La poche Sécurité affiche 5 paliers, chacun avec sa couleur : Premier pas (10 % de l'objectif), Bon départ (25 %), Mi-chemin (50 %), Presque (75 %) et Objectif atteint (100 %). Les montants sont arrondis à 10 €. La barre prend la couleur du dernier palier atteint, et la carte indique le prochain palier et ce qu'il reste à mettre. Un message félicite à chaque palier franchi par un versement.
 
+## Mon épargne et le virement de la semaine
+
+En haut de l'Accueil et de la page Épargne, trois cases :
+
+- **Épargne prêt** : ce qu'il y a dans la poche du prêt, et le pourcentage de l'objectif ;
+- **Épargne sécurité** : ce qu'il y a dans la Sécurité, avec la couleur et le nom du palier atteint ;
+- **Reste à virer vers l'épargne**, en dessous : le montant du virement de la semaine.
+
+Le virement de la semaine regroupe :
+
+1. la part de la semaine de l'épargne du mois. C'est ce qui reste à mettre ce mois-ci, divisé par le nombre de semaines jusqu'au salaire et arrondi à l'euro. Elle est calculée le lundi : une fois le virement fait, elle tombe à 0 jusqu'au lundi suivant ;
+2. les arrondis en attente ;
+3. les repas à la maison et les privations pas encore virés.
+
+La case indique combien mettre sur chaque poche (50/50 pour l'épargne du mois, arrondis et privations sur le prêt), et le total d'ici le salaire. Si le virement ferait passer le compte courant sous 0 €, elle le signale. « J'ai fait le virement » ouvre le détail : la part de l'épargne du mois est modifiable, et la confirmation enregistre tout en une fois. Le rappel séparé des arrondis sur l'Accueil est remplacé par cette case.
+
 ## Épargne sans intérêts
 
 Réglages → Épargne et arrondis → « Épargne sans intérêts (0 %) ». Avec ce réglage, les poches sont sur un compte épargne qui ne rapporte rien. Le simulateur Livret A / LEP et les taux sont masqués, et les textes parlent de « compte épargne », pas de livret. L'app ne compte jamais d'intérêts dans les montants mis de côté : ce sont exactement les sommes versées.

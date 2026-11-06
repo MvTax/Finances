@@ -162,6 +162,24 @@ export async function virerPrivations(pocheId = null, auto = []) {
   return tx;
 }
 
+/**
+ * « J'ai fait le virement de la semaine » : enregistre en une fois les arrondis, les repas et privations,
+ * et la part de l'épargne du mois (répartie entre les poches).
+ * @returns le total enregistré
+ */
+export async function virerSemaine({ epargneMoisCentimes = 0, auto = [] } = {}) {
+  let total = 0;
+  const arr = await virerArrondis();
+  if (arr) total += arr.montantCentimes;
+  const priv = await virerPrivations(null, auto);
+  if (priv) total += priv.montantCentimes;
+  if (epargneMoisCentimes > 0) {
+    await enregistrerVirementEpargne({ montantCentimes: epargneMoisCentimes, type: 'virementLivret', libelle: 'Épargne du mois' });
+    total += epargneMoisCentimes;
+  }
+  return total;
+}
+
 /** Virement de la cagnotte d'arrondis (« Vire X € sur ton Livret » → « C'est fait »). */
 export async function virerArrondis() {
   const c = cagnotteEnAttente(etat.transactions, etat.profil.arrondi, etat.cagnotteArrondis, { debutSuivi: etat.profil.debutSuivi || etat.profil.premierImportLe });

@@ -547,7 +547,8 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 @media (prefers-reduced-motion: reduce) { .saisie-tuile { transition: none; } }
 
 /* Paliers de réussite (Sécurité) : une couleur par palier, de la braise au vert profond */
-.paliers { --p1: #d9774a; --p2: #d9a53f; --p3: #a6b84a; --p4: #4fa874; --p5: #2f9a8f; display: flex; flex-direction: column; gap: 10px; margin: 6px 0 2px; }
+.paliers, .coffre-secu { --p1: #d9774a; --p2: #d9a53f; --p3: #a6b84a; --p4: #4fa874; --p5: #2f9a8f; }
+.paliers { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 2px; }
 .paliers.palier-0 { --pc: var(--texte-3); }
 .paliers.palier-1, .paliers-liste .palier-1 { --pc: var(--p1); }
 .paliers.palier-2, .paliers-liste .palier-2 { --pc: var(--p2); }
@@ -569,3 +570,28 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .paliers-texte { margin: 0; font-size: 14px; color: var(--texte-2); }
 .paliers-nom { color: var(--pc); }
 @media (prefers-reduced-motion: reduce) { .paliers-rempli { transition: none; } }
+
+/* Mon épargne (Accueil et Épargne) : deux cases côte à côte, « Reste à virer » en dessous */
+.coffres { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 4px; }
+.coffres-grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.coffre { --pc: var(--laiton); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: 14px 14px 12px; border: 0; border-radius: var(--rayon); background: var(--surface); color: var(--texte); text-align: left; font: inherit; cursor: pointer; box-shadow: inset 0 3px 0 var(--pc); }
+.coffre:active { transform: scale(.98); }
+.coffre-secu.palier-0 { --pc: var(--texte-3); }
+.coffre-secu.palier-1 { --pc: var(--p1); } .coffre-secu.palier-2 { --pc: var(--p2); } .coffre-secu.palier-3 { --pc: var(--p3); }
+.coffre-secu.palier-4 { --pc: var(--p4); } .coffre-secu.palier-5 { --pc: var(--p5); }
+.coffre-nom { font-size: 14px; font-weight: 600; color: var(--texte-2); }
+.coffre-solde { font-family: var(--police-chiffres); font-size: 26px; font-weight: 650; letter-spacing: -.5px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.coffre-barre { display: block; width: 100%; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.coffre-barre > span { display: block; height: 100%; border-radius: 3px; background: var(--pc); }
+.coffre-detail { margin: 0; font-size: 13px; color: var(--texte-3); }
+.coffre-virer { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: var(--rayon); background: var(--laiton-doux); }
+.coffre-virer.a-jour { background: var(--vert-doux); }
+.coffre-virer-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.coffre-virer .coffre-nom { color: var(--texte); font-size: 15px; }
+.coffre-virer-montant { font-family: var(--police-chiffres); font-size: 26px; font-weight: 650; color: var(--laiton); font-variant-numeric: tabular-nums; }
+.coffre-virer.a-jour .coffre-virer-montant { color: var(--vert); }
+.coffre-virer .coffre-detail { color: var(--texte-2); font-size: 14px; }
+.coffre-alerte { color: var(--orange) !important; display: flex; gap: 6px; align-items: flex-start; }
+.coffre-alerte .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.coffre-virer-btn { align-self: flex-start; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .coffre:active { transform: none; } }

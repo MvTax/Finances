@@ -450,7 +450,7 @@ export function projectionDecouvert(etat, dateIso = aujourdhui(), { jours = 7, r
     }
   }
   for (const v of etat.virementsPrevus || []) {
-    if (v.fait || v.date < dateIso || v.date > fin) continue;
+    if (v.fait || v.type === 'epargne' || v.date < dateIso || v.date > fin) continue; // épargne : virée chaque semaine, voir virements.js
     evenements.push({ date: v.date, libelle: v.libelle, montantCentimes: -v.montantCentimes, type: 'epargne' });
   }
   const rythme = inclureRythme ? (rythmeCentimes ?? rythmeQuotidien(etat, dateIso)) : 0;
