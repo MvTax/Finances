@@ -138,6 +138,39 @@ function assurerRepasAuto() {
   return JSON.stringify(etat.profil.repasAuto) !== avant;
 }
 
+/**
+ * Une seule fois : l'épargne se limite à deux poches, Sécurité et le remboursement du prêt.
+ * Dès qu'un prêt amortissable existe : la poche du prêt est activée (ou créée) et reliée au prêt, les poches
+ * « projet » vides sont supprimées (une poche projet avec de l'argent est gardée), répartition 50/50,
+ * arrondis, repas et privations vers le prêt.
+ * @returns {Array} opérations d'écriture
+ */
+export function rangerPoches() {
+  if (etat.meta.pochesRangees) return [];
+  const credit = (etat.creditsBancaires || []).find((c) => c.type === 'amortissable' && c.actif !== false && c.capitalCentimes);
+  if (!credit) return [];
+  const ops = [];
+  const m = maintenant();
+  const solde = (p) => (p.soldeInitialCentimes || 0) + (p.mouvements || []).reduce((s, x) => s + (x.sens === 'versement' ? x.montantCentimes : -x.montantCentimes), 0);
+  for (const p of etat.poches.filter((x) => x.type === 'projet' && !solde(x) && !(x.mouvements || []).length)) ops.push({ store: 'poches', supprimer: true, cle: p.id });
+  const supprimees = new Set(ops.map((o) => o.cle));
+  etat.poches = etat.poches.filter((p) => !supprimees.has(p.id));
+  const nomPret = `Prêt ${Math.round(credit.capitalCentimes / 100).toLocaleString('fr-FR')} €`;
+  let pret = etat.poches.find((p) => p.type === 'remboursementAnticipe');
+  pret = { ...(pret || { id: 'poche-pret', type: 'remboursementAnticipe', soldeInitialCentimes: 0, mouvements: [], palierCentimes: 50000, creeLe: m }),
+    nom: pret && pret.actif !== false && !/^Remboursement anticipé$/.test(pret.nom) ? pret.nom : nomPret, cibleCentimes: credit.capitalCentimes, creditId: credit.id,
+    priorite: 1, partRepartition: 50, actif: true, compteSupport: pret?.compteSupport || 'Compte épargne sans intérêts', tauxAnnuel: pret?.tauxAnnuel ?? 0, modifieLe: m };
+  const secu = etat.poches.find((p) => p.type === 'coussin');
+  const autres = etat.poches.filter((p) => p.id !== pret.id && p.id !== secu?.id);
+  etat.poches = [...(secu ? [{ ...secu, priorite: 2, partRepartition: 50, modifieLe: m }] : []), pret, ...autres];
+  for (const p of etat.poches) if (p.id === pret.id || p.id === secu?.id) ops.push({ store: 'poches', valeur: p });
+  etat.profil.arrondi = { ...etat.profil.arrondi, pocheId: pret.id };
+  ops.push({ store: 'profil', valeur: etat.profil });
+  etat.meta.pochesRangees = m;
+  ops.push({ store: 'meta', valeur: { cle: 'pochesRangees', valeur: m } });
+  return ops;
+}
+
 /** Charge tout l'état depuis IndexedDB. */
 export async function charger() {
   await db.ouvrirBase();
@@ -153,6 +186,7 @@ export async function charger() {
   const ops = initialiserDefauts();
   ops.push(...rangerComptes());
   if (assurerRepasAuto()) ops.push({ store: 'profil', valeur: etat.profil });
+  ops.push(...rangerPoches());
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });

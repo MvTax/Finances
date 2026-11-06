@@ -229,6 +229,12 @@ Trois flux alimentent ces poches :
 
 La carte affiche aussi quand la poche du prêt sera pleine au rythme du plan.
 
+Au premier lancement de la version 1.21, l'app range les poches une seule fois : une poche « Projet » vide (sans argent ni mouvement) est supprimée, la poche du prêt est activée sous le nom « Prêt 8 000 € » (selon le capital du prêt), reliée au prêt, avec 50 % de l'épargne du mois, et les arrondis, repas et privations vont vers elle. Une poche qui contient de l'argent n'est jamais supprimée.
+
+### Paliers de réussite (Sécurité)
+
+La poche Sécurité affiche 5 paliers, chacun avec sa couleur : Premier pas (10 % de l'objectif), Bon départ (25 %), Mi-chemin (50 %), Presque (75 %) et Objectif atteint (100 %). Les montants sont arrondis à 10 €. La barre prend la couleur du dernier palier atteint, et la carte indique le prochain palier et ce qu'il reste à mettre. Un message félicite à chaque palier franchi par un versement.
+
 ## Épargne sans intérêts
 
 Réglages → Épargne et arrondis → « Épargne sans intérêts (0 %) ». Avec ce réglage, les poches sont sur un compte épargne qui ne rapporte rien. Le simulateur Livret A / LEP et les taux sont masqués, et les textes parlent de « compte épargne », pas de livret. L'app ne compte jamais d'intérêts dans les montants mis de côté : ce sont exactement les sommes versées.

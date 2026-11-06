@@ -15,6 +15,7 @@ import { virerArrondis, enregistrerVirementEpargne, enregistrerReprise, payerEch
 import { ajouterAuCalendrier } from '../ics.js';
 import { periodeBudget, epargneCible } from '../calculs.js';
 import { carteprivations } from './privation.js';
+import { paliersPoche, palierFranchi } from '../paliers.js';
 import { carteSysteme } from './systeme-epargne.js';
 
 /** Épargne sans intérêts (choix du profil) : 0 %, pas de livret rémunéré ni de simulateur d'intérêts. */
@@ -62,7 +63,7 @@ function vuePoches() {
     ];
     return h('article', { class: 'poche' },
       h('div', { class: 'poche-tete' }, h('h3', {}, p.nom), h('span', { class: 'poche-solde' }, mt(s))),
-      p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
+      paliersPoche(p, s) ? blocPaliers(p, s) : p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
       h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)}` : ''] : 'Sans objectif chiffré'),
       p.type === 'remboursementAnticipe' && s >= (p.palierCentimes || 50000) ? h('p', { class: 'petit vert-texte' }, icone('ok'), ` Palier atteint : tu peux rembourser ${formatEuros(s)} par anticipation.`) : null,
       h('div', { class: 'groupe-boutons' }, bouton('Ajouter', () => feuilleMouvement(p, 'versement'), { classe: 'btn-petit btn-principal' }), bouton('Retirer', () => feuilleMouvement(p, 'reprise'), { classe: 'btn-petit' })),
@@ -110,6 +111,23 @@ function historiqueMensuel() {
   return h('div', { class: 'liste-cles' }, periodes.map((per) => { const n = epargneNettePeriode(tx, per.debut, per.fin); return h('div', { class: 'ligne-cle' }, h('span', {}, formatMois(per.mois), h('small', {}, ` (${per.debut.slice(8)}/${per.debut.slice(5, 7)} → ${per.fin.slice(8)}/${per.fin.slice(5, 7)})`)), h('span', { class: n.nette < 0 ? 'negatif-texte' : '' }, mt(n.nette), n.nbReprises ? h('small', {}, ` (${n.nbReprises} reprise${n.nbReprises > 1 ? 's' : ''})`) : null)); }));
 }
 
+/** Barre à paliers colorés (Sécurité) : chaque palier franchi prend sa couleur, le prochain est annoncé. */
+function blocPaliers(p, s) {
+  const pal = paliersPoche(p, s);
+  const pct = Math.min(100, Math.round((s / p.cibleCentimes) * 100));
+  return h('div', { class: `paliers ${pal.courant ? pal.courant.classe : 'palier-0'}` },
+    h('div', { class: 'paliers-barre', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}${pal.courant ? `, palier « ${pal.courant.nom} »` : ''}` },
+      h('span', { class: 'paliers-rempli', style: { width: `${pct}%` } }),
+      ...pal.liste.slice(0, -1).map((x) => h('span', { class: `paliers-repere ${x.classe} ${x.atteint ? 'atteint' : ''}`, style: { left: `${Math.round((x.montantCentimes / p.cibleCentimes) * 100)}%` }, 'aria-hidden': 'true' }))),
+    h('ol', { class: 'paliers-liste', 'aria-label': 'Paliers' }, pal.liste.map((x) => h('li', { class: `${x.classe} ${x.atteint ? 'atteint' : ''}` },
+      h('span', { class: 'paliers-pastille', 'aria-hidden': 'true' }, x.atteint ? icone('ok') : null),
+      h('span', { class: 'paliers-montant' }, formatEuros(x.montantCentimes, { sansCentimes: true })),
+      h('span', { class: 'sr' }, ` ${x.nom}${x.atteint ? ', atteint' : ''}`)))),
+    h('p', { class: 'paliers-texte' }, pal.prochain
+      ? [pal.courant ? h('strong', { class: 'paliers-nom' }, `${pal.courant.nom} ✓ `) : null, `Prochain palier : « ${pal.prochain.nom} » à ${formatEuros(pal.prochain.montantCentimes, { sansCentimes: true })}, encore ${formatEuros(pal.resteCentimes)}.`]
+      : h('strong', { class: 'paliers-nom' }, 'Objectif atteint ✓ Ta sécurité est complète.')));
+}
+
 function feuilleMouvement(poche, sens) {
   let montant = null; let motif = '';
   const avert = sens === 'reprise' ? h('div', { class: 'anti-reprise' },
@@ -124,12 +142,15 @@ function feuilleMouvement(poche, sens) {
       h('p', { class: 'petit' }, sens === 'versement' ? 'Enregistre un virement réellement effectué depuis ton compte courant.' : 'La reprise est enregistrée et visible : elle réduit ton épargne nette du mois.')),
     actions: [bouton('Annuler', () => f.fermer()), bouton(sens === 'versement' ? 'Ajouter' : 'Retirer quand même', async () => {
       if (!montant || montant <= 0) { toast('Montant invalide.', { type: 'erreur' }); return; }
+      const avant = soldePoche(poche);
       if (sens === 'versement') await enregistrerVirementEpargne({ montantCentimes: montant, pocheId: poche.id, libelle: `Virement vers ${poche.nom}` });
       else {
         const p = { ...poche, mouvements: [...(poche.mouvements || []), { id: nouvelId('mv'), date: aujourdhui(), montantCentimes: montant, sens: 'reprise', motif: motif || 'Reprise' }] };
         await enregistrerLot([{ collection: 'poches', valeur: p }, { collection: 'evenements', valeur: { id: nouvelId('ev'), type: 'reprise', date: aujourdhui(), montantCentimes: montant, pocheId: poche.id, vu: false, motif } }]);
       }
-      f.fermer(); toast(sens === 'versement' ? 'Ajouté.' : 'Retiré.', { type: sens === 'versement' ? 'succes' : 'info' });
+      f.fermer();
+      const franchi = sens === 'versement' ? palierFranchi(poche, avant, avant + montant) : null;
+      toast(franchi ? `Palier « ${franchi.nom} » atteint : ${formatEuros(avant + montant)} de côté !` : sens === 'versement' ? 'Ajouté.' : 'Retiré.', { type: sens === 'versement' ? 'succes' : 'info', duree: franchi ? 5000 : undefined });
     }, { classe: sens === 'versement' ? 'btn-principal' : 'btn-danger' })],
   });
 }

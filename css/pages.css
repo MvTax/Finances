@@ -545,3 +545,27 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .voix-note .envoi-gemini { background: none; padding: 0 2px; font-size: 13px; color: var(--texte-3); }
 .voix-note .envoi-gemini .ic { width: 16px; height: 16px; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .saisie-tuile { transition: none; } }
+
+/* Paliers de réussite (Sécurité) : une couleur par palier, de la braise au vert profond */
+.paliers { --p1: #d9774a; --p2: #d9a53f; --p3: #a6b84a; --p4: #4fa874; --p5: #2f9a8f; display: flex; flex-direction: column; gap: 10px; margin: 6px 0 2px; }
+.paliers.palier-0 { --pc: var(--texte-3); }
+.paliers.palier-1, .paliers-liste .palier-1 { --pc: var(--p1); }
+.paliers.palier-2, .paliers-liste .palier-2 { --pc: var(--p2); }
+.paliers.palier-3, .paliers-liste .palier-3 { --pc: var(--p3); }
+.paliers.palier-4, .paliers-liste .palier-4 { --pc: var(--p4); }
+.paliers.palier-5, .paliers-liste .palier-5 { --pc: var(--p5); }
+.paliers-barre { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); overflow: visible; }
+.paliers-rempli { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: var(--pc); transition: width .6s var(--sortie); }
+.paliers-repere { position: absolute; top: -3px; width: 3px; height: 18px; margin-left: -1.5px; border-radius: 2px; background: var(--surface-3); }
+.paliers-repere.palier-1 { --pc: var(--p1); } .paliers-repere.palier-2 { --pc: var(--p2); } .paliers-repere.palier-3 { --pc: var(--p3); } .paliers-repere.palier-4 { --pc: var(--p4); }
+.paliers-repere.atteint { background: var(--pc); }
+.paliers-liste { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.paliers-liste li { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--texte-3); }
+.paliers-pastille { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--pc); display: grid; place-items: center; color: #fff; }
+.paliers-pastille .ic { width: 13px; height: 13px; stroke-width: 3; }
+.paliers-liste li.atteint { color: var(--texte); font-weight: 600; }
+.paliers-liste li.atteint .paliers-pastille { background: var(--pc); }
+.paliers-montant { font-family: var(--police-chiffres); white-space: nowrap; }
+.paliers-texte { margin: 0; font-size: 14px; color: var(--texte-2); }
+.paliers-nom { color: var(--pc); }
+@media (prefers-reduced-motion: reduce) { .paliers-rempli { transition: none; } }
