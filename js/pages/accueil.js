@@ -36,6 +36,8 @@ export function rendre(vue) {
     h('div', {}, h('p', { class: 'accueil-date' }, jour.charAt(0).toUpperCase() + jour.slice(1)), h('h1', { class: 'grand-titre' }, etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour')));
 
   const ajout = h('button', { class: 'btn btn-principal btn-large ajout-depense', type: 'button', onclick: async () => { const { ouvrirSaisie } = await import('./saisie.js'); ouvrirSaisie(); } }, icone('plus'), h('span', {}, 'Ajouter une dépense'));
+  // « Je me suis privé » juste sous l'ajout : un repas évité part à l'épargne en deux touches
+  const prive = h('button', { class: 'btn btn-secondaire btn-large prive-accueil', type: 'button', onclick: async () => { const { feuillePrivation } = await import('./privation.js'); feuillePrivation(); } }, icone('tirelire'), h('span', {}, 'Je me suis privé → épargne'));
 
   if (!r.revenus.totalCentimes && !etat.transactions.length) {
     vue.replaceChildren(entete, hero(r, jauge), ajout,
@@ -45,7 +47,7 @@ export function rendre(vue) {
   }
   const rappels = bandeaux(r, auj);
   const analyse = raisonner(etat, auj);
-  vue.replaceChildren(...[entete, hero(r, jauge, analyse), ajout, carteAnalyse(r, jauge, analyse), essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
+  vue.replaceChildren(...[entete, hero(r, jauge, analyse), ajout, prive, carteAnalyse(r, jauge, analyse), essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
 }
 
 /** Le bloc sapin : ce que tu peux dépenser aujourd'hui, et le reste du mois. Rien d'autre. */
