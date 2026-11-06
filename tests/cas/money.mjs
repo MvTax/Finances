@@ -22,7 +22,7 @@ export default [
     egal(formatEuros(100000, { sansCentimes: true }).replace(NBSP, ' '), '1 000 €');
   } },
   { nom: 'money : arrondi à l’euro supérieur', fn: () => {
-    egal(arrondiEuroSuperieur(489), 11); egal(arrondiEuroSuperieur(1200), 0); egal(arrondiEuroSuperieur(1), 99); egal(arrondiEuroSuperieur(1599), 1);
+    egal(arrondiEuroSuperieur(489), 11); egal(arrondiEuroSuperieur(1200), 50); egal(arrondiEuroSuperieur(0), 0); egal(arrondiEuroSuperieur(1), 99); egal(arrondiEuroSuperieur(1599), 1);
   } },
   { nom: 'money : montants parlés (« deux fois 3,20 », « quatre euros cinquante », « 20 balles »)', fn: () => {
     egal(extraireMontantPhrase('deux fois 3,20 café').centimes, 640);

@@ -514,7 +514,7 @@ export async function lancerDiagnostic(o = {}) {
     const reglage = { ...(etat.profil.arrondi || {}), actif: true, depuis: '2000-01-01' };
     const a = arrondiTransaction({ sens: 'debit', montantCentimes: 489, categorie: 'courses', date: auj, compteId: 'lcl', source: 'texte' }, reglage);
     const b = arrondiTransaction({ sens: 'debit', montantCentimes: 500, categorie: 'courses', date: auj, compteId: 'lcl', source: 'texte' }, reglage);
-    return { statut: a === 11 && b === 0 ? 'ok' : 'echec', detail: `4,89 € → +${a} centimes (attendu 11) ; 5,00 € → +${b} (attendu 0)` };
+    return { statut: a === 11 && b === 50 ? 'ok' : 'echec', detail: `4,89 € → +${a} centimes (attendu 11) ; 5,00 € → +${b} (attendu 50)` };
   });
 
   // ---------------------------------------------------------------- 5 quater. Mise à jour depuis le fichier privé

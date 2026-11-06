@@ -14,8 +14,8 @@ export default [
     const txs = [tx({ id: 'a', date: '2026-01-02', montant: 489 }), tx({ id: 'b', date: '2026-01-02', montant: 1200 }), tx({ id: 'c', date: '2026-01-03', montant: 1999, interne: true }),
       tx({ id: 'd', date: '2026-01-03', montant: 750, chargeFixeId: 'x' }), tx({ id: 'e', date: '2026-01-03', montant: 2252, epargne: true, typeEpargne: 'arrondiBanque' }), tx({ id: 'f', date: '2026-01-04', montant: 1001, sens: 'credit', categorie: 'salaire' })];
     const c = cagnotteEnAttente(txs, reg, []);
-    egal(c.total, 11); egal(c.lignes.length, 1);
-    egal(cagnotteEnAttente(txs, { ...reg, inclureChargesFixes: true }, []).total, 11 + 50);
+    egal(c.total, 11 + 50, '12,00 € déjà rond : 0,50 € de côté'); egal(c.lignes.length, 2);
+    egal(cagnotteEnAttente(txs, { ...reg, inclureChargesFixes: true }, []).total, 11 + 50 + 50);
     egal(arrondiTransaction({ ...txs[0], arrondiDesactive: true }, reg), 0);
   } },
   { nom: 'arrondis : pas de double comptage avec l’arrondi bancaire ; une fois virés, ils sortent de la cagnotte', fn: () => {

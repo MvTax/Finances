@@ -94,11 +94,13 @@ export function versChamp(centimes) {
   return (centimes < 0 ? '-' : '') + Math.floor(abs / 100) + ',' + String(abs % 100).padStart(2, '0');
 }
 
-/** Arrondi à l'euro supérieur : 4,89 € → 0,11 € ; 12,00 € → 0 €. */
+/** Arrondi à l'euro supérieur : 4,89 € → 0,11 €. Un montant déjà rond (12,00 €) met quand même 0,50 € de côté. */
+export const ARRONDI_MONTANT_ROND = 50;
 export function arrondiEuroSuperieur(centimes) {
   const abs = Math.abs(Math.trunc(centimes));
+  if (!abs) return 0;
   const reste = abs % 100;
-  return reste === 0 ? 0 : 100 - reste;
+  return reste === 0 ? ARRONDI_MONTANT_ROND : 100 - reste;
 }
 
 export function somme(liste, cle) {
