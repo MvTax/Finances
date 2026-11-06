@@ -192,3 +192,11 @@ Le budget, le reste à dépenser et l'épargne se calculent avec **ce mois-ci se
 4. **Dépenses** = ce que tu dépenses au fur et à mesure (saisies, captures, relevés). Si tu dépasses, l'épargne baisse d'abord, jusqu'à 0, avant que le budget soit « dépassé ».
 
 Les mois passés (relevés, fiches de paie) ne changent pas ces chiffres. Ils alimentent la page **Statistiques** : moyennes, postes où tu dépenses le plus, ce mois-ci face à ta moyenne, habitudes, et des **conseils** par poste (quoi remplacer par quoi, alternatives gratuites).
+
+## Dépenses à venir
+
+Tuile « À venir » sur l'accueil, ou lien en haut de Dépenses. La page liste tout ce qui va partir d'ici le salaire : prélèvements et abonnements pas encore passés, remboursements de dettes, et les dépenses que tu as prévues toi-même. Tout est déjà réservé dans le calcul.
+
+- **Prévoir une dépense** (anniversaire, billet, réparation…) : nom, montant, date, catégorie. Elle est réservée tout de suite, avant l'épargne, puis avant le budget du jour si l'épargne ne suffit pas.
+- Quand tu la paies, l'app la retrouve dans tes opérations (même montant à 10 % près, à 7 jours près, même catégorie ou libellé proche) et ne la compte pas deux fois. Tu peux aussi la marquer « Déjà payée » ou la supprimer.
+- Une dépense prévue d'un mois suivant est réservée dans le budget de son mois.

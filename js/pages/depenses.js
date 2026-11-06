@@ -14,6 +14,7 @@ import { modifierTransaction, supprimerTransaction, recategoriser, enregistrerRe
 import { coutAnnuelRecurrent } from '../detecteurs.js';
 import { aller } from '../router.js';
 import { estNouvelle } from '../capture.js';
+import { aVenir } from './avenir.js';
 
 export const titre = 'Dépenses';
 
@@ -40,6 +41,7 @@ export function rendre(vue) {
     h('h1', { class: 'titre-page' }, 'Dépenses'),
     zoneAffichage,
     h('div', { class: 'barre-filtres' }, h('div', { class: 'barre-recherche' }, icone('recherche'), recherche), boutonFiltres),
+    h('button', { class: 'lien-avenir', type: 'button', onclick: () => aller('avenir') }, icone('calendrier'), h('span', {}, 'À venir d’ici le salaire'), h('strong', {}, mt(aVenir(etat).totalCentimes)), icone('suivant')),
     puceFiltre, zoneNouvelles, resume, liste);
 
   function dessiner() {

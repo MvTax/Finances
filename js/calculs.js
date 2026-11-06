@@ -7,6 +7,7 @@ import { echeancesEntre } from './dettes.js';
 import { cagnotteEnAttente, epargneNettePeriode, PARAMETRES_PLAN_DEFAUT } from './epargne.js';
 import { divArrondiBancaire } from './money.js';
 import { listerAbonnements } from './abonnements.js';
+import { normaliserTexte } from './rules.js';
 
 export const HEURES_MENSUELLES_DEFAUT = 151.67;
 export const COMMISSION_INTERVENTION_CENTIMES = 800; // tarif courant d'une commission d'intervention (paramétrable)
@@ -207,15 +208,39 @@ export function abonnementsAVenir(etat, periode, dateIso = aujourdhui()) {
     .map((a) => ({ id: `abo-${a.cle}`, libelle: a.nom, categorie: 'abonnements', date: futur ? periode.debut : a.prochain < ref ? ref : a.prochain, montantPrevuCentimes: a.montantCentimes, payee: false, abonnementDetecte: true }));
 }
 
+const motsLibelle = (s) => new Set(normaliserTexte(s || '').split(/\s+/).filter((m) => m.length >= 3));
+
+/**
+ * Dépenses prévues (« Dépenses à venir », ajoutées à la main) d'une période. Chacune est réservée dans le budget
+ * de son mois jusqu'à ce qu'elle soit faite : marquée « payée », ou retrouvée dans les opérations (débit au même
+ * montant à 10 % près, à 7 jours près, de la même catégorie ou au libellé proche). Jamais comptée deux fois.
+ * @returns [{ ...prevue, realisee, transactionId? }]
+ */
+export function depensesPrevuesPeriode(etat, periode) {
+  const prises = new Set();
+  const res = [];
+  const liste = [...(etat.depensesPrevues || [])].filter((d) => d.date >= periode.debut && d.date <= periode.fin).sort((a, b) => (a.date < b.date ? -1 : 1));
+  for (const d of liste) {
+    if (d.faite) { res.push({ ...d, realisee: true }); continue; }
+    const tol = Math.max(100, Math.round(d.montantCentimes * 0.1));
+    const mots = motsLibelle(d.libelle);
+    const t = (etat.transactions || []).find((x) => !prises.has(x.id) && x.sens === 'debit' && !x.ajustement && !x.chargeFixeId
+      && Math.abs(diffJours(d.date, x.date)) <= 7 && Math.abs(x.montantCentimes - d.montantCentimes) <= tol
+      && ((d.categorie && d.categorie !== 'autres' && x.categorie === d.categorie) || [...motsLibelle(`${x.marchand || ''} ${x.libelle || ''}`)].some((m) => mots.has(m))));
+    if (t) { prises.add(t.id); res.push({ ...d, realisee: true, transactionId: t.id }); } else res.push({ ...d, realisee: false });
+  }
+  return res;
+}
+
 /**
  * L'épargne passe APRÈS les dépenses obligatoires : charges fixes, dettes du mois et besoins vitaux.
  * Pas de montant fixe : on met le maximum de ce qui reste (par paliers de 10 €, une petite marge gardée),
  * et rien du tout si les obligations prennent tout.
  */
-export function epargnePossible(etat, periode, { revenusCentimes, chargesCentimes, dettesCentimes }) {
+export function epargnePossible(etat, periode, { revenusCentimes, chargesCentimes, dettesCentimes, prevuesCentimes = 0 }) {
   const P = parametresPlan(etat);
   const besoins = besoinsVitaux(etat);
-  const libre = revenusCentimes - chargesCentimes - dettesCentimes - besoins.centimes - P.margeMinCentimes;
+  const libre = revenusCentimes - chargesCentimes - dettesCentimes - prevuesCentimes - besoins.centimes - P.margeMinCentimes;
   return { centimes: Math.max(0, Math.floor(libre / 1000) * 1000), besoins, libreCentimes: libre };
 }
 
@@ -231,7 +256,8 @@ export function epargneCible(etat, mois, periode = periodeDuMois(etat, mois)) {
   const revenus = revenusDuMois(etat, periode.mois).totalCentimes;
   const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin), ...abonnementsAVenir(etat, periode)].reduce((s, c) => s + c.montantPrevuCentimes, 0);
   const dettes = dettesPeriode(etat, periode).reduce((s, d) => s + d.montantCentimes, 0);
-  return epargnePossible(etat, periode, { revenusCentimes: revenus, chargesCentimes: charges, dettesCentimes: dettes }).centimes;
+  const prevues = depensesPrevuesPeriode(etat, periode).filter((d) => !d.realisee).reduce((s, d) => s + d.montantCentimes, 0);
+  return epargnePossible(etat, periode, { revenusCentimes: revenus, chargesCentimes: charges, dettesCentimes: dettes, prevuesCentimes: prevues }).centimes;
 }
 
 /**
@@ -248,14 +274,16 @@ export function resteADepenser(etat, dateIso = aujourdhui()) {
   const variables = depensesVariables(etat, periode.debut, periode.fin);
   const totalCharges = charges.reduce((s, c) => s + c.montantPrevuCentimes, 0);
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
-  const possible = epargnePossible(etat, periode, { revenusCentimes: revenus.totalCentimes, chargesCentimes: totalCharges, dettesCentimes: totalDettes });
+  const prevues = depensesPrevuesPeriode(etat, periode);
+  const totalPrevues = prevues.filter((d) => !d.realisee).reduce((s, d) => s + d.montantCentimes, 0);
+  const possible = epargnePossible(etat, periode, { revenusCentimes: revenus.totalCentimes, chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevuesCentimes: totalPrevues });
   // L'épargne passe après les dépenses : si elles dépassent, c'est l'épargne qui baisse d'abord
-  const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - variables;
+  const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - totalPrevues - variables;
   const cible = Math.max(0, Math.min(possible.centimes, avantEpargne));
   const reste = avantEpargne - cible;
   return {
     periode, revenus, charges, dettes, epargneCibleCentimes: cible, epargneViseeCentimes: possible.centimes, besoinsVitauxCentimes: possible.besoins.centimes,
-    chargesCentimes: totalCharges, dettesCentimes: totalDettes, depensesVariablesCentimes: variables, resteCentimes: reste,
+    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, depensesVariablesCentimes: variables, resteCentimes: reste,
   };
 }
 
@@ -355,6 +383,10 @@ export function projectionDecouvert(etat, dateIso = aujourdhui(), { jours = 7, r
     for (const d of dettesPeriode(etat, p)) {
       if (d.payee) continue;
       if (d.date >= dateIso && d.date <= fin) evenements.push({ date: d.date, libelle: d.libelle, montantCentimes: -d.montantCentimes, type: d.type === 'credit' ? 'credit' : 'proche' });
+    }
+    for (const d of depensesPrevuesPeriode(etat, p)) {
+      if (d.realisee || (d.compteId && d.compteId !== courant.id)) continue;
+      if (d.date >= dateIso && d.date <= fin) evenements.push({ date: d.date, libelle: d.libelle, montantCentimes: -d.montantCentimes, type: 'prevue' });
     }
   }
   for (const v of etat.virementsPrevus || []) {

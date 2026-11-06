@@ -9,6 +9,7 @@ import { aller } from '../router.js';
 import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, coutDecouvert, reliquat, periodeBudget, estDepenseQuotidienne } from '../calculs.js';
 import { prochainVirementArrondis, soldePoche } from '../epargne.js';
 import { raisonner } from '../raisonnement.js';
+import { aVenir } from './avenir.js';
 import { listerAbonnements } from '../abonnements.js';
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatJourLong, formatMois, diffJours, moisDe, dateDuMois } from '../dates.js';
 import { formatEuros } from '../money.js';
@@ -119,6 +120,7 @@ function feuilleCalcul(r, j, a = raisonner(etat, aujourdhui())) {
       ligne('−', 'Épargne (le maximum possible)', r.epargneCibleCentimes, `ce qui reste après les charges, les dettes et ${formatEuros(r.besoinsVitauxCentimes || 0)} pour le quotidien obligatoire (courses, transports, santé)${r.epargneCibleCentimes < (r.epargneViseeCentimes ?? 0) ? ` ; prévu ${formatEuros(r.epargneViseeCentimes)}, réduit par les dépenses du mois` : ''}`, lien('Mon plan', 'epargne/plan')),
       ligne('−', 'Charges et abonnements', r.chargesCentimes, `${r.charges.length} prélèvements (loyer, téléphone, transport, abonnements…)`, h('span', {}, liste(r.charges), lien('Charges fixes', 'reglages/charges'))),
       ligne('−', 'Dettes du mois', r.dettesCentimes, `${r.dettes.length} échéances, payées ou à venir`, h('span', {}, liste(r.dettes), lien('Mes dettes', 'epargne/dettes'))),
+      r.prevuesCentimes ? ligne('−', 'Dépenses à venir (prévues)', r.prevuesCentimes, `${r.prevues.filter((d) => !d.realisee).length} dépense${r.prevues.filter((d) => !d.realisee).length > 1 ? 's' : ''} que tu as prévue${r.prevues.filter((d) => !d.realisee).length > 1 ? 's' : ''}, réservée${r.prevues.filter((d) => !d.realisee).length > 1 ? 's' : ''} d’avance`, lien('Voir', 'avenir')) : null,
       ligne('−', 'Dépenses du quotidien', r.depensesVariablesCentimes, `${nbDep} dépense${nbDep > 1 ? 's' : ''} depuis le salaire (hors prélèvements et abonnements)`, lien('Voir', 'depenses')),
       h('div', { class: `calcul-ligne calcul-total ${r.resteCentimes < 0 ? 'negatif-texte' : ''}` }, h('span', { class: 'calcul-signe' }, '='), h('span', { class: 'calcul-texte' }, h('span', { class: 'calcul-titre' }, 'Reste jusqu’au salaire')), mt(r.resteCentimes, { classe: 'calcul-montant' })),
       h('h3', { class: 'feuille-sous-titre' }, 'Budget du jour'),
@@ -182,6 +184,7 @@ function rubriques(r, auj, rappels, critique) {
       tuile('liste', 'Mes dépenses', [mt(depMois), ' ce mois'], () => aller('depenses')),
       tuile('tirelire', 'Mon épargne', mt(poches), () => aller('epargne')),
       tuile('boucle', 'Abonnements', abo.liste.length ? [mt(abo.aLimiterMensuelCentimes), ' /mois'] : 'Aucun', () => aller('abonnements')),
+      tuile('calendrier', 'À venir', [mt(aVenir(etat, auj).totalCentimes), ' d’ici le salaire'], () => aller('avenir')),
       tuile('graphique', 'Statistiques', 'Mois passés et conseils', () => aller('statistiques'))));
 }
 

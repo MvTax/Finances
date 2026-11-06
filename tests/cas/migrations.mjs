@@ -23,10 +23,18 @@ export default [
     const crees = appliquerSchema(db, tx, 1, 2);
     egal(JSON.stringify(crees.sort()), JSON.stringify(['bridgeRecus', 'checkins', 'gamelles', 'joursSansDepense', 'listeEnvies']));
   } },
+  { nom: 'migrations : 2 → 3 ajoute les dépenses prévues ; une sauvegarde v2 en reçoit une liste vide', fn: () => {
+    const { db, tx, stores } = fausseBase();
+    appliquerSchema(db, tx, 0, 2);
+    const crees = appliquerSchema(db, tx, 2, 3);
+    egal(JSON.stringify(crees), '["depensesPrevues"]'); vrai(stores.get('depensesPrevues').indexNames.has('date'));
+    const r = migrerContenu({ transactions: [] }, 2);
+    egal(JSON.stringify(r.appliquees), '[3]'); egal(JSON.stringify(r.contenu.depensesPrevues), '[]');
+  } },
   { nom: 'migrations : une sauvegarde v1 est migrée (drapeaux, « à qualifier », stores V2)', fn: () => {
     const v1 = { transactions: [{ id: 'a', date: '2026-01-01', montantCentimes: 100, sens: 'debit' }], poches: [] };
     const r = migrerContenu(v1, 1);
-    egal(JSON.stringify(r.appliquees), '[2]'); egal(r.contenu.transactions[0].aQualifier, false); vrai(Array.isArray(r.contenu.gamelles));
+    egal(JSON.stringify(r.appliquees), '[2,3]'); egal(r.contenu.transactions[0].aQualifier, false); vrai(Array.isArray(r.contenu.gamelles));
     egal(MIGRATIONS.length, SCHEMA_VERSION);
   } },
   { nom: 'sauvegarde : aller-retour export → import, secrets jamais exportés, fusion sans écrasement', fn: () => {

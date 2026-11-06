@@ -466,3 +466,26 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .conseil-abo { padding: 8px 0; border-top: 1px solid var(--separateur); }
 .conseil-abo p { margin: 0 0 4px; }
 
+
+/* Dépenses à venir */
+.avenir-total { display: flex; flex-direction: column; gap: 6px; }
+.avenir-total p { margin: 0; }
+.avenir-total .btn { margin-top: 8px; align-self: flex-start; }
+.avenir-liste { display: flex; flex-direction: column; }
+.avenir-ligne { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--separateur); width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; color: inherit; font: inherit; text-align: left; }
+.avenir-ligne:last-child { border-bottom: 0; }
+.avenir-ligne.cliquable { cursor: pointer; }
+.avenir-date { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.avenir-date strong { font-family: var(--police-chiffres); font-size: 18px; }
+.avenir-date small { color: var(--texte-3); font-size: 12px; }
+.avenir-texte { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.avenir-libelle { font-weight: 600; overflow-wrap: anywhere; }
+.avenir-texte small { color: var(--texte-3); }
+.avenir-type { display: inline-block; padding: 1px 7px; border-radius: var(--rayon-pastille); background: var(--surface-2); color: var(--texte-2); font-size: 12px; }
+.avenir-prevue { background: var(--accent-doux); color: var(--accent); }
+.avenir-dette { background: var(--orange-doux); color: var(--orange); }
+.avenir-montant { font-family: var(--police-chiffres); font-weight: 600; white-space: nowrap; }
+.lien-avenir { display: flex; align-items: center; gap: 10px; width: 100%; margin: 4px 0 10px; padding: 12px 14px; border: 1px solid var(--separateur); border-radius: var(--rayon); background: var(--surface); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.lien-avenir span { flex: 1; }
+.lien-avenir strong { font-family: var(--police-chiffres); }
+.lien-avenir .ic { width: 18px; height: 18px; color: var(--texte-3); }

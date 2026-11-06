@@ -20,11 +20,12 @@ const PAGES = {
   epargne: () => import('./pages/epargne.js'),
   historique: () => import('./pages/historique.js'),
   statistiques: () => import('./pages/historique.js'),
+  avenir: () => import('./pages/avenir.js'),
   abonnements: () => import('./pages/abonnements.js'),
   reglages: () => import('./pages/reglages.js'),
   onboarding: () => import('./pages/onboarding.js'),
 };
-const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'depenses', historique: 'depenses', statistiques: 'depenses', abonnements: 'accueil', epargne: 'epargne', reglages: 'reglages' };
+const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'depenses', historique: 'depenses', statistiques: 'depenses', avenir: 'depenses', abonnements: 'accueil', epargne: 'epargne', reglages: 'reglages' };
 
 let pageCourante = null;
 let paramsCourants = [];
