@@ -36,7 +36,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
 
   // ------------------------------------------------------------------ Vue voix
   function vueVoix() {
-    const etatTexte = h('p', { class: 'voix-etat', 'aria-live': 'polite' }, ia.ok ? 'Touche le micro et dis par exemple « 4,50 boulangerie » ou « reçu 20 € de ma sœur ».' : ia.raison);
+    const etatTexte = h('p', { class: 'voix-etat', 'aria-live': 'polite' }, ia.ok ? 'Touche le micro et dis « 4,50 boulangerie » ou « reçu 20 € de ma sœur ».' : ia.raison);
     const micro = h('button', { class: 'micro', type: 'button', 'aria-label': 'Démarrer l’enregistrement', disabled: !ia.ok || !voixDisponible() || null }, h('span', { class: 'micro-onde', 'aria-hidden': 'true' }), icone('micro'));
     const annuler = h('button', { class: 'btn btn-secondaire', type: 'button', hidden: true }, 'Annuler');
     let debut = 0; let minuteur = 0;
@@ -65,14 +65,19 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       } catch (err) { enreg = null; arretUI(); etatTexte.textContent = messageErreurMicro(err); }
     });
     annuler.addEventListener('click', () => { enreg?.annuler(); enreg = null; arretUI(); etatTexte.textContent = 'Enregistrement annulé.'; });
+    // Autres façons d'ajouter : une grille de tuiles de même taille, l'épargne mise en avant
+    const tuile = (ic, titreT, sousTitre, action, classe = '') => h('button', { type: 'button', class: `saisie-tuile ${classe}`.trim(), onclick: action },
+      h('span', { class: 'saisie-tuile-icone', 'aria-hidden': 'true' }, icone(ic)),
+      h('span', { class: 'saisie-tuile-titre' }, titreT), h('small', {}, sousTitre));
     return h('div', { class: 'vue-voix' },
-      ia.ok ? indicationEnvoiGemini('l’enregistrement audio (30 s max), la date du jour et la liste des catégories. Rien n’est ajouté sans ta confirmation.') : null,
-      micro, etatTexte, annuler,
-      h('button', { class: 'btn btn-principal btn-large', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier'); } }, icone('clavier'), h('span', {}, 'Je ne peux pas parler, écrire')),
-      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier', { passee: true }); } }, icone('calendrier'), h('span', {}, 'Déclarer une dépense passée')),
-      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => privation() }, icone('tirelire'), h('span', {}, 'Je me suis privé → épargne')),
-      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => photoTicket() }, icone('camera'), h('span', {}, 'Photographier un ticket')),
-      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Depuis une capture d’écran')));
+      h('div', { class: 'voix-centre' }, micro, etatTexte, annuler),
+      h('button', { class: 'btn btn-secondaire btn-large voix-ecrire', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier'); } }, icone('clavier'), h('span', {}, 'Écrire plutôt')),
+      h('div', { class: 'saisie-tuiles', role: 'group', 'aria-label': 'Autres façons d’ajouter' },
+        tuile('tirelire', 'Je me suis privé', 'Le montant part à l’épargne', () => privation(), 'saisie-tuile-epargne'),
+        tuile('calendrier', 'Dépense passée', 'Hier ou un autre jour', () => { enreg?.annuler(); enreg = null; montrer('clavier', { passee: true }); }),
+        tuile('camera', 'Ticket', 'Photo du ticket de caisse', () => photoTicket()),
+        tuile('importer', 'Capture d’écran', 'Appli bancaire, reçu…', () => depuisCapture())),
+      ia.ok ? h('div', { class: 'voix-note' }, indicationEnvoiGemini('pour le micro seulement, l’audio (30 s max), la date du jour et les catégories. Rien n’est ajouté sans ta confirmation.')) : null);
   }
 
   // Une ou plusieurs dépenses lues sur une capture (la feuille de saisie laisse la place à la revue)

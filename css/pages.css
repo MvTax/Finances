@@ -525,3 +525,23 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .flux-droite { font-family: var(--police-chiffres); font-weight: 600; white-space: nowrap; align-self: start; padding-top: 2px; }
 .flux-vers { color: var(--accent) !important; }
 .systeme-pret { padding: 10px 12px; border-radius: var(--rayon-petit); background: var(--surface-2); display: flex; flex-direction: column; gap: 4px; }
+
+/* Ajout : écran micro (centre) + tuiles des autres façons d'ajouter */
+.vue-voix { gap: 18px; align-items: stretch; text-align: left; }
+.voix-centre { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding-top: 4px; }
+.voix-centre .micro { margin: 8px 0 6px; box-shadow: 0 0 0 10px var(--accent-doux); }
+.voix-centre .micro.enregistre { box-shadow: 0 0 0 10px color-mix(in srgb, var(--rouge) 18%, transparent); }
+.voix-centre .voix-etat { min-height: 0; margin: 0; }
+.voix-ecrire { width: 100%; gap: 10px; }
+.saisie-tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.saisie-tuile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 108px; padding: 14px; border: 1px solid var(--separateur); border-radius: var(--rayon); background: var(--surface); color: var(--texte); font: inherit; text-align: left; cursor: pointer; transition: transform var(--duree) var(--sortie), background var(--duree) var(--sortie); }
+.saisie-tuile:active { transform: scale(.97); background: var(--surface-2); }
+.saisie-tuile-icone { width: 36px; height: 36px; margin-bottom: 6px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); }
+.saisie-tuile-icone .ic { width: 20px; height: 20px; }
+.saisie-tuile-titre { font-weight: 600; font-size: 16px; line-height: 1.2; }
+.saisie-tuile small { color: var(--texte-3); font-size: 13px; line-height: 1.3; }
+.saisie-tuile-epargne { background: var(--accent-doux); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.saisie-tuile-epargne .saisie-tuile-icone { background: var(--accent); color: var(--accent-texte); }
+.voix-note .envoi-gemini { background: none; padding: 0 2px; font-size: 13px; color: var(--texte-3); }
+.voix-note .envoi-gemini .ic { width: 16px; height: 16px; margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .saisie-tuile { transition: none; } }
