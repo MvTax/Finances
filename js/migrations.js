@@ -2,7 +2,7 @@
 // Chaque migration décrit (1) les stores/index à créer dans onupgradeneeded, (2) la transformation
 // des données d'une sauvegarde exportée dans une version antérieure.
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Stores de la V1 (fonctionnalités livrées). keyPath + index. */
 export const STORES_V1 = {
@@ -43,6 +43,11 @@ export const STORES_V3 = {
   depensesPrevues: { keyPath: 'id', index: { date: 'date' } },
 };
 
+/** Stores ajoutés en V4 : « Je me suis privé » (montants mis de côté au lieu d'être dépensés). */
+export const STORES_V4 = {
+  privations: { keyPath: 'id', index: { date: 'date' } },
+};
+
 export const MIGRATIONS = [
   {
     version: 1,
@@ -70,9 +75,15 @@ export const MIGRATIONS = [
     stores: STORES_V3,
     donnees: (c) => ({ ...c, depensesPrevues: c.depensesPrevues || [] }),
   },
+  {
+    version: 4,
+    description: '« Je me suis privé » : montants mis de côté pour l’épargne au lieu d’être dépensés',
+    stores: STORES_V4,
+    donnees: (c) => ({ ...c, privations: c.privations || [] }),
+  },
 ];
 
-export function tousLesStores() { return { ...STORES_V1, ...STORES_V2, ...STORES_V3 }; }
+export function tousLesStores() { return { ...STORES_V1, ...STORES_V2, ...STORES_V3, ...STORES_V4 }; }
 
 /** Migre le contenu d'une sauvegarde de `depuis` vers SCHEMA_VERSION. */
 export function migrerContenu(contenu, depuis) {

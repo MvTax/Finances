@@ -208,6 +208,12 @@ export function abonnementsAVenir(etat, periode, dateIso = aujourdhui()) {
     .map((a) => ({ id: `abo-${a.cle}`, libelle: a.nom, categorie: 'abonnements', date: futur ? periode.debut : a.prochain < ref ? ref : a.prochain, montantPrevuCentimes: a.montantCentimes, payee: false, abonnementDetecte: true }));
 }
 
+/** Montants mis de côté en se privant (« Je me suis privé ») sur une période : à virer, ou déjà virés. */
+export function privationsPeriode(etat, periode) {
+  const liste = (etat.privations || []).filter((p) => p.date >= periode.debut && p.date <= periode.fin).sort((a, b) => (a.date < b.date ? -1 : 1));
+  return { liste, totalCentimes: liste.reduce((s, p) => s + p.montantCentimes, 0), aVirerCentimes: liste.filter((p) => !p.vireLe).reduce((s, p) => s + p.montantCentimes, 0) };
+}
+
 const motsLibelle = (s) => new Set(normaliserTexte(s || '').split(/\s+/).filter((m) => m.length >= 3));
 
 /**
@@ -276,14 +282,16 @@ export function resteADepenser(etat, dateIso = aujourdhui()) {
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
   const prevues = depensesPrevuesPeriode(etat, periode);
   const totalPrevues = prevues.filter((d) => !d.realisee).reduce((s, d) => s + d.montantCentimes, 0);
+  // « Je me suis privé » : l'argent non dépensé part à l'épargne, comme si la dépense avait eu lieu
+  const privations = privationsPeriode(etat, periode);
   const possible = epargnePossible(etat, periode, { revenusCentimes: revenus.totalCentimes, chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevuesCentimes: totalPrevues });
   // L'épargne passe après les dépenses : si elles dépassent, c'est l'épargne qui baisse d'abord
-  const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - totalPrevues - variables;
+  const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - totalPrevues - variables - privations.totalCentimes;
   const cible = Math.max(0, Math.min(possible.centimes, avantEpargne));
   const reste = avantEpargne - cible;
   return {
     periode, revenus, charges, dettes, epargneCibleCentimes: cible, epargneViseeCentimes: possible.centimes, besoinsVitauxCentimes: possible.besoins.centimes,
-    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, depensesVariablesCentimes: variables, resteCentimes: reste,
+    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, privationsCentimes: privations.totalCentimes, privations: privations.liste, depensesVariablesCentimes: variables, resteCentimes: reste,
   };
 }
 
@@ -295,7 +303,9 @@ export function resteADepenser(etat, dateIso = aujourdhui()) {
  */
 export function jaugeDuJour(etat, dateIso = aujourdhui(), instantane = null) {
   const r = resteADepenser(etat, dateIso);
-  const depJour = depensesVariables(etat, dateIso, dateIso);
+  // Une privation du jour compte comme une dépense du jour : c'est l'argent de la journée qui part à l'épargne
+  const priveJour = (etat.privations || []).filter((p) => p.date === dateIso).reduce((s, p) => s + p.montantCentimes, 0);
+  const depJour = depensesVariables(etat, dateIso, dateIso) + priveJour;
   const joursRestants = diffJours(dateIso, r.periode.fin) + 1;
   const resteAvantJour = r.resteCentimes + depJour;
   // L'instantané ne se fige que face aux dépenses DU JOUR : si le reste du mois change pour une autre raison

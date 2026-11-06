@@ -498,3 +498,14 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .bloc-passee-titre .ic { width: 18px; height: 18px; }
 .puces-date { display: flex; gap: 8px; flex-wrap: wrap; }
 .note-passee { margin: 0; color: var(--texte-2); }
+
+/* Je me suis privé */
+.choix-privation { display: flex; flex-direction: column; gap: 8px; }
+.choix-privation-option { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--separateur); border-left: 4px solid var(--c, var(--accent)); border-radius: var(--rayon-petit); background: var(--surface); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.choix-privation-option.actif { border-color: var(--accent); background: var(--accent-doux); border-left-color: var(--c, var(--accent)); }
+.choix-privation-nom { font-weight: 600; }
+.choix-privation-option small { color: var(--texte-2); }
+.carte-privations { display: flex; flex-direction: column; gap: 10px; }
+.carte-privations p { margin: 0; }
+.privations-a-virer { display: flex; align-items: center; gap: 6px; }
+.privations-a-virer .ic { width: 18px; height: 18px; color: var(--vert); }

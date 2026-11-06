@@ -200,3 +200,10 @@ Tuile « À venir » sur l'accueil, ou lien en haut de Dépenses. La page liste 
 - **Prévoir une dépense** (anniversaire, billet, réparation…) : nom, montant, date, catégorie. Elle est réservée tout de suite, avant l'épargne, puis avant le budget du jour si l'épargne ne suffit pas.
 - Quand tu la paies, l'app la retrouve dans tes opérations (même montant à 10 % près, à 7 jours près, même catégorie ou libellé proche) et ne la compte pas deux fois. Tu peux aussi la marquer « Déjà payée » ou la supprimer.
 - Une dépense prévue d'un mois suivant est réservée dans le budget de son mois.
+
+## Je me suis privé
+
+Bouton + → « Je me suis privé → épargne », ou carte « Je me suis privé » dans Épargne. Tu choisis ce à quoi tu as renoncé : un menu au fast-food, une livraison, un resto, un café ou un VTC. L'app propose ton prix habituel (médiane de tes 90 derniers jours), ou un montant libre.
+
+- Le montant sort de ta part du jour, comme la dépense l'aurait fait, et part à l'épargne au lieu d'être dépensé.
+- La carte Épargne affiche ce que tu as mis de côté ce mois-ci et ce qu'il reste à virer sur ton livret. « C'est viré » range le montant dans ta poche Coussin.

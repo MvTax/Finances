@@ -5,7 +5,7 @@
 
 import { etat } from './store.js';
 import { ouvrirBase, lireTout, lireUn, ecrire, supprimer } from './db.js';
-import { SCHEMA_VERSION, STORES_V1, STORES_V2, STORES_V3 } from './migrations.js';
+import { SCHEMA_VERSION, STORES_V1, STORES_V2, STORES_V3, STORES_V4 } from './migrations.js';
 import { versionApp } from './version.js';
 import { journal, masquerSecrets } from './journal.js';
 import { CATEGORIES, FAMILLES, contributionDepense } from './categories.js';
@@ -162,7 +162,7 @@ export async function lancerDiagnostic(o = {}) {
   S('Base de données (IndexedDB)');
   test('Ouverture et schéma', async () => {
     const db = await ouvrirBase();
-    const attendus = [...Object.keys(STORES_V1), ...Object.keys(STORES_V2), ...Object.keys(STORES_V3)];
+    const attendus = [...Object.keys(STORES_V1), ...Object.keys(STORES_V2), ...Object.keys(STORES_V3), ...Object.keys(STORES_V4)];
     const presents = [...db.objectStoreNames];
     const manquants = attendus.filter((x) => !presents.includes(x));
     return { statut: db.version === SCHEMA_VERSION && !manquants.length ? 'ok' : 'echec', detail: `version ${db.version} (attendue ${SCHEMA_VERSION}) ; ${presents.length} stores${manquants.length ? ` ; MANQUANTS : ${manquants.join(', ')}` : ''}` };

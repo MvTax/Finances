@@ -93,7 +93,7 @@ export function raisonner(etat, dateIso = aujourdhui()) {
   const rev = r.revenus.totalCentimes;
   const joursRestants = Math.max(1, diffJours(dateIso, per.fin) + 1);
   const joursPasses = Math.max(1, diffJours(per.debut, dateIso) + 1);
-  const depJour = depensesVariables(etat, dateIso, dateIso);
+  const depJour = depensesVariables(etat, dateIso, dateIso) + (etat.privations || []).filter((p) => p.date === dateIso).reduce((s, p) => s + p.montantCentimes, 0);
   const resteMatin = r.resteCentimes + depJour;                 // ce qui restait ce matin, pour aujourd'hui inclus
   const parJour = Math.round(resteMatin / joursRestants);
   const enveloppe = rev - r.epargneCibleCentimes - r.chargesCentimes - r.dettesCentimes - (r.prevuesCentimes || 0); // tout le quotidien du mois
@@ -187,7 +187,9 @@ export function raisonner(etat, dateIso = aujourdhui()) {
       id: 'epargne', ton: 'bien', titre: `Tu peux mettre ${exact(cible)} de côté`,
       constat: `C’est le maximum possible ce mois-ci : ce qui reste après ${obligatoires}.`,
       pourquoi: 'Pas de montant fixe : l’épargne passe après tes dépenses obligatoires. Quand elles baissent, l’épargne monte ; quand elles montent, elle baisse, sans te mettre à découvert.',
-      donc: `Si tu dépenses moins que prévu, le surplus au salaire du ${salaire} s’ajoute aussi à l’épargne.`,
+      donc: r.privationsCentimes
+        ? `En te privant, tu as déjà ajouté ${exact(r.privationsCentimes)} de plus ce mois-ci. Chaque menu évité compte.`
+        : `Si tu dépenses moins que prévu, le surplus au salaire du ${salaire} s’ajoute aussi à l’épargne. Tu renonces à manger dehors ? Bouton + → « Je me suis privé ».`,
       action: { libelle: 'Voir mon plan', route: 'epargne/plan' },
     });
   }

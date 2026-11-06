@@ -19,6 +19,7 @@ import { choisirPhoto, compresserImage } from '../camera.js';
 import { indicationEnvoiGemini } from './communs.js';
 import { estEligibleArrondi } from '../epargne.js';
 import { importerCapture } from './capture.js';
+import { feuillePrivation } from './privation.js';
 
 /** Ouvre la feuille de saisie. vueInitiale : 'voix' | 'clavier' | 'photo'. */
 export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
@@ -69,11 +70,15 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       micro, etatTexte, annuler,
       h('button', { class: 'btn btn-principal btn-large', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier'); } }, icone('clavier'), h('span', {}, 'Je ne peux pas parler, écrire')),
       h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier', { passee: true }); } }, icone('calendrier'), h('span', {}, 'Déclarer une dépense passée')),
+      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => privation() }, icone('tirelire'), h('span', {}, 'Je me suis privé → épargne')),
       h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => photoTicket() }, icone('camera'), h('span', {}, 'Photographier un ticket')),
       h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Depuis une capture d’écran')));
   }
 
   // Une ou plusieurs dépenses lues sur une capture (la feuille de saisie laisse la place à la revue)
+  // « Je me suis privé » : la feuille de saisie laisse la place au choix de ce à quoi on a renoncé
+  function privation() { enreg?.annuler?.(); enreg = null; f.fermer(); feuillePrivation(); }
+
   function depuisCapture() { enreg?.annuler?.(); enreg = null; f.fermer(); importerCapture(); }
 
   // ------------------------------------------------------------------ Vue clavier / confirmation
@@ -202,6 +207,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       blocPassee,
       d.confirmation || d.passee ? null : h('div', { class: 'liens-saisie' },
         h('button', { type: 'button', class: 'lien-capture', onclick: () => passerEnPassee() }, icone('calendrier'), h('span', {}, 'Déclarer une dépense passée')),
+        h('button', { type: 'button', class: 'lien-capture', onclick: () => privation() }, icone('tirelire'), h('span', {}, 'Je me suis privé → épargne')),
         h('button', { type: 'button', class: 'lien-capture', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Importer une capture d’écran'))),
       h('div', { class: 'montant-bloc' }, champM, ajusteurs, impact, arrondiInfo, recurrent),
       champ('Libellé', libInput),

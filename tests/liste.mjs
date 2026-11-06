@@ -19,4 +19,5 @@ export const CAS = [
   ['capture', () => import('./cas/capture.mjs')],
   ['conseils', () => import('./cas/conseils.mjs')],
   ['avenir', () => import('./cas/avenir.mjs')],
+  ['privations', () => import('./cas/privations.mjs')],
 ];

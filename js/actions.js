@@ -141,6 +141,24 @@ export async function enregistrerVirementEpargne({ montantCentimes, pocheId = nu
   return tx;
 }
 
+/** « Je me suis privé » : le montant non dépensé est mis de côté pour l'épargne (à virer sur le livret). */
+export async function ajouterPrivation({ categorie, libelle, montantCentimes, date = aujourdhui() }) {
+  const p = { id: nouvelId('priv'), date, categorie: categorie || 'autres', libelle, montantCentimes, vireLe: null };
+  await enregistrer('privations', p);
+  return p;
+}
+
+/** Virement des privations en attente sur le livret (« C'est fait ») : versement dans la poche choisie. */
+export async function virerPrivations(pocheId = null) {
+  const aVirer = (etat.privations || []).filter((p) => !p.vireLe);
+  const total = aVirer.reduce((s, p) => s + p.montantCentimes, 0);
+  if (!total) return null;
+  const date = aujourdhui();
+  const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: pocheId || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null, type: 'privation', libelle: 'Privations virées sur le livret' });
+  await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, vireLe: date, virementId: tx.id } })));
+  return tx;
+}
+
 /** Virement de la cagnotte d'arrondis (« Vire X € sur ton Livret » → « C'est fait »). */
 export async function virerArrondis() {
   const c = cagnotteEnAttente(etat.transactions, etat.profil.arrondi, etat.cagnotteArrondis, { debutSuivi: etat.profil.debutSuivi || etat.profil.premierImportLe });

@@ -2,7 +2,7 @@
 // pdf.js (vendor/pdfjs) et Tesseract (vendor/tesseract) sont mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.15.0';
+const VERSION = '1.16.0';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
 // Tesseract (lecture des captures, ~5 Mo) : gardé d'une version de l'app à l'autre, change seulement avec la bibliothèque
@@ -48,6 +48,7 @@ const COQUILLE = [
   './js/migrations.js',
   './js/money.js',
   './js/plan.js',
+  './js/privations.js',
   './js/prompts.js',
   './js/router.js',
   './js/rules.js',
@@ -73,6 +74,7 @@ const COQUILLE = [
   './js/pages/historique.js',
   './js/pages/import.js',
   './js/pages/onboarding.js',
+  './js/pages/privation.js',
   './js/pages/reglages.js',
   './js/pages/saisie-file.js',
   './js/pages/saisie.js',

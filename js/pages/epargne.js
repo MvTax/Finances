@@ -14,6 +14,7 @@ import { formatEuros } from '../money.js';
 import { virerArrondis, enregistrerVirementEpargne, enregistrerReprise, payerEcheanceCredit, payerEcheancePret } from '../actions.js';
 import { ajouterAuCalendrier } from '../ics.js';
 import { periodeBudget, epargneCible } from '../calculs.js';
+import { carteprivations } from './privation.js';
 
 export const titre = 'Épargne';
 let ongletActif = 'poches';
@@ -89,7 +90,7 @@ function vuePoches() {
   const liens = carte(null, h('div', { class: 'liste-liens' },
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'plan'; aller('epargne/plan'); } }, icone('calendrier'), h('span', { class: 'ligne-lien-texte' }, 'Mon plan mois par mois', h('small', {}, 'combien mettre de côté chaque mois')), icone('suivant')),
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'simulateur'; aller('epargne/simulateur'); } }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Simulateur Livret A / LEP', h('small', {}, 'ce que rapporte ton épargne')), icone('suivant'))));
-  return h('div', {}, h('div', { class: 'poches' }, cartesPoches), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
+  return h('div', {}, h('div', { class: 'poches' }, cartesPoches), carteprivations(), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
 function ligne(l, c) { return h('div', { class: 'ligne-cle' }, h('span', {}, l), mt(c)); }
