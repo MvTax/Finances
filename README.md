@@ -207,3 +207,12 @@ Bouton + → « Je me suis privé → épargne », ou carte « Je me suis privé
 
 - Le montant sort de ta part du jour, comme la dépense l'aurait fait, et part à l'épargne au lieu d'être dépensé.
 - La carte Épargne affiche ce que tu as mis de côté ce mois-ci et ce qu'il reste à virer sur ton livret. « C'est viré » range le montant dans ta poche Coussin.
+
+### Repas à la maison, épargnés automatiquement
+
+Activé par défaut, à partir du jour où l'app est mise à jour (rien de rétroactif). Réglages → Épargne et arrondis → « Repas à la maison → épargne » : interrupteur, et 1, 2 ou 3 repas par jour (2 par défaut).
+
+- Chaque jour terminé sans repas dehors noté (fast-food, livraison, resto, ou « Je me suis privé » déjà saisi), chaque repas manquant met de côté le prix de ton menu habituel.
+- Le montant ne dépasse jamais ce qui reste de la part prévue du jour, donc le budget ne peut pas passer en négatif à cause de ça.
+- Tu as mangé dehors sans le noter ? Ajoute la dépense (même après coup) : le montant du jour s'ajuste. Une fois le montant viré (« C'est viré »), le jour est figé.
+- L'accueil affiche chaque matin ce qui a été mis de côté la veille, avec un bouton « J'ai mangé dehors hier ».

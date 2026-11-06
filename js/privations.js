@@ -31,9 +31,9 @@ export function montantsHabituels(etat, auj = aujourdhui()) {
 }
 
 /** Bilan des privations : ce mois-ci, à virer, depuis le début. */
-export function bilanPrivations(etat, periode) {
-  const toutes = etat.privations || [];
+export function bilanPrivations(etat, periode, auto = []) {
+  const toutes = [...(etat.privations || []), ...auto];
   const duMois = toutes.filter((p) => p.date >= periode.debut && p.date <= periode.fin);
   const somme = (l) => l.reduce((s, p) => s + p.montantCentimes, 0);
-  return { nbMois: duMois.length, moisCentimes: somme(duMois), aVirer: toutes.filter((p) => !p.vireLe), aVirerCentimes: somme(toutes.filter((p) => !p.vireLe)), totalCentimes: somme(toutes) };
+  return { nbMois: duMois.length, nbAuto: duMois.filter((p) => p.auto).length, moisCentimes: somme(duMois), aVirer: toutes.filter((p) => !p.vireLe), aVirerCentimes: somme(toutes.filter((p) => !p.vireLe)), totalCentimes: somme(toutes) };
 }

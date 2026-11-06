@@ -7,7 +7,7 @@ import { toast, toastErreur } from '../ui/toast.js';
 import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, majParametres, effacerTout, nouvelId } from '../store.js';
 import { aller } from '../router.js';
 import { demanderPersistance } from '../db.js';
-import { revenusDuMois, periodeBudget, soldes, epargneCible } from '../calculs.js';
+import { revenusDuMois, periodeBudget, soldes, epargneCible, prixRepas } from '../calculs.js';
 import { aujourdhui, formatDate, formatMois, ajouterJours, JOURS_LONGS } from '../dates.js';
 import { formatEuros, versChamp } from '../money.js';
 import { CATEGORIES, categorie, nomCategorie, definirNomsCategories } from '../categories.js';
@@ -117,6 +117,10 @@ function cartesSection(id) {
         champ('Taux Livret A (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLivretA).replace('.', ','), onchange: (e) => majParametres({ tauxLivretA: Number(e.target.value.replace(',', '.')) || 0 }) })),
         champ('Taux LEP (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLEP).replace('.', ','), onchange: (e) => majParametres({ tauxLEP: Number(e.target.value.replace(',', '.')) || 0 }) }))),
       bouton('Enveloppes', () => aller('budgets'), { icone: 'balance' }))),
+    carte('Repas à la maison → épargne', h('div', { class: 'formulaire' },
+      interrupteur('Épargner automatiquement les repas pris à la maison', p.repasAuto?.actif !== false, (v) => majProfil({ repasAuto: { ...p.repasAuto, actif: v, depuis: v ? (p.repasAuto?.depuis || aujourdhui()) : p.repasAuto?.depuis } }),
+        `Chaque jour sans repas dehors noté (fast-food, livraison, resto), le prix de ton menu habituel (${formatEuros(prixRepas(etat))}) part à l’épargne pour chaque repas, sans dépasser ce qui reste de ta part du jour.`),
+      champ('Repas par jour', segment([['1', '1 repas'], ['2', '2 repas'], ['3', '3 repas']], String(p.repasAuto?.repasParJour || 2), (v) => majProfil({ repasAuto: { ...p.repasAuto, repasParJour: Number(v) } }), 'Repas par jour')))),
     carte('Arrondis à l’euro supérieur', h('div', { class: 'formulaire' },
       interrupteur('Activer la cagnotte d’arrondis', p.arrondi?.actif, (v) => majProfil({ arrondi: { ...p.arrondi, actif: v, depuis: p.arrondi?.depuis || aujourdhui() } })),
       champ('Fréquence du virement', segment([['hebdomadaire', 'Semaine'], ['quinzaine', '15 jours'], ['mensuelle', 'Mois']], p.arrondi?.frequence || 'hebdomadaire', (v) => majProfil({ arrondi: { ...p.arrondi, frequence: v } }), 'Fréquence')),

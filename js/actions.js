@@ -149,13 +149,14 @@ export async function ajouterPrivation({ categorie, libelle, montantCentimes, da
 }
 
 /** Virement des privations en attente sur le livret (« C'est fait ») : versement dans la poche choisie. */
-export async function virerPrivations(pocheId = null) {
-  const aVirer = (etat.privations || []).filter((p) => !p.vireLe);
+export async function virerPrivations(pocheId = null, auto = []) {
+  const aVirer = [...(etat.privations || []), ...auto].filter((p) => !p.vireLe);
   const total = aVirer.reduce((s, p) => s + p.montantCentimes, 0);
   if (!total) return null;
   const date = aujourdhui();
   const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: pocheId || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null, type: 'privation', libelle: 'Privations virées sur le livret' });
-  await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, vireLe: date, virementId: tx.id } })));
+  // Les repas automatiques virés sont enregistrés : leur jour est figé, une dépense ajoutée ensuite ne les change plus
+  await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: tx.id } })));
   return tx;
 }
 

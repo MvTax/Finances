@@ -45,4 +45,26 @@ export default [
     const b = bilanPrivations(e, periodeBudget('2026-11-10', e.profil));
     egal(b.nbMois, 2); egal(b.moisCentimes, 1500); egal(b.aVirerCentimes, 1300); egal(b.totalCentimes, 1800);
   } },
+  { nom: 'repas automatiques : chaque jour terminé sans repas dehors met 2 repas de côté, plafonné à la part du jour', fn: () => {
+    const e = etatBase({ revenusMensuels: [revenus('2026-11', 150000)], transactions: [tx({ date: '2026-11-06', montant: 900, categorie: 'restauration-rapide', marchand: 'Fast-food' })] });
+    e.profil = { ...e.profil, repasAuto: { actif: true, depuis: '2026-11-05', repasParJour: 2 } };
+    const r = resteADepenser(e, '2026-11-08');
+    const parJour = r.privationsAuto.map((p) => `${p.date}:${p.montantCentimes}`).join(' ');
+    // part prévue : (1 500 € − 1 110 € d'épargne visée) / 30 jours = 13 € ; prix d'un repas sans historique : 10 €
+    egal(parJour, '2026-11-05:1300 2026-11-06:400 2026-11-07:1300', 'plafond 13 € ; le 06, 1 repas dehors noté (9 €) → 1 repas, limité aux 4 € restants ; jamais aujourd’hui');
+    egal(r.privationsCentimes, 3000);
+  } },
+  { nom: 'repas automatiques : une dépense dehors ajoutée après coup réduit le jour ; un jour viré est figé ; désactivable', fn: () => {
+    const e = etatBase({ revenusMensuels: [revenus('2026-11', 150000)] });
+    e.profil = { ...e.profil, repasAuto: { actif: true, depuis: '2026-11-07', repasParJour: 2 } };
+    egal(resteADepenser(e, '2026-11-08').privationsCentimes, 1300);
+    e.transactions.push(tx({ date: '2026-11-07', montant: 1200, categorie: 'livraison', marchand: 'Livraison' }), tx({ date: '2026-11-07', montant: 800, categorie: 'restaurants', marchand: 'Resto' }));
+    egal(resteADepenser(e, '2026-11-08').privationsCentimes, 0, '2 repas dehors notés : rien d’automatique');
+    e.transactions = [];
+    e.privations = [{ id: 'v', date: '2026-11-07', jour: '2026-11-07', auto: true, montantCentimes: 1300, vireLe: '2026-11-08' }];
+    egal(resteADepenser(e, '2026-11-08').privationsAuto.length, 0, 'jour déjà viré : pas recalculé');
+    egal(resteADepenser(e, '2026-11-08').privationsCentimes, 1300);
+    e.privations = []; e.profil.repasAuto.actif = false;
+    egal(resteADepenser(e, '2026-11-08').privationsCentimes, 0);
+  } },
 ];

@@ -8,6 +8,7 @@ import { cagnotteEnAttente, epargneNettePeriode, PARAMETRES_PLAN_DEFAUT } from '
 import { divArrondiBancaire } from './money.js';
 import { listerAbonnements } from './abonnements.js';
 import { normaliserTexte } from './rules.js';
+import { montantsHabituels } from './privations.js';
 
 export const HEURES_MENSUELLES_DEFAUT = 151.67;
 export const COMMISSION_INTERVENTION_CENTIMES = 800; // tarif courant d'une commission d'intervention (paramétrable)
@@ -208,9 +209,52 @@ export function abonnementsAVenir(etat, periode, dateIso = aujourdhui()) {
     .map((a) => ({ id: `abo-${a.cle}`, libelle: a.nom, categorie: 'abonnements', date: futur ? periode.debut : a.prochain < ref ? ref : a.prochain, montantPrevuCentimes: a.montantCentimes, payee: false, abonnementDetecte: true }));
 }
 
-/** Montants mis de côté en se privant (« Je me suis privé ») sur une période : à virer, ou déjà virés. */
-export function privationsPeriode(etat, periode) {
-  const liste = (etat.privations || []).filter((p) => p.date >= periode.debut && p.date <= periode.fin).sort((a, b) => (a.date < b.date ? -1 : 1));
+const CATS_REPAS = new Set(['restauration-rapide', 'livraison', 'restaurants']);
+
+/** Prix d'un repas : ton menu habituel au fast-food (médiane sur 90 jours), 10 € sans historique. */
+export function prixRepas(etat, dateIso = aujourdhui()) {
+  return montantsHabituels(etat, dateIso).find((o) => o.id === 'restauration-rapide')?.montantCentimes || 1000;
+}
+
+/**
+ * Repas à la maison, épargnés automatiquement (réglage profil.repasAuto, 2 repas par jour par défaut).
+ * Pour chaque jour terminé depuis l'activation : repas non pris dehors = repas par jour − repas dehors notés
+ * (dépenses fast-food, livraison, resto, ou « Je me suis privé » déjà saisi). Chacun met le prix d'un repas
+ * de côté, sans jamais dépasser ce qui reste de la part du jour (le budget ne peut pas passer en négatif à cause de ça).
+ * Calcul dynamique : une dépense dehors ajoutée après coup réduit le montant du jour. Un jour déjà viré est figé.
+ */
+export function privationsAuto(etat, periode, dateIso, partDuJourCentimes) {
+  const reg = etat.profil?.repasAuto;
+  if (!reg?.actif || !reg.depuis || !(partDuJourCentimes > 0)) return [];
+  const debut = reg.depuis > periode.debut ? reg.depuis : periode.debut;
+  const veille = ajouterJours(dateIso, -1);
+  const fin = veille < periode.fin ? veille : periode.fin;
+  if (fin < debut) return [];
+  const nbRepas = Math.max(1, Math.min(3, Number(reg.repasParJour) || 2));
+  const prix = prixRepas(etat, dateIso);
+  const figes = new Set((etat.privations || []).filter((p) => p.auto).map((p) => p.jour || p.date));
+  const res = [];
+  for (let d = debut; d <= fin; d = ajouterJours(d, 1)) {
+    if (figes.has(d)) continue;
+    let dehors = 0; let depJour = 0;
+    for (const t of etat.transactions || []) {
+      if (t.date !== d || t.ajustement) continue;
+      if (t.sens === 'debit' && CATS_REPAS.has(t.categorie)) dehors++;
+    }
+    for (const p of etat.privations || []) if (!p.auto && p.date === d) { depJour += p.montantCentimes; if (CATS_REPAS.has(p.categorie)) dehors++; }
+    depJour += depensesVariables(etat, d, d);
+    const manques = Math.max(0, nbRepas - dehors);
+    if (!manques) continue;
+    const montant = Math.floor(Math.min(manques * prix, Math.max(0, partDuJourCentimes - depJour)) / 10) * 10;
+    if (montant <= 0) continue;
+    res.push({ id: `auto-${d}`, date: d, jour: d, auto: true, categorie: 'restauration-rapide', libelle: manques > 1 ? `${manques} repas à la maison` : '1 repas à la maison', montantCentimes: montant, vireLe: null });
+  }
+  return res;
+}
+
+/** Montants mis de côté en se privant (« Je me suis privé ») sur une période : à virer, ou déjà virés (+ repas automatiques). */
+export function privationsPeriode(etat, periode, auto = []) {
+  const liste = [...(etat.privations || []).filter((p) => p.date >= periode.debut && p.date <= periode.fin), ...auto].sort((a, b) => (a.date < b.date ? -1 : 1));
   return { liste, totalCentimes: liste.reduce((s, p) => s + p.montantCentimes, 0), aVirerCentimes: liste.filter((p) => !p.vireLe).reduce((s, p) => s + p.montantCentimes, 0) };
 }
 
@@ -282,8 +326,12 @@ export function resteADepenser(etat, dateIso = aujourdhui()) {
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
   const prevues = depensesPrevuesPeriode(etat, periode);
   const totalPrevues = prevues.filter((d) => !d.realisee).reduce((s, d) => s + d.montantCentimes, 0);
-  // « Je me suis privé » : l'argent non dépensé part à l'épargne, comme si la dépense avait eu lieu
-  const privations = privationsPeriode(etat, periode);
+  // « Je me suis privé » : l'argent non dépensé part à l'épargne, comme si la dépense avait eu lieu.
+  // Repas à la maison automatiques : plafonnés à la part prévue de chaque jour (calculée sans eux).
+  const visee0 = epargnePossible(etat, periode, { revenusCentimes: revenus.totalCentimes, chargesCentimes: charges.reduce((s, c) => s + c.montantPrevuCentimes, 0), dettesCentimes: dettes.reduce((s, d) => s + d.montantCentimes, 0), prevuesCentimes: totalPrevues }).centimes;
+  const partPrevue = Math.floor((revenus.totalCentimes - charges.reduce((s, c) => s + c.montantPrevuCentimes, 0) - dettes.reduce((s, d) => s + d.montantCentimes, 0) - totalPrevues - visee0) / periode.nbJours);
+  const auto = privationsAuto(etat, periode, dateIso, partPrevue);
+  const privations = privationsPeriode(etat, periode, auto);
   const possible = epargnePossible(etat, periode, { revenusCentimes: revenus.totalCentimes, chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevuesCentimes: totalPrevues });
   // L'épargne passe après les dépenses : si elles dépassent, c'est l'épargne qui baisse d'abord
   const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - totalPrevues - variables - privations.totalCentimes;
@@ -291,7 +339,7 @@ export function resteADepenser(etat, dateIso = aujourdhui()) {
   const reste = avantEpargne - cible;
   return {
     periode, revenus, charges, dettes, epargneCibleCentimes: cible, epargneViseeCentimes: possible.centimes, besoinsVitauxCentimes: possible.besoins.centimes,
-    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, privationsCentimes: privations.totalCentimes, privations: privations.liste, depensesVariablesCentimes: variables, resteCentimes: reste,
+    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, privationsCentimes: privations.totalCentimes, privations: privations.liste, privationsAuto: auto, depensesVariablesCentimes: variables, resteCentimes: reste,
   };
 }
 

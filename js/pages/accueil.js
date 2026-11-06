@@ -209,6 +209,13 @@ function bandeaux(r, auj) {
     res.push({ type: 'info', icone: 'tirelire', titre: `Il te reste ${formatEuros(rel.courant.montantCentimes)} jusqu’au salaire`,
       texte: `Ce qui restera à l’arrivée du salaire (vers le ${formatDateCourte(rel.courant.prochainSalaire)}) ira sur ton épargne.` });
   }
+  // Repas à la maison d'hier, épargnés automatiquement
+  const hierAuto = (r.privationsAuto || []).find((p) => p.date === ajouterJours(auj, -1));
+  if (hierAuto) {
+    res.push({ type: 'info', icone: 'tirelire', titre: `Hier : ${hierAuto.libelle}, ${formatEuros(hierAuto.montantCentimes)} mis de côté`,
+      texte: 'Aucun repas dehors noté hier : l’argent part à l’épargne. Tu as mangé dehors ? Ajoute la dépense, le montant s’ajuste.',
+      actions: [bouton('J’ai mangé dehors hier', async () => { const { ouvrirSaisie } = await import('./saisie.js'); ouvrirSaisie('clavier', { passee: true, date: ajouterJours(auj, -1), categorie: 'restauration-rapide' }); }, { classe: 'btn-petit' })] });
+  }
   // Revenus du mois à confirmer
   if (r.revenus.statut === 'attendu') {
     const recuDetecte = etat.transactions.find((t) => t.categorie === 'salaire' && t.source === 'import' && t.date >= r.periode.debut);

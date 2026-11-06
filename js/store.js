@@ -24,6 +24,8 @@ export const PROFIL_DEFAUT = {
   emetteursSalaire: [],
   parametresPlan: {},
   repartitionVoiturePret: 50,
+  // Repas à la maison épargnés automatiquement (2 par jour) : « depuis » est fixé au premier lancement
+  repasAuto: { actif: true, depuis: null, repasParJour: 2 },
 };
 
 export const PARAMETRES_DEFAUT = {
@@ -128,6 +130,14 @@ export function rangerComptes() {
   return ops;
 }
 
+/** Épargne automatique des repas : démarre le jour où elle est découverte, jamais rétroactivement. @returns true si le profil a changé */
+function assurerRepasAuto() {
+  const avant = JSON.stringify(etat.profil.repasAuto || null);
+  etat.profil.repasAuto = { ...PROFIL_DEFAUT.repasAuto, ...(etat.profil.repasAuto || {}) };
+  if (etat.profil.repasAuto.actif && !etat.profil.repasAuto.depuis) etat.profil.repasAuto.depuis = maintenant().slice(0, 10);
+  return JSON.stringify(etat.profil.repasAuto) !== avant;
+}
+
 /** Charge tout l'état depuis IndexedDB. */
 export async function charger() {
   await db.ouvrirBase();
@@ -142,6 +152,7 @@ export async function charger() {
   for (const r of abimees) delete r._re;
   const ops = initialiserDefauts();
   ops.push(...rangerComptes());
+  if (assurerRepasAuto()) ops.push({ store: 'profil', valeur: etat.profil });
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });
@@ -241,6 +252,7 @@ export async function appliquerMiseAJour(plan, { estampille, baseProfil, basePar
     ops.push({ store: collection, valeur });
   }
   etat.profil = { ...plan.profil, cle: 'profil' };
+  assurerRepasAuto();
   etat.parametres = { ...plan.parametres, cle: 'parametres' };
   ops.push({ store: 'profil', valeur: etat.profil }, { store: 'parametres', valeur: etat.parametres });
   ops.push(...rangerComptes());
@@ -282,6 +294,7 @@ export async function remplacerTout(contenu) {
     for (const v of etat[c]) ops.push({ store: c, valeur: v });
   }
   etat.profil = { ...PROFIL_DEFAUT, ...(contenu.profil || {}), cle: 'profil' };
+  assurerRepasAuto();
   etat.parametres = { ...PARAMETRES_DEFAUT, ...(contenu.parametres || {}), ...Object.fromEntries(Object.entries(secrets).filter(([, v]) => v)), cle: 'parametres' };
   ops.push({ store: 'profil', valeur: etat.profil }, { store: 'parametres', valeur: etat.parametres });
   ops.push(...initialiserDefauts());

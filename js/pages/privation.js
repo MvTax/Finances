@@ -7,7 +7,7 @@ import { toast } from '../ui/toast.js';
 import { etat, supprimerObjet } from '../store.js';
 import { ajouterPrivation, virerPrivations } from '../actions.js';
 import { montantsHabituels, bilanPrivations } from '../privations.js';
-import { periodeBudget } from '../calculs.js';
+import { periodeBudget, resteADepenser, prixRepas } from '../calculs.js';
 import { aujourdhui, formatDateCourte } from '../dates.js';
 import { formatEuros, versChamp } from '../money.js';
 import { categorie } from '../categories.js';
@@ -38,7 +38,7 @@ export function feuillePrivation() {
     const libelle = choix.id === 'autre' ? (libelleAutre.trim() || 'Dépense évitée') : choix.libelle;
     await ajouterPrivation({ categorie: choix.id === 'autre' ? 'autres' : choix.categorie, libelle, montantCentimes: montant });
     vibrer(20); f.fermer();
-    const b = bilanPrivations(etat, periodeBudget(aujourdhui(), etat.profil));
+    const b = bilanPrivations(etat, periodeBudget(aujourdhui(), etat.profil), resteADepenser(etat, aujourdhui()).privationsAuto || []);
     toast(`Bravo : ${formatEuros(montant)} mis de côté. À virer sur ton livret : ${formatEuros(b.aVirerCentimes)}.`, { type: 'succes', duree: 5000 });
   });
   const f = ouvrirFeuille({
@@ -52,20 +52,25 @@ export function feuillePrivation() {
 
 /** Carte de la page Épargne : ce mois-ci, à virer, historique. */
 export function carteprivations() {
-  const per = periodeBudget(aujourdhui(), etat.profil);
-  const b = bilanPrivations(etat, per);
-  const dernieres = [...(etat.privations || [])].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 20);
+  const r = resteADepenser(etat, aujourdhui());
+  const per = r.periode;
+  const auto = r.privationsAuto || [];
+  const b = bilanPrivations(etat, per, auto);
+  const reg = etat.profil.repasAuto;
+  const prix = prixRepas(etat);
+  const dernieres = [...(etat.privations || []), ...auto].sort((x, y) => (x.date < y.date ? 1 : -1)).slice(0, 30);
   return carte('Je me suis privé', h('div', { class: 'carte-privations' },
-    h('p', {}, b.nbMois ? `Ce mois-ci : ${b.nbMois} fois, ${formatEuros(b.moisCentimes)} mis de côté.` : 'Quand tu renonces à manger dehors, à un VTC ou à un café, mets le montant de côté ici.'),
+    h('p', {}, b.nbMois ? `Ce mois-ci : ${formatEuros(b.moisCentimes)} mis de côté${b.nbAuto ? `, dont ${b.nbAuto} jour${b.nbAuto > 1 ? 's' : ''} de repas à la maison` : ''}.` : 'Quand tu renonces à manger dehors, à un VTC ou à un café, mets le montant de côté ici.'),
+    reg?.actif ? h('p', { class: 'petit' }, `Automatique : chaque jour où tu ne notes pas de repas dehors, ${reg.repasParJour || 2} repas à ${formatEuros(prix)} (ton menu habituel) partent à l’épargne, sans dépasser ce qui reste de ta part du jour. Tu as mangé dehors sans le noter ? Ajoute la dépense : le montant s’ajuste.`) : null,
     b.aVirerCentimes ? h('p', { class: 'privations-a-virer' }, icone('tirelire'), ' À virer sur ton livret : ', h('strong', {}, mt(b.aVirerCentimes))) : null,
     h('div', { class: 'groupe-boutons' },
       bouton('Je me suis privé', () => feuillePrivation(), { classe: 'btn-principal btn-petit', icone: 'plus' }),
-      b.aVirerCentimes ? bouton('C’est viré', async () => { await virerPrivations(); toast(`${formatEuros(b.aVirerCentimes)} versés sur ton épargne.`, { type: 'succes' }); }, { classe: 'btn-petit' }) : null),
+      b.aVirerCentimes ? bouton('C’est viré', async () => { await virerPrivations(null, auto); toast(`${formatEuros(b.aVirerCentimes)} versés sur ton épargne.`, { type: 'succes' }); }, { classe: 'btn-petit' }) : null),
     b.totalCentimes ? h('p', { class: 'petit' }, `Depuis le début : ${formatEuros(b.totalCentimes)} mis de côté en te privant.`) : null,
     dernieres.length ? h('details', { class: 'details-discret' }, h('summary', {}, 'Détail'),
       h('div', { class: 'liste-cles' }, dernieres.map((p) => h('div', { class: 'ligne-cle' },
-        h('span', {}, `${formatDateCourte(p.date)} · ${p.libelle}${p.vireLe ? ' · viré' : ''}`),
-        h('span', { class: 'ligne-cle-valeur' }, mt(p.montantCentimes), p.vireLe ? null : h('button', { type: 'button', class: 'btn-icone', 'aria-label': `Retirer ${p.libelle}`, onclick: async () => {
+        h('span', {}, `${formatDateCourte(p.date)} · ${p.libelle}${p.auto ? ' (auto)' : ''}${p.vireLe ? ' · viré' : ''}`),
+        h('span', { class: 'ligne-cle-valeur' }, mt(p.montantCentimes), p.vireLe || p.auto ? null : h('button', { type: 'button', class: 'btn-icone', 'aria-label': `Retirer ${p.libelle}`, onclick: async () => {
           if (await confirmer({ titre: 'Retirer ?', message: `« ${p.libelle} » (${formatEuros(p.montantCentimes)}) ne sera plus mis de côté.`, ok: 'Retirer' })) await supprimerObjet('privations', p.id);
         } }, icone('fermer'))))))) : null), { id: 'privations' });
 }
