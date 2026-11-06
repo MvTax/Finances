@@ -4,8 +4,8 @@
 //  - les repas à la maison et les privations pas encore virés.
 // Le montant est aussi réparti par poche (prêt / sécurité), pour savoir quoi mettre où.
 
-import { resteADepenser } from './calculs.js';
-import { epargneNettePeriode, cagnotteEnAttente, repartirVersement } from './epargne.js';
+import { resteADepenser, cagnotteArrondis } from './calculs.js';
+import { epargneNettePeriode, repartirVersement } from './epargne.js';
 import { bilanPrivations } from './privations.js';
 import { diffJours, debutSemaine, maxIso, ajouterJours, prochainJourSemaine } from './dates.js';
 
@@ -42,7 +42,7 @@ export function aVirerEpargne(etat, dateIso) {
   const partSemaine = Math.ceil(restantDebut / semaines / 100) * 100;
   const moisSemaine = Math.max(0, Math.min(moisRestant, partSemaine - viree(debutS, per.fin)));
   const ar = etat.profil?.arrondi;
-  const arrondis = ar?.actif ? cagnotteEnAttente(etat.transactions || [], ar, etat.cagnotteArrondis || [], { debutSuivi: etat.profil?.debutSuivi || etat.profil?.premierImportLe }).total : 0;
+  const arrondis = ar?.actif ? cagnotteArrondis(etat, dateIso).total : 0;
   const auto = r.privationsAuto || [];
   const privations = bilanPrivations(etat, per, auto).aVirerCentimes;
 

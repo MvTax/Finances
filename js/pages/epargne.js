@@ -13,7 +13,7 @@ import { aujourdhui, formatDate, formatMois, formatDateCourte, ajouterJours, ajo
 import { formatEuros } from '../money.js';
 import { virerArrondis, enregistrerVirementEpargne, enregistrerReprise, payerEcheanceCredit, payerEcheancePret } from '../actions.js';
 import { ajouterAuCalendrier } from '../ics.js';
-import { periodeBudget, epargneCible } from '../calculs.js';
+import { periodeBudget, epargneCible, cagnotteArrondis } from '../calculs.js';
 import { carteprivations } from './privation.js';
 import { paliersPoche, palierFranchi } from '../paliers.js';
 import { carteSysteme } from './systeme-epargne.js';
@@ -72,13 +72,13 @@ function vuePoches() {
   });
   // Arrondis
   const ar = etat.profil.arrondi || {};
-  const cag = cagnotteEnAttente(etat.transactions, ar, etat.cagnotteArrondis, { debutSuivi: etat.profil.debutSuivi || etat.profil.premierImportLe });
+  const cag = cagnotteArrondis(etat);
   const prochaine = ar.actif ? prochainVirementArrondis(ar, aujourdhui(), ar.dernierVirement || null) : null;
   const arrondis = carte('Arrondis à virer', h('div', {},
     ar.actif ? h('div', { class: 'poche-tete' }, h('span', { class: 'petit' }, `Prochain virement le ${formatDate(prochaine)}`), h('span', { class: 'poche-solde' }, mt(cag.total))) : h('p', {}, 'Arrondis désactivés (Réglages → Arrondis).'),
     ar.actif ? h('div', { class: 'groupe-boutons' }, bouton("C'est fait", async () => { if (!cag.total) { toast('Rien à virer pour l’instant.'); return; } await virerArrondis(); toast('Arrondis virés.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit', disabled: !cag.total }),
       bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur ton compte épargne', description: 'Ouvre Budget pour voir le montant.', date: prochaine, heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence || 'hebdomadaire'], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' })) : null,
-    ar.actif ? h('details', { class: 'details-discret' }, h('summary', {}, 'Comment ça marche'), h('p', { class: 'petit' }, `${cag.lignes.length} dépense${cag.lignes.length > 1 ? 's' : ''} arrondie${cag.lignes.length > 1 ? 's' : ''} à l'euro supérieur (un montant déjà rond, comme 5,00 €, met 0,50 € de côté), à virer ${({ hebdomadaire: 'chaque semaine', quinzaine: 'tous les 15 jours', mensuelle: 'chaque mois' })[ar.frequence || 'hebdomadaire']}. C'est distinct de l'arrondi System'Épargne de la banque : les deux comptent, une seule fois chacun.`)) : null), { id: 'arrondis' });
+    ar.actif ? h('details', { class: 'details-discret' }, h('summary', {}, 'Comment ça marche'), h('p', { class: 'petit' }, `${cag.lignes.length} dépense${cag.lignes.length > 1 ? 's' : ''} arrondie${cag.lignes.length > 1 ? 's' : ''} à l'euro supérieur depuis le début du mois : toutes les sorties du compte, abonnements, loyer et prélèvements compris (un montant déjà rond, comme 5,00 €, met 0,50 € de côté), à virer ${({ hebdomadaire: 'chaque semaine', quinzaine: 'tous les 15 jours', mensuelle: 'chaque mois' })[ar.frequence || 'hebdomadaire']}. C'est distinct de l'arrondi System'Épargne de la banque : les deux comptent, une seule fois chacun.`)) : null), { id: 'arrondis' });
   // Sources et objectif
   const possible = epargneCible(etat, per.mois, per);
   const sources = h('div', {},

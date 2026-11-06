@@ -246,7 +246,7 @@ En haut de l'Accueil et de la page Épargne, trois cases :
 Le virement de la semaine regroupe :
 
 1. la part de la semaine de l'épargne du mois. C'est ce qui reste à mettre ce mois-ci, divisé par le nombre de semaines jusqu'au salaire et arrondi à l'euro. Elle est calculée le lundi : une fois le virement fait, elle tombe à 0 jusqu'au lundi suivant ;
-2. les arrondis en attente ;
+2. les arrondis en attente : **toutes les sorties du compte** sont arrondies à l'euro supérieur (courses, abonnements, loyer, prélèvements, échéances, remboursements à des proches), sauf les virements entre tes comptes et vers l'épargne. Ils sont comptés depuis le début du mois en cours (le salaire), même si le suivi a commencé après. L'arrondi sort du budget comme une dépense : il apparaît dans « Mon mois expliqué » et dans la dépense du jour ;
 3. les repas à la maison et les privations pas encore virés.
 
 La case indique **la date du virement** : le jour réglé (jeudi par défaut, Réglages → Arrondis → « Jour du virement »). Si ce jour est passé et que le virement n'est pas fait, elle affiche « À faire aujourd'hui ». Une fois le virement fait, elle annonce celui de la semaine suivante. « Rappel chaque semaine » ajoute un rappel hebdomadaire au calendrier.

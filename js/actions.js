@@ -5,7 +5,7 @@ import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, R
 import { categoriser, empreinte, traiterImport, detecterChargesFixes, rattacherChargesFixes, recalculerAjustement } from './import/pipeline.js';
 import { aujourdhui, dateDuMois, ajouterJours, moisDe } from './dates.js';
 import { cagnotteEnAttente, repartirVersement, soldePoche, recalculerPlan } from './epargne.js';
-import { revenusDuMois, chargesFixesPeriode, dettesPeriode, periodeBudget } from './calculs.js';
+import { revenusDuMois, chargesFixesPeriode, dettesPeriode, periodeBudget, cagnotteArrondis } from './calculs.js';
 
 const M = () => new Date().toISOString();
 
@@ -183,7 +183,7 @@ export async function virerSemaine({ epargneMoisCentimes = 0, auto = [] } = {}) 
 
 /** Virement de la cagnotte d'arrondis (« Vire X € sur ton Livret » → « C'est fait »). */
 export async function virerArrondis() {
-  const c = cagnotteEnAttente(etat.transactions, etat.profil.arrondi, etat.cagnotteArrondis, { debutSuivi: etat.profil.debutSuivi || etat.profil.premierImportLe });
+  const c = cagnotteArrondis(etat);
   if (!c.total) return null;
   const tx = await enregistrerVirementEpargne({ montantCentimes: c.total, pocheId: etat.profil.arrondi.pocheId === 'partage' ? null : (etat.profil.arrondi.pocheId || 'poche-coussin'), type: 'arrondiApp', libelle: 'Arrondis virés sur l’épargne', lignesArrondis: c.lignes });
   await majProfil({ arrondi: { ...etat.profil.arrondi, dernierVirement: aujourdhui() } });

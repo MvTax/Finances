@@ -4,7 +4,7 @@
 import { natureTransaction, contributionDepense, montantSigne, categorie } from './categories.js';
 import { ajouterJours, ajouterMois, diffJours, dateDuMois, moisDe, joursDansMois, aujourdhui } from './dates.js';
 import { echeancesEntre } from './dettes.js';
-import { cagnotteEnAttente, epargneNettePeriode, PARAMETRES_PLAN_DEFAUT } from './epargne.js';
+import { cagnotteEnAttente, epargneNettePeriode, PARAMETRES_PLAN_DEFAUT, arrondiTransaction, debutArrondis } from './epargne.js';
 import { divArrondiBancaire } from './money.js';
 import { listerAbonnements } from './abonnements.js';
 import { normaliserTexte } from './rules.js';
@@ -294,6 +294,29 @@ export function epargnePossible(etat, periode, { revenusCentimes, chargesCentime
   return { centimes: Math.max(0, Math.floor(libre / 1000) * 1000), besoins, libreCentimes: libre };
 }
 
+/** Cagnotte d'arrondis en attente de virement (depuis le début du mois en cours au plus tard). */
+export function cagnotteArrondis(etat, dateIso = aujourdhui()) {
+  const per = periodeBudget(dateIso, etat.profil || {});
+  return cagnotteEnAttente(etat.transactions || [], etat.profil?.arrondi, etat.cagnotteArrondis || [], { debutSuivi: etat.profil?.debutSuivi || etat.profil?.premierImportLe, debutPeriode: per.debut });
+}
+
+/**
+ * Arrondis de la période (virés ou non) : cet argent part à l'épargne, il sort donc du budget comme une dépense.
+ * @param {string|null} jour  seulement les arrondis de ce jour
+ */
+export function arrondisPeriode(etat, periode, jour = null) {
+  const ar = etat.profil?.arrondi;
+  if (!ar?.actif) return 0;
+  const depuis = debutArrondis(ar, etat.profil?.debutSuivi || etat.profil?.premierImportLe, periode.debut);
+  let total = 0;
+  for (const t of etat.transactions || []) {
+    if (t.date < periode.debut || t.date > periode.fin || t.date < depuis) continue;
+    if (jour && t.date !== jour) continue;
+    total += arrondiTransaction(t, ar);
+  }
+  return total;
+}
+
 /** Période budgétaire d'un mois (« 2026-12 »), d'après le jour de salaire. */
 export function periodeDuMois(etat, mois) {
   const actuelle = periodeBudget(aujourdhui(), etat.profil || {});
@@ -334,12 +357,14 @@ export function resteADepenser(etat, dateIso = aujourdhui()) {
   const privations = privationsPeriode(etat, periode, auto);
   const possible = epargnePossible(etat, periode, { revenusCentimes: revenus.totalCentimes, chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevuesCentimes: totalPrevues });
   // L'épargne passe après les dépenses : si elles dépassent, c'est l'épargne qui baisse d'abord
-  const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - totalPrevues - variables - privations.totalCentimes;
+  // Arrondis : chaque sortie du compte arrondie à l'euro, l'arrondi part à l'épargne (il sort donc du budget)
+  const arrondis = arrondisPeriode(etat, periode);
+  const avantEpargne = revenus.totalCentimes - totalCharges - totalDettes - totalPrevues - variables - privations.totalCentimes - arrondis;
   const cible = Math.max(0, Math.min(possible.centimes, avantEpargne));
   const reste = avantEpargne - cible;
   return {
     periode, revenus, charges, dettes, epargneCibleCentimes: cible, epargneViseeCentimes: possible.centimes, besoinsVitauxCentimes: possible.besoins.centimes,
-    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, privationsCentimes: privations.totalCentimes, privations: privations.liste, privationsAuto: auto, depensesVariablesCentimes: variables, resteCentimes: reste,
+    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, privationsCentimes: privations.totalCentimes, privations: privations.liste, privationsAuto: auto, arrondisCentimes: arrondis, depensesVariablesCentimes: variables, resteCentimes: reste,
   };
 }
 
@@ -353,7 +378,8 @@ export function jaugeDuJour(etat, dateIso = aujourdhui(), instantane = null) {
   const r = resteADepenser(etat, dateIso);
   // Une privation du jour compte comme une dépense du jour : c'est l'argent de la journée qui part à l'épargne
   const priveJour = (etat.privations || []).filter((p) => p.date === dateIso).reduce((s, p) => s + p.montantCentimes, 0);
-  const depJour = depensesVariables(etat, dateIso, dateIso) + priveJour;
+  // Les arrondis du jour aussi (ils partent à l'épargne avec la dépense)
+  const depJour = depensesVariables(etat, dateIso, dateIso) + priveJour + arrondisPeriode(etat, r.periode, dateIso);
   const joursRestants = diffJours(dateIso, r.periode.fin) + 1;
   const resteAvantJour = r.resteCentimes + depJour;
   // L'instantané ne se fige que face aux dépenses DU JOUR : si le reste du mois change pour une autre raison
@@ -497,7 +523,7 @@ export function projectionDecouvert(etat, dateIso = aujourdhui(), { jours = 7, r
 export function epargneDuMois(etat, dateIso = aujourdhui()) {
   const periode = periodeBudget(dateIso, etat.profil);
   const nette = epargneNettePeriode(etat.transactions || [], periode.debut, periode.fin);
-  const cagnotte = cagnotteEnAttente(etat.transactions || [], etat.profil?.arrondi, etat.cagnotteArrondis || [], { debutSuivi: etat.profil?.debutSuivi || etat.profil?.premierImportLe });
+  const cagnotte = cagnotteArrondis(etat, dateIso);
   const cible = epargneCible(etat, periode.mois, periode);
   return { periode, nette, cagnotteCentimes: cagnotte.total, cagnotteLignes: cagnotte.lignes, cibleCentimes: cible, projectionCentimes: nette.nette + cagnotte.total };
 }

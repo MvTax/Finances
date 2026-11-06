@@ -2,6 +2,7 @@
 import { egal, vrai } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
 import { aVirerEpargne } from '../../js/virements.js';
+import { resteADepenser, jaugeDuJour } from '../../js/calculs.js';
 
 const revenus = (mois, c) => ({ mois, salaireCentimes: c, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' });
 const poches = () => [
@@ -11,6 +12,7 @@ const poches = () => [
 const etat = (extra = {}) => {
   const e = etatBase({ revenusMensuels: [revenus('2026-11', 150000)], poches: poches(), privations: [], ...extra });
   e.profil.arrondi.pocheId = 'pret';
+  e.profil.arrondi.actif = true;
   e.profil.repasAuto = { actif: false };
   return e;
 };
@@ -69,5 +71,33 @@ export default [
     egal(apres.semaineCentimes, 0); egal(apres.dateVirement, '2026-11-19');
     e.profil.arrondi.jourVirement = 1;
     egal(aVirerEpargne(etat(), '2026-11-10').dateVirement, '2026-11-12', 'jeudi par défaut');
+  } },
+  { nom: 'arrondis : tout ce qui sort est arrondi (abonnement, charge fixe, échéance, proche), sauf virements internes et épargne', fn: () => {
+    const e = etat({ transactions: [
+      tx({ date: '2026-11-06', montant: 1399, categorie: 'abonnements', chargeFixeId: 'netflix' }),
+      tx({ date: '2026-11-06', montant: 45020, categorie: 'loyer', chargeFixeId: 'loyer' }),
+      tx({ date: '2026-11-07', montant: 22314, categorie: 'credits' }),
+      tx({ date: '2026-11-07', montant: 2000, categorie: 'prets-proches' }),
+      tx({ date: '2026-11-07', montant: 5055, interne: true }),
+      tx({ date: '2026-11-07', montant: 3333, categorie: 'epargne', epargne: true, typeEpargne: 'virementLivret' }),
+    ] });
+    egal(aVirerEpargne(e, '2026-11-10').arrondisCentimes, 1 + 80 + 86 + 50);
+  } },
+  { nom: 'arrondis : comptés depuis le début du mois (salaire), même si le suivi a commencé après', fn: () => {
+    const e = etat({ transactions: [tx({ date: '2026-11-05', montant: 420 }), tx({ date: '2026-11-08', montant: 910 }), tx({ date: '2026-10-30', montant: 199 })] });
+    e.profil.arrondi.depuis = '2026-11-08';
+    egal(aVirerEpargne(e, '2026-11-10').arrondisCentimes, 80 + 90, 'le 05/11 compté, pas octobre');
+  } },
+  { nom: 'arrondis : ils sortent du budget (reste et part du jour), comme l’argent qui part à l’épargne', fn: () => {
+    const e = etat();
+    const r0 = resteADepenser(e, '2026-11-10');
+    const j0 = jaugeDuJour(e, '2026-11-10');
+    e.transactions.push(tx({ date: '2026-11-10', montant: 1399 }));
+    const r1 = resteADepenser(e, '2026-11-10');
+    egal(r1.arrondisCentimes, 1);
+    const j1 = jaugeDuJour(e, '2026-11-10', j0.instantane);
+    egal(j1.parJourCentimes, j0.parJourCentimes, 'la part du jour ne bouge pas');
+    egal(j1.depensesDuJourCentimes - j0.depensesDuJourCentimes, 1399 + 1, 'dépense du jour + son arrondi');
+    vrai(r1.resteCentimes <= r0.resteCentimes);
   } },
 ];

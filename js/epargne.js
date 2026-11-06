@@ -103,13 +103,15 @@ export function dateAtteinte(poche, versementMensuelCentimes, depuisMois) {
 // Arrondis de l'app (cagnotte « Arrondis à virer »)
 // ---------------------------------------------------------------------------
 
-/** Une transaction génère-t-elle un arrondi ? (dépense variable, hors internes, épargne, prêts, charges fixes sauf option) */
+/**
+ * Une transaction génère-t-elle un arrondi ? Tout ce qui sort du compte : dépenses, charges fixes, abonnements,
+ * prélèvements, échéances de crédit, remboursements à des proches. Sauf les virements entre tes comptes et
+ * les virements vers l'épargne (l'argent ne sort pas vraiment), et les dépenses où l'arrondi a été désactivé.
+ */
 export function estEligibleArrondi(tx, reglage = {}) {
   if (tx.sens !== 'debit' || tx.ajustement || tx.arrondiDesactive) return false;
   const n = natureTransaction(tx);
-  if (n !== 'depense') return false;
-  if (tx.chargeFixeId && !reglage.inclureChargesFixes) return false;
-  return true;
+  return n !== 'interne' && n !== 'epargne' && n !== 'ajustement';
 }
 
 export function arrondiTransaction(tx, reglage = {}) {
@@ -117,14 +119,22 @@ export function arrondiTransaction(tx, reglage = {}) {
 }
 
 /**
+ * Premier jour compté pour les arrondis : jamais sur l'historique importé (début du suivi au plus tôt),
+ * mais toujours depuis le début du mois en cours (de salaire à salaire) : tout ce qui est déjà sorti ce mois-ci est arrondi.
+ */
+export function debutArrondis(reglage, debutSuivi = null, debutPeriode = null) {
+  const suivi = [reglage?.depuis, debutSuivi].filter(Boolean).sort().pop() || '0000-01-01';
+  return debutPeriode && debutPeriode < suivi ? debutPeriode : suivi;
+}
+
+/**
  * Cagnotte en attente : arrondis des dépenses depuis l'activation, non encore virés.
  * Les arrondis System'Épargne de la banque sont un montant DISTINCT (ligne TOTAL OPTION) : aucun double comptage.
  */
-export function cagnotteEnAttente(transactions, reglage, cagnotte = [], { debutSuivi = null } = {}) {
+export function cagnotteEnAttente(transactions, reglage, cagnotte = [], { debutSuivi = null, debutPeriode = null } = {}) {
   if (!reglage?.actif) return { total: 0, lignes: [] };
   const vires = new Set(cagnotte.filter((c) => c.vireLe).map((c) => c.transactionId));
-  // Jamais d'arrondis sur l'historique importé : on part du début du suivi au plus tôt
-  const depuis = [reglage.depuis, debutSuivi].filter(Boolean).sort().pop() || '0000-01-01';
+  const depuis = debutArrondis(reglage, debutSuivi, debutPeriode);
   const lignes = [];
   for (const t of transactions) {
     if (t.date < depuis || vires.has(t.id)) continue;

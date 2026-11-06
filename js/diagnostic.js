@@ -363,9 +363,9 @@ export async function lancerDiagnostic(o = {}) {
   let r = null;
   test('Reste à dépenser', () => {
     r = resteADepenser(etat, auj);
-    const recalc = r.revenus.totalCentimes - r.epargneCibleCentimes - r.chargesCentimes - r.dettesCentimes - r.depensesVariablesCentimes;
+    const recalc = r.revenus.totalCentimes - r.epargneCibleCentimes - r.chargesCentimes - r.dettesCentimes - r.depensesVariablesCentimes - (r.prevuesCentimes || 0) - (r.privationsCentimes || 0) - (r.arrondisCentimes || 0);
     const ok = recalc === r.resteCentimes && [r.resteCentimes, r.chargesCentimes, r.dettesCentimes, r.depensesVariablesCentimes].every(ent);
-    return { statut: ok ? 'ok' : 'echec', detail: `période ${r.periode.debut} → ${r.periode.fin} : revenus ${eur(r.revenus.totalCentimes)} (${r.revenus.statut}) − épargne ${eur(r.epargneCibleCentimes)} − charges ${eur(r.chargesCentimes)} (${r.charges.length}) − dettes ${eur(r.dettesCentimes)} (${r.dettes.length}) − dépenses ${eur(r.depensesVariablesCentimes)} = ${eur(r.resteCentimes)}${ok ? '' : ` ; RECALCUL ${eur(recalc)}`}` };
+    return { statut: ok ? 'ok' : 'echec', detail: `période ${r.periode.debut} → ${r.periode.fin} : revenus ${eur(r.revenus.totalCentimes)} (${r.revenus.statut}) − épargne ${eur(r.epargneCibleCentimes)} − charges ${eur(r.chargesCentimes)} (${r.charges.length}) − dettes ${eur(r.dettesCentimes)} (${r.dettes.length}) − dépenses ${eur(r.depensesVariablesCentimes)}${r.prevuesCentimes ? ` − prévues ${eur(r.prevuesCentimes)}` : ''}${r.privationsCentimes ? ` − privations ${eur(r.privationsCentimes)}` : ''}${r.arrondisCentimes ? ` − arrondis ${eur(r.arrondisCentimes)}` : ''} = ${eur(r.resteCentimes)}${ok ? '' : ` ; RECALCUL ${eur(recalc)}`}` };
   });
   test('Jauge du jour', () => {
     const j = jaugeDuJour(etat, auj, etat.meta?.jauge || null);
