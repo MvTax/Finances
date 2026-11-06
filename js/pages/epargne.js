@@ -15,6 +15,7 @@ import { virerArrondis, enregistrerVirementEpargne, enregistrerReprise, payerEch
 import { ajouterAuCalendrier } from '../ics.js';
 import { periodeBudget, epargneCible } from '../calculs.js';
 import { carteprivations } from './privation.js';
+import { carteSysteme } from './systeme-epargne.js';
 
 export const titre = 'Épargne';
 let ongletActif = 'poches';
@@ -90,7 +91,7 @@ function vuePoches() {
   const liens = carte(null, h('div', { class: 'liste-liens' },
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'plan'; aller('epargne/plan'); } }, icone('calendrier'), h('span', { class: 'ligne-lien-texte' }, 'Mon plan mois par mois', h('small', {}, 'combien mettre de côté chaque mois')), icone('suivant')),
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'simulateur'; aller('epargne/simulateur'); } }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Simulateur Livret A / LEP', h('small', {}, 'ce que rapporte ton épargne')), icone('suivant'))));
-  return h('div', {}, h('div', { class: 'poches' }, cartesPoches), carteprivations(), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
+  return h('div', {}, carteSysteme(), h('div', { class: 'poches' }, cartesPoches), carteprivations(), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
 function ligne(l, c) { return h('div', { class: 'ligne-cle' }, h('span', {}, l), mt(c)); }
@@ -184,7 +185,7 @@ function vuePlan() {
   const sc = scenariosPret(etat, mois, 60);
   const scen = sc ? detailsLigne('Effet sur la fin du prêt', h('div', {},
     h('div', { class: 'liste-cles', role: 'list', 'aria-label': 'Scénarios de remboursement anticipé' },
-      [['Sans remboursement anticipé', sc.sansAnticipe], ['Tout sur le projet, puis le prêt', sc.projet], ['Répartition (réglable)', sc.repartition], ['Tout sur le remboursement anticipé', sc.pret]].map(([nom, x]) => {
+      [['Sans remboursement anticipé', sc.sansAnticipe], etat.poches.some((p) => p.type === 'projet' && p.actif !== false) ? ['Tout sur le projet, puis le prêt', sc.projet] : null, ['Répartition (réglable)', sc.repartition], ['Tout sur le remboursement anticipé', sc.pret]].filter(Boolean).map(([nom, x]) => {
         const gain = sc.sansAnticipe.interetsCentimes - x.interetsCentimes;
         return h('div', { class: 'ligne-cle', role: 'listitem' },
           h('span', { class: 'ligne-scenario' }, nom, h('small', {}, `Prêt soldé le ${formatDate(x.finLe)}`)),

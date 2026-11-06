@@ -154,7 +154,9 @@ export async function virerPrivations(pocheId = null, auto = []) {
   const total = aVirer.reduce((s, p) => s + p.montantCentimes, 0);
   if (!total) return null;
   const date = aujourdhui();
-  const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: pocheId || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null, type: 'privation', libelle: 'Privations virées sur le livret' });
+  // Même poche que les arrondis (réglable dans « Mon système d'épargne »)
+  const cible = pocheId || etat.poches.find((p) => p.id === etat.profil.arrondi?.pocheId && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'remboursementAnticipe' && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null;
+  const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: cible, type: 'privation', libelle: 'Privations virées sur le livret' });
   // Les repas automatiques virés sont enregistrés : leur jour est figé, une dépense ajoutée ensuite ne les change plus
   await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: tx.id } })));
   return tx;

@@ -216,3 +216,15 @@ Activé par défaut, à partir du jour où l'app est mise à jour (rien de rétr
 - Le montant ne dépasse jamais ce qui reste de la part prévue du jour, donc le budget ne peut pas passer en négatif à cause de ça.
 - Tu as mangé dehors sans le noter ? Ajoute la dépense (même après coup) : le montant du jour s'ajuste. Une fois le montant viré (« C'est viré »), le jour est figé.
 - L'accueil affiche chaque matin ce qui a été mis de côté la veille, avec un bouton « J'ai mangé dehors hier ».
+
+## Mon système d'épargne
+
+En haut de la page Épargne. Deux poches suffisent : **Sécurité** (pour les imprévus, objectif 1 000 €) et **le prêt** (pour le rembourser en avance). Les mensualités du prêt sont prélevées directement sur le compte et ne passent pas par l'épargne.
+
+Trois flux alimentent ces poches :
+
+1. **Épargne du mois** : le maximum possible après les obligations. Elle est répartie selon la « Part pour la sécurité » (10, 25 ou 50 %), et le reste va au prêt. Une fois la Sécurité pleine, tout va au prêt. Le reste du mois, au salaire, est réparti de la même façon.
+2. **Arrondis** à l'euro, chaque semaine, vers la poche choisie (le prêt par défaut).
+3. **Repas à la maison et privations**, chaque jour, vers la même poche.
+
+La carte affiche aussi quand la poche du prêt sera pleine au rythme du plan.
