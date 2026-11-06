@@ -8,6 +8,7 @@ import { etat, ecrireMeta, enregistrer } from '../store.js';
 import { aller } from '../router.js';
 import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, coutDecouvert, reliquat, periodeBudget, estDepenseQuotidienne } from '../calculs.js';
 import { prochainVirementArrondis, soldePoche } from '../epargne.js';
+import { raisonner } from '../raisonnement.js';
 import { listerAbonnements } from '../abonnements.js';
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatJourLong, formatMois, diffJours, moisDe, dateDuMois } from '../dates.js';
 import { formatEuros } from '../money.js';
@@ -41,11 +42,12 @@ export function rendre(vue) {
     return;
   }
   const rappels = bandeaux(r, auj);
-  vue.replaceChildren(...[entete, hero(r, jauge), ajout, essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
+  const analyse = raisonner(etat, auj);
+  vue.replaceChildren(...[entete, hero(r, jauge, analyse), ajout, carteAnalyse(r, jauge, analyse), essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
 }
 
 /** Le bloc sapin : ce que tu peux dépenser aujourd'hui, et le reste du mois. Rien d'autre. */
-function hero(r, j) {
+function hero(r, j, analyse = null) {
   const moisDepasse = r.resteCentimes < 0;
   const dispo = j.restantAujourdhuiCentimes;
   const depasse = dispo < 0 && !moisDepasse;
@@ -63,11 +65,30 @@ function hero(r, j) {
     h('div', { class: 'hero-mois' },
       h('p', { class: 'hero-aide' }, 'Pour tenir jusqu’au salaire ', chiffre)),
     h('p', { class: 'hero-aide hero-periode' }, `Prochain salaire vers le ${formatDateCourte(r.periode.salaireAttenduLe || ajouterJours(r.periode.fin, 1))}, dans ${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`),
-    h('button', { type: 'button', class: 'hero-lien', onclick: () => feuilleCalcul(r, j) }, 'Voir le détail', icone('suivant')));
+    analyse ? null : h('button', { type: 'button', class: 'hero-lien', onclick: () => feuilleCalcul(r, j) }, 'Pourquoi ce chiffre ?', icone('suivant')));
 }
 
-/** Détail ligne par ligne du reste jusqu'au salaire et du budget du jour, avec un lien pour corriger chaque poste. */
-function feuilleCalcul(r, j) {
+/** Le verdict du mois en une carte : la conclusion et sa raison principale. */
+function carteAnalyse(r, j, a) {
+  if (!a || !r.revenus.totalCentimes) return null;
+  return h('section', { class: `analyse analyse-${a.niveau}`, 'aria-labelledby': 'analyse-t' },
+    h('div', { class: 'analyse-tete' }, h('span', { class: 'analyse-point', 'aria-hidden': 'true' }), h('h2', { id: 'analyse-t', class: 'analyse-titre' }, a.titre)),
+    h('p', { class: 'analyse-phrase' }, a.phrase),
+    a.points.length ? h('button', { type: 'button', class: 'lien analyse-lien', onclick: () => feuilleCalcul(r, j, a) }, `Mon mois expliqué en ${a.points.length} points`, icone('suivant')) : null);
+}
+
+/** Un point du raisonnement : constat → pourquoi → donc. */
+function blocRaison(p, allerVers) {
+  return h('article', { class: `raison raison-${p.ton}` },
+    h('h3', { class: 'raison-titre' }, h('span', { class: 'raison-point', 'aria-hidden': 'true' }), p.titre),
+    h('p', { class: 'raison-constat' }, p.constat),
+    h('p', { class: 'raison-pourquoi' }, p.pourquoi),
+    p.donc ? h('p', { class: 'raison-donc' }, h('strong', {}, 'Donc : '), p.donc) : null,
+    p.action ? h('button', { type: 'button', class: 'lien raison-action', onclick: allerVers(p.action.route) }, p.action.libelle, icone('suivant')) : null);
+}
+
+/** Le mois expliqué : le raisonnement d'abord, puis le calcul ligne par ligne pour vérifier. */
+function feuilleCalcul(r, j, a = raisonner(etat, aujourdhui())) {
   let f;
   const aller2 = (route) => () => { f.fermer(); aller(route); };
   const ligne = (signe, titre, montant, detail, action) => h('div', { class: 'calcul-ligne' },
@@ -88,10 +109,13 @@ function feuilleCalcul(r, j) {
   if (courants.length > 1) anomalies.push(`Il y a ${courants.length} comptes courants (${courants.map((c) => c.nom).join(', ')}).`);
   if (!plan && etat.profil.objectifEpargneCentimes) anomalies.push(`Aucun plan pour ce mois : l’épargne prise est ton objectif de démarrage (${formatEuros(etat.profil.objectifEpargneCentimes)}).`);
   f = ouvrirFeuille({
-    titre: 'Comment c’est calculé',
+    titre: 'Mon mois expliqué',
     contenu: h('div', { class: 'calcul' },
-      anomalies.length ? h('div', { class: 'alerte-abri' }, h('p', {}, h('strong', {}, 'Ce calcul contient des erreurs d’import : ')), anomalies.map((a) => h('p', { class: 'petit' }, a)),
+      anomalies.length ? h('div', { class: 'alerte-abri' }, h('p', {}, h('strong', {}, 'Ce calcul contient des erreurs d’import : ')), anomalies.map((x) => h('p', { class: 'petit' }, x)),
         h('p', { class: 'petit' }, 'Pour corriger : Réglages → Importer mon fichier → « Tout remplacer à la place » (tes saisies sont gardées).')) : null,
+      h('div', { class: `analyse analyse-${a.niveau} analyse-feuille` }, h('div', { class: 'analyse-tete' }, h('span', { class: 'analyse-point', 'aria-hidden': 'true' }), h('p', { class: 'analyse-titre' }, a.titre)), h('p', { class: 'analyse-phrase' }, a.phrase)),
+      a.points.map((p) => blocRaison(p, aller2)),
+      h('details', { class: 'calcul-details' }, h('summary', {}, 'Le calcul, ligne par ligne'),
       h('p', { class: 'petit' }, `Mois du ${formatDateCourte(r.periode.debut)} (arrivée du salaire) au ${formatDateCourte(r.periode.fin)}.`),
       ligne('+', 'Revenus du mois', rev.totalCentimes, `salaire ${formatEuros(rev.salaireCentimes || 0)} + prime d’activité ${formatEuros(rev.primeActiviteCentimes || 0)}${rev.statut === 'attendu' ? ' — attendus, pas encore confirmés' : ''}`, lien('Modifier', () => { f.fermer(); feuilleRevenus(r.periode.mois); })),
       ligne('−', 'Épargne prévue', r.epargneCibleCentimes, plan ? `plan de ${formatMois(plan.mois).replace(/ \d{4}$/, '')} : ${formatEuros((plan.allocationsPoches || []).reduce((s, a) => s + a.montantCentimes, 0))} sur les poches + ${formatEuros(plan.arrondisEstimesCentimes || 0)} d’arrondis` : 'objectif d’épargne du profil (aucun plan pour ce mois)', lien('Mon plan', 'epargne/plan')),
@@ -103,7 +127,7 @@ function feuilleCalcul(r, j) {
       h('p', {}, r.resteCentimes < 0
         ? `Le mois est déjà dépassé de ${formatEuros(-r.resteCentimes)} : il n’y a plus de budget par jour. Chaque jour sans dépense t’aide à revenir à zéro.`
         : `Reste au début de la journée ${formatEuros(r.resteCentimes + j.depensesDuJourCentimes)} ÷ ${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''} restant${j.joursRestants > 1 ? 's' : ''} = ${formatEuros(j.parJourCentimes)} par jour. Dépensé aujourd’hui : ${formatEuros(j.depensesDuJourCentimes)}, il reste ${formatEuros(j.restantAujourdhuiCentimes)}.`),
-      h('p', { class: 'petit' }, 'Le budget par jour est fixé le matin : ce que tu dépenses dans la journée le fait baisser, il est recalculé le lendemain.')),
+      h('p', { class: 'petit' }, 'Le budget par jour est fixé le matin : ce que tu dépenses dans la journée le fait baisser, il est recalculé le lendemain.'))),
   });
 }
 

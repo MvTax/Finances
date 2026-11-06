@@ -392,3 +392,32 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .reglages-avance { margin-top: 8px; }
 .reglages-avance > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; padding: 0 4px; font-size: 15px; color: var(--texte-2); }
 .reglages-avance > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+
+/* Mon mois expliqué : le verdict, puis chaque raison (constat → pourquoi → donc) */
+.analyse { --c: var(--accent); --c-doux: var(--accent-doux); margin-top: 12px; background: var(--surface); border-radius: var(--rayon); padding: 14px 16px 6px; border-left: 4px solid var(--c); display: flex; flex-direction: column; gap: 4px; }
+.analyse-ok { --c: var(--vert); --c-doux: var(--vert-doux); }
+.analyse-attention { --c: var(--orange); --c-doux: var(--orange-doux); }
+.analyse-tendu, .analyse-depasse { --c: var(--rouge); --c-doux: var(--rouge-doux); }
+.analyse-tete { display: flex; align-items: center; gap: 8px; }
+.analyse-point, .raison-point { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+.analyse-titre { font-size: 17px; font-weight: 700; color: var(--c); margin: 0; }
+.analyse-phrase { font-size: 16px; line-height: 1.4; color: var(--texte); margin: 0; }
+.analyse-lien { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; min-height: 40px; font-size: 15px; font-weight: 600; }
+.analyse-lien .ic { width: 16px; height: 16px; }
+.analyse-feuille { margin: 0 0 6px; background: var(--c-doux); padding-bottom: 12px; }
+
+.raison { --c: var(--texte-3); padding: 14px 0; border-bottom: 0.5px solid var(--separateur); display: flex; flex-direction: column; gap: 6px; }
+.raison:last-of-type { border-bottom: 0; }
+.raison-bien { --c: var(--vert); }
+.raison-attention { --c: var(--orange); }
+.raison-alerte { --c: var(--rouge); }
+.raison-titre { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; margin: 0; }
+.raison-constat { margin: 0; font-size: 16px; line-height: 1.45; }
+.raison-pourquoi { margin: 0; font-size: 15px; line-height: 1.45; color: var(--texte-2); }
+.raison-donc { margin: 2px 0 0; font-size: 15px; line-height: 1.45; background: var(--surface-2); border-radius: var(--rayon-petit); padding: 9px 11px; }
+.raison-donc strong { color: var(--c); }
+.raison-action { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; min-height: 36px; font-size: 15px; }
+.raison-action .ic { width: 16px; height: 16px; }
+.calcul-details { margin-top: 10px; border-top: 0.5px solid var(--separateur); padding-top: 4px; }
+.calcul-details > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; color: var(--texte-2); }
+.calcul-details[open] > summary { margin-bottom: 4px; }

@@ -14,4 +14,5 @@ export const CAS = [
   ['saisie', () => import('./cas/saisie.mjs')],
   ['miseajour', () => import('./cas/miseajour.mjs')],
   ['abonnements', () => import('./cas/abonnements.mjs')],
+  ['raisonnement', () => import('./cas/raisonnement.mjs')],
 ];

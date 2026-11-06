@@ -16,6 +16,7 @@ import { planDesMois, scenariosPret } from './plan.js';
 import { soldePoche } from './epargne.js';
 import { tableauAmortissement, verifierCoherencePret } from './dettes.js';
 import { planActionLocal } from './coach.js';
+import { raisonner } from './raisonnement.js';
 import { analyser } from './detecteurs.js';
 import { construireExport, lireSauvegarde } from './sauvegarde.js';
 import { planifierMiseAJour, resumeMiseAJour } from './miseajour.js';
@@ -370,6 +371,16 @@ export async function lancerDiagnostic(o = {}) {
     const ok = ent(j.parJourCentimes) && j.joursRestants >= 1 && j.restantAujourdhuiCentimes === j.parJourCentimes - j.depensesDuJourCentimes;
     const snapAncien = etat.meta?.jauge && (etat.meta.jauge.date !== auj);
     return { statut: ok ? (snapAncien ? 'avert' : 'ok') : 'echec', detail: `${eur(j.parJourCentimes)}/jour sur ${j.joursRestants} jours ; dépensé aujourd’hui ${eur(j.depensesDuJourCentimes)} ; reste ${eur(j.restantAujourdhuiCentimes)}${j.critique ? ' ; MODE CRITIQUE' : ''}${snapAncien ? ` ; instantané stocké du ${etat.meta.jauge.date}` : ''}` };
+  });
+  test('Raisonnement du mois (constat → pourquoi → donc)', () => {
+    const a = raisonner(etat, auj);
+    const texte = JSON.stringify([a.titre, a.phrase, a.points]);
+    const trous = /NaN|undefined|\bnull\b|—/.test(texte);
+    const incomplets = a.points.filter((p) => !p.constat || !p.pourquoi || !p.donc).map((p) => p.id);
+    const h = a.chiffres.hab;
+    return { statut: trous || incomplets.length ? 'echec' : a.points.length ? 'ok' : 'avert',
+      detail: `verdict ${a.niveau} (« ${a.titre} ») ; ${a.points.length} points : ${a.points.map((p) => `${p.id}/${p.ton}`).join(', ')} ; habitudes ${h ? `${eur(h.parJourCentimes)}/jour sur ${h.nbMois} mois` : 'pas assez d’historique'} ; budget ${eur(a.chiffres.parJour)}/jour ; engagements ${a.chiffres.engagePct ?? 0} % des revenus${trous ? ' ; TEXTE INCOMPLET (NaN/undefined)' : ''}${incomplets.length ? ` ; points incomplets : ${incomplets.join(', ')}` : ''}`,
+      donnees: { niveau: a.niveau, points: a.points.map((p) => ({ id: p.id, ton: p.ton })), parJour: a.chiffres.parJour, habitudes: h?.parJourCentimes ?? null, manque: a.chiffres.manque } };
   });
   test('Projection de découvert (7 jours)', () => {
     const p = projectionDecouvert(etat, auj, { jours: 7 });

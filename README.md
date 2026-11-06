@@ -52,6 +52,19 @@ Le mois budgétaire commence le jour où le salaire arrive réellement (opérati
 
 **Reste du mois → épargne.** Dans les 3 jours avant le salaire, l'accueil affiche « Il te reste X € jusqu'au salaire ». Une fois le salaire arrivé, il propose « Reste de <mois> : X € → épargne » : ce qui n'a pas été dépensé part sur les poches selon leurs parts. Le montant ne dépasse jamais l'argent réellement présent sur les comptes à la fin du mois.
 
+## Mon mois expliqué
+
+Sous le chiffre du jour, une carte donne le verdict du mois (« Tu es dans les clous », « Mois à surveiller », « Mois serré », « Attention au découvert », « Budget du mois dépassé ») et sa raison principale. « Mon mois expliqué » détaille chaque point en trois temps : **constat** (le fait chiffré), **pourquoi** (ce que ça implique), **donc** (la décision concrète). Les points sont calculés sur le téléphone, sans IA (`js/raisonnement.js`) :
+
+- **Habitudes face au budget** : médiane de la dépense du quotidien par jour sur les 3 derniers mois de salaire (un mois exceptionnel ne fausse pas le résultat), comparée au budget du jour ; manque estimé avant le salaire et poste qui pèse le plus.
+- **Rythme du mois** : dépensé depuis le salaire comparé au budget, et ce qu'il restera au salaire à ce rythme.
+- **Engagements** : part des prélèvements et remboursements dans les revenus (repère : 50 %), et ce qui change le mois suivant (dettes terminées, nouvelles échéances, épargne prévue).
+- **Épargne** : pourquoi ce montant ce mois-ci.
+- **Compte courant sur 7 jours** : alerte si un prélèvement n'est pas couvert, même quand le budget du mois est positif.
+- **Abonnements** : leur coût exprimé en jours de budget.
+
+Le calcul ligne par ligne reste disponible en bas de la feuille.
+
 ## Abonnements
 
 L'accueil (Détails → Abonnements) et Réglages → Opérations et catégories mènent à la page **Abonnements** : coût par mois et par an, limite à ne pas dépasser (alerte sur l'accueil), liste « À limiter » et « Essentiels » (téléphone, transport, carte), conseils et alternatives gratuites pour chaque service connu, bouton « Je l'ai résilié » (économies cumulées). Les abonnements et les prélèvements automatiques comptent dans les charges du mois : ils n'entament jamais le budget du jour.
