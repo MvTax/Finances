@@ -1,6 +1,6 @@
 // plan.js — « Mon plan » : allocation du mois et projection mois par mois jusqu'à l'atteinte des cibles.
 
-import { periodeBudget, revenusDuMois, chargesFixesPeriode, prelevementsHorsCharges, dettesPeriode, besoinsVitaux } from './calculs.js';
+import { periodeBudget, revenusDuMois, chargesFixesPeriode, prelevementsHorsCharges, abonnementsAVenir, dettesPeriode, besoinsVitaux } from './calculs.js';
 import { proposerAllocation, repartirVersement, soldePoche } from './epargne.js';
 import { simulerPretAvecPoche, echeancesEntre } from './dettes.js';
 import { ajouterMois, dateDuMois, ajouterJours, aujourdhui } from './dates.js';
@@ -14,7 +14,7 @@ export function entreesDuMois(etat, mois) {
   const per = periodeDuMois(etat, mois);
   const revenus = revenusDuMois(etat, mois).totalCentimes;
   // Mêmes charges que le budget du jour : charges fixes + prélèvements payés sans charge correspondante
-  const charges = [...chargesFixesPeriode(etat, per), ...prelevementsHorsCharges(etat, per.debut, per.fin)].reduce((s, c) => s + c.montantPrevuCentimes, 0);
+  const charges = [...chargesFixesPeriode(etat, per), ...prelevementsHorsCharges(etat, per.debut, per.fin), ...abonnementsAVenir(etat, per)].reduce((s, c) => s + c.montantPrevuCentimes, 0);
   const dettes = dettesPeriode(etat, per);
   const totalDettes = dettes.reduce((s, d) => s + d.montantCentimes, 0);
   // Les échéances d'un prêt amortissable sont des charges de long terme, pas des dettes « court terme »
@@ -22,7 +22,7 @@ export function entreesDuMois(etat, mois) {
   const futur = echeancesEntre(etat, ajouterJours(per.fin, 1), '9999-12-31').filter((d) => !d.payee && (d.court || (d.type === 'proche' && d.sens === 'empruntéParMoi')));
   return {
     periode: per, revenusCentimes: revenus, chargesFixesCentimes: charges, dettesCentimes: totalDettes,
-    besoinsVitauxCentimes: besoinsVitaux(etat, per).centimes,
+    besoinsVitauxCentimes: besoinsVitaux(etat).centimes,
     creditCourtEnCours: dettes.some((d) => d.court),
     dettesCourtTermeRestantes: court.length > 0 || futur.length > 0,
   };

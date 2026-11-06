@@ -182,13 +182,13 @@ Bouton + → « Importer une capture d'écran ». Tu peux choisir une ou plusieu
 - Dans Dépenses, elles restent encadrées sous l'étiquette « Nouvelles dépenses » pendant 24 h, ou jusqu'à « C'est bon », puis elles rejoignent la liste normale. Une lecture incertaine porte « À vérifier », et « Retirer ces dépenses » annule l'import.
 - Si rien n'est lu et que Gemini est activé, « Relire avec Gemini » envoie la capture recompressée, après l'avoir indiqué.
 
-## L'épargne passe après les dépenses obligatoires
+## Le mois en cours d'abord, les mois passés pour les statistiques
 
-Pas de montant fixe (plus de 500 € imposés). Chaque mois :
+Le budget, le reste à dépenser et l'épargne se calculent avec **ce mois-ci seulement** (du salaire au salaire suivant) :
 
-1. **Disponible** = revenus − prélèvements − remboursements du mois.
-2. **Quotidien obligatoire** = courses, transports, santé… Le montant est mesuré sur tes 3 derniers mois de salaire (médiane), et ne descend jamais sous le plancher réglable (375 € par défaut). Les restaurants, la livraison et les sorties n'en font pas partie.
-3. **Épargne** = tout ce qui reste au-delà, moins 10 € de marge, par paliers de 10 €. Si les obligations prennent tout, elle est à 0.
-4. Pendant le mois, l'épargne passe **après** les dépenses : si tu dépenses plus que prévu, c'est elle qui baisse d'abord, jusqu'à 0, avant que le budget soit « dépassé ».
+1. **Disponible** = revenus du mois − prélèvements (charges fixes, abonnements repérés, y compris ceux à venir) − remboursements du mois (d'après tes dettes).
+2. **Quotidien obligatoire** = un montant réglable (375 € par défaut) gardé pour les courses, les transports et la santé.
+3. **Épargne** = tout ce qui reste au-delà, moins 10 € de marge, par paliers de 10 €. Pas de montant fixe, et 0 si les obligations prennent tout.
+4. **Dépenses** = ce que tu dépenses au fur et à mesure (saisies, captures, relevés). Si tu dépasses, l'épargne baisse d'abord, jusqu'à 0, avant que le budget soit « dépassé ».
 
-Le plan mois par mois suit la même règle : quand des remboursements se terminent, l'épargne monte toute seule.
+Les mois passés (relevés, fiches de paie) ne changent pas ces chiffres. Ils alimentent la page **Statistiques** : moyennes, postes où tu dépenses le plus, ce mois-ci face à ta moyenne, habitudes, et des **conseils** par poste (quoi remplacer par quoi, alternatives gratuites).

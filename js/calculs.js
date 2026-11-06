@@ -6,6 +6,7 @@ import { ajouterJours, ajouterMois, diffJours, dateDuMois, moisDe, joursDansMois
 import { echeancesEntre } from './dettes.js';
 import { cagnotteEnAttente, epargneNettePeriode, PARAMETRES_PLAN_DEFAUT } from './epargne.js';
 import { divArrondiBancaire } from './money.js';
+import { listerAbonnements } from './abonnements.js';
 
 export const HEURES_MENSUELLES_DEFAUT = 151.67;
 export const COMMISSION_INTERVENTION_CENTIMES = 800; // tarif courant d'une commission d'intervention (paramétrable)
@@ -183,34 +184,27 @@ export function depensesVariables(etat, debut, fin, filtre = () => true) {
   return total;
 }
 
-const mediane = (xs) => { const t = [...xs].sort((a, b) => a - b); const m = Math.floor(t.length / 2); return t.length % 2 ? t[m] : (t[m - 1] + t[m]) / 2; };
 const parametresPlan = (etat) => ({ ...PARAMETRES_PLAN_DEFAUT, ...(etat.profil?.parametresPlan || {}) });
 
 /**
- * Dépenses OBLIGATOIRES du quotidien sur une période : catégories vitales (courses, transports, santé…),
- * hors prélèvements (déjà dans les charges). Mesure : médiane par jour des 3 derniers mois de salaire complets
- * × jours de la période ; jamais sous le plancher de vie du plan (375 € par défaut).
+ * Dépenses OBLIGATOIRES du quotidien réservées pour le mois (courses, transports, santé) : un montant fixe,
+ * réglable (375 € par défaut). Les mois passés ne servent qu'aux statistiques : le budget du mois en cours
+ * se calcule avec ce mois-ci seulement (revenus, prélèvements, dettes, et ce que tu dépenses au fur et à mesure).
  */
-export function besoinsVitaux(etat, periode) {
-  const plancherVie = parametresPlan(etat).vieMinCentimes;
-  const tx = etat.transactions || [];
-  let premiere = '9999-12-31'; let derniere = '0000-00-00';
-  for (const t of tx) { if (t.date < premiere) premiere = t.date; if (t.date > derniere) derniere = t.date; }
-  const parJour = [];
-  let p = periode;
-  for (let k = 0; k < 15 && parJour.length < 3; k++) {
-    p = periodeBudget(ajouterJours(p.debut, -1), etat.profil || {}, { reference: p.debut });
-    if (p.debut < premiere) break;
-    if (p.fin > derniere) continue; // mois pas encore terminé dans les données
-    let total = 0;
-    for (const t of tx) {
-      if (t.date < p.debut || t.date > p.fin || t.ajustement || !estDepenseQuotidienne(t) || !categorie(t.categorie).vitale) continue;
-      total += contributionDepense(t);
-    }
-    parJour.push(Math.max(0, total) / p.nbJours);
-  }
-  const mesure = parJour.length ? Math.round(mediane(parJour) * periode.nbJours) : 0;
-  return { centimes: Math.max(plancherVie, mesure), mesureCentimes: mesure, plancherCentimes: plancherVie, nbMois: parJour.length };
+export function besoinsVitaux(etat) {
+  return { centimes: parametresPlan(etat).vieMinCentimes };
+}
+
+/**
+ * Abonnements repérés dans tes opérations sans charge fixe (ex. paiement « abonnement » chaque mois) :
+ * réservés pour la période s'ils doivent revenir avant la fin et n'ont pas encore été payés.
+ */
+export function abonnementsAVenir(etat, periode, dateIso = aujourdhui()) {
+  const futur = periode.debut > dateIso; // mois à venir (plan) : chaque abonnement mensuel revient
+  const ref = futur ? dateIso : dateIso > periode.fin ? periode.fin : dateIso;
+  return listerAbonnements(etat, ref).liste
+    .filter((a) => !a.chargeFixeId && a.frequence === 'chaque mois' && a.derniereLe && a.derniereLe < periode.debut && a.prochain && (futur || a.prochain <= periode.fin))
+    .map((a) => ({ id: `abo-${a.cle}`, libelle: a.nom, categorie: 'abonnements', date: futur ? periode.debut : a.prochain < ref ? ref : a.prochain, montantPrevuCentimes: a.montantCentimes, payee: false, abonnementDetecte: true }));
 }
 
 /**
@@ -220,7 +214,7 @@ export function besoinsVitaux(etat, periode) {
  */
 export function epargnePossible(etat, periode, { revenusCentimes, chargesCentimes, dettesCentimes }) {
   const P = parametresPlan(etat);
-  const besoins = besoinsVitaux(etat, periode);
+  const besoins = besoinsVitaux(etat);
   const libre = revenusCentimes - chargesCentimes - dettesCentimes - besoins.centimes - P.margeMinCentimes;
   return { centimes: Math.max(0, Math.floor(libre / 1000) * 1000), besoins, libreCentimes: libre };
 }
@@ -235,7 +229,7 @@ export function periodeDuMois(etat, mois) {
 /** Épargne visée d'un mois : le maximum possible après les dépenses obligatoires (voir epargnePossible). */
 export function epargneCible(etat, mois, periode = periodeDuMois(etat, mois)) {
   const revenus = revenusDuMois(etat, periode.mois).totalCentimes;
-  const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin)].reduce((s, c) => s + c.montantPrevuCentimes, 0);
+  const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin), ...abonnementsAVenir(etat, periode)].reduce((s, c) => s + c.montantPrevuCentimes, 0);
   const dettes = dettesPeriode(etat, periode).reduce((s, d) => s + d.montantCentimes, 0);
   return epargnePossible(etat, periode, { revenusCentimes: revenus, chargesCentimes: charges, dettesCentimes: dettes }).centimes;
 }
@@ -249,7 +243,7 @@ export function epargneCible(etat, mois, periode = periodeDuMois(etat, mois)) {
 export function resteADepenser(etat, dateIso = aujourdhui()) {
   const periode = periodeBudget(dateIso, etat.profil);
   const revenus = revenusDuMois(etat, periode.mois);
-  const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin)];
+  const charges = [...chargesFixesPeriode(etat, periode), ...prelevementsHorsCharges(etat, periode.debut, periode.fin), ...abonnementsAVenir(etat, periode, dateIso)];
   const dettes = dettesPeriode(etat, periode);
   const variables = depensesVariables(etat, periode.debut, periode.fin);
   const totalCharges = charges.reduce((s, c) => s + c.montantPrevuCentimes, 0);
@@ -330,9 +324,13 @@ export function coutDecouvert(etat, debut, fin) {
 
 /** Rythme moyen de dépenses variables par jour sur les n derniers jours (centimes). */
 export function rythmeQuotidien(etat, dateIso, n = 28) {
-  const debut = ajouterJours(dateIso, -n);
+  // Mois en cours seulement : moyenne des jours déjà passés depuis le salaire (0 le jour du salaire)
+  const per = periodeBudget(dateIso, etat.profil || {});
+  const debut = [ajouterJours(dateIso, -n), per.debut].sort().pop();
   const fin = ajouterJours(dateIso, -1);
-  return Math.max(0, Math.round(depensesVariables(etat, debut, fin) / n));
+  const nb = diffJours(debut, fin) + 1;
+  if (nb <= 0) return 0;
+  return Math.max(0, Math.round(depensesVariables(etat, debut, fin) / nb));
 }
 
 /**

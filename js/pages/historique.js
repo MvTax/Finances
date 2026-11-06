@@ -1,8 +1,11 @@
-// historique.js — Bilan (mois par mois, catégories, marchands, problèmes) et « Y remédier » (plan d'action).
+// historique.js — Statistiques des mois passés (bilan, postes, mois par mois, marchands, problèmes) et Conseils.
 
 import { h, icone, mt } from '../ui/dom.js';
 import { aller } from '../router.js';
-import { carte, onglets, bouton, etatVide, segment } from '../ui/composants.js';
+import { carte, onglets, bouton, etatVide, segment, statistique } from '../ui/composants.js';
+import { ouvrirFeuille } from '../ui/sheet.js';
+import { postesDepense, conseilsPoste } from '../conseils.js';
+import { habitudes } from '../raisonnement.js';
 import { toast, toastErreur } from '../ui/toast.js';
 import { etat, enregistrer, enregistrerLot } from '../store.js';
 import { analyser, syntheseMensuelle } from '../detecteurs.js';
@@ -16,57 +19,140 @@ import { iaDisponible } from '../gemini.js';
 import { coachIA } from '../ia.js';
 import { indicationEnvoiGemini } from './communs.js';
 
-export const titre = 'Historique';
+export const titre = 'Statistiques';
 let ongletActif = 'bilan';
 let periode = '6';
 
+/** Statistiques des mois passés (relevés, fiches de paie) et conseils. Le budget du mois, lui, ne dépend que du mois en cours. */
 export function rendre(vue, params = []) {
-  if (params[0]) ongletActif = params[0];
+  if (params[0]) ongletActif = params[0] === 'remedier' ? 'conseils' : params[0];
   const zone = h('div');
-  const dessiner = () => zone.replaceChildren(ongletActif === 'remedier' ? vueRemedier() : vueBilan(dessiner));
-  vue.replaceChildren(h('button', { class: 'lien retour', type: 'button', onclick: () => aller('depenses') }, icone('retour'), 'Dépenses'), h('h1', { class: 'titre-page' }, 'Mois passés'),
-    onglets([['bilan', 'Bilan'], ['remedier', 'Y remédier']], ongletActif, (v) => { ongletActif = v; history.replaceState(null, '', `#historique/${v}`); dessiner(); }), zone);
+  const dessiner = () => zone.replaceChildren(ongletActif === 'conseils' ? vueConseils(dessiner) : vueBilan(dessiner));
+  vue.replaceChildren(h('button', { class: 'lien retour', type: 'button', onclick: () => aller('depenses') }, icone('retour'), 'Dépenses'), h('h1', { class: 'titre-page' }, 'Statistiques'),
+    h('p', { class: 'sous-titre-page' }, 'Tes mois passés, pour comprendre où part ton argent. Le budget du mois en cours ne dépend que de ce mois-ci.'),
+    onglets([['bilan', 'Bilan'], ['conseils', 'Conseils']], ongletActif, (v) => { ongletActif = v; history.replaceState(null, '', `#statistiques/${v}`); dessiner(); }), zone);
   dessiner();
 }
 
+/** Mois passés seulement : du début de la période choisie à la veille du mois en cours. */
 function bornes() {
   const tx = etat.transactions.filter((t) => !t.ajustement);
   if (!tx.length) return null;
-  const fin = tx.reduce((m, t) => (t.date > m ? t.date : m), '0000-00-00');
   const premier = tx.reduce((m, t) => (t.date < m ? t.date : m), '9999-12-31');
-  // Mois de salaire à salaire : on remonte n périodes depuis la dernière opération
+  const courant = periodeBudget(aujourdhui(), etat.profil);
+  const fin = ajouterJours(courant.debut, -1);
+  if (fin < premier) return null;
   let debut = premier;
-  if (periode !== 'tout') { let p = periodeBudget(fin > aujourdhui() ? aujourdhui() : fin, etat.profil); for (let i = 1; i < Number(periode); i++) p = periodeBudget(ajouterJours(p.debut, -1), etat.profil); debut = p.debut; }
-  return { debut: debut < premier ? premier : debut, fin: fin > aujourdhui() ? aujourdhui() : fin };
+  if (periode !== 'tout') { let p = periodeBudget(fin, etat.profil); for (let i = 1; i < Number(periode); i++) p = periodeBudget(ajouterJours(p.debut, -1), etat.profil); debut = p.debut; }
+  return { debut: debut < premier ? premier : debut, fin, courant };
 }
+
+const moisEnCours = (b) => ({ ...b.courant, aujourdhui: aujourdhui() });
+/** Montant arrondi à l'euro, pour les moyennes et les estimations. */
+const eur0 = (c) => formatEuros(Math.round(c / 100) * 100, { sansCentimes: true });
 
 function vueBilan(redessiner) {
   const b = bornes();
-  if (!b) return etatVide('graphique', 'Pas encore de données', 'Importe tes relevés ou ajoute des dépenses : le bilan apparaît ici.');
+  if (!b) return etatVide('graphique', 'Pas encore de mois passés', 'Importe tes relevés : les statistiques des mois précédents apparaissent ici.');
   const a = analyser(etat, b.debut, b.fin);
-  a.mensuel = syntheseMensuelle(etat, b.debut, b.fin, { parSalaire: true });
+  a.mensuel = syntheseMensuelle(etat, b.debut, b.fin, { parSalaire: true }).map((m) => {
+    // Fiche de paie du mois (revenus saisis ou importés) quand elle existe
+    const f = (etat.revenusMensuels || []).find((r) => r.mois === m.mois && r.statut !== 'attendu');
+    const fiche = f ? (f.salaireCentimes || 0) + (f.primeActiviteCentimes || 0) + (f.autresEntrees || []).reduce((s, x) => s + (x.montantCentimes || 0), 0) : null;
+    return { ...m, revenusFiche: fiche, revenusRetenus: fiche ?? m.revenus };
+  });
   const nbMois = Math.max(1, a.mensuel.length);
   const choix = segment([['3', '3 mois'], ['6', '6 mois'], ['12', '12 mois'], ['tout', 'Tout']], periode, (v) => { periode = v; redessiner(); }, 'Période');
+  const postes = postesDepense(etat, { debut: b.debut, fin: b.fin, moisEnCours: moisEnCours(b) });
   const mensuel = histogramme({
     titre: 'Revenus et dépenses par mois (de salaire à salaire)',
-    description: `Revenus réels (salaire et prime) et dépenses hors virements internes, épargne et prêts, de ${formatMois(moisDe(b.debut))} à ${formatMois(moisDe(b.fin))}.`,
+    description: `Revenus (fiches de paie quand elles sont connues) et dépenses hors virements internes, épargne et prêts, de ${formatMois(moisDe(b.debut))} à ${formatMois(moisDe(b.fin))}.`,
     libelles: a.mensuel.map((m) => formatMois(m.mois, true)),
-    series: [{ nom: 'Revenus', valeurs: a.mensuel.map((m) => m.revenus), classe: 'serie-revenus' }, { nom: 'Dépenses', valeurs: a.mensuel.map((m) => m.depenses), classe: 'serie-depenses' }, { nom: 'Épargne nette', valeurs: a.mensuel.map((m) => Math.max(0, m.epargneNette)), classe: 'serie-epargne' }],
+    series: [{ nom: 'Revenus', valeurs: a.mensuel.map((m) => m.revenusRetenus), classe: 'serie-revenus' }, { nom: 'Dépenses', valeurs: a.mensuel.map((m) => m.depenses), classe: 'serie-depenses' }, { nom: 'Épargne nette', valeurs: a.mensuel.map((m) => Math.max(0, m.epargneNette)), classe: 'serie-epargne' }],
   });
-  const cats = depensesParCategorie(etat, b.debut, b.fin).slice(0, 10);
-  const graphCats = barresHorizontales({ titre: 'Catégories où tu dépenses le plus', description: 'Total sur la période', colonne: 'Catégorie', donnees: cats.map((c) => ({ libelle: categorie(c.categorie).nom, valeur: c.montantCentimes, couleur: categorie(c.categorie).couleur })) });
   const graphMarchands = barresHorizontales({ titre: 'Marchands', description: 'Montant et nombre de passages', colonne: 'Marchand', donnees: a.topMarchands.slice(0, 10).map((m) => ({ libelle: m.marchand, valeur: m.montantCentimes, texte: `${formatEuros(m.montantCentimes, { sansCentimes: true })} · ${m.passages}×` })) });
   return h('div', {}, choix,
-    carte('Mois par mois', h('div', {}, h('p', { class: 'petit' }, 'Chaque mois va du jour du salaire à la veille du salaire suivant.'), mensuel, tableMensuel(a.mensuel))),
-    carte('Où part ton argent', graphCats),
+    carte('En bref', enBref(a, postes, nbMois, b)),
+    carte('Où part ton argent', h('div', {}, h('p', { class: 'petit' }, 'Moyenne par mois sur la période. Touche « Conseils » pour savoir quoi remplacer, et par quoi.'), listePostes(postes, b))),
+    carte('Mois par mois', h('div', {}, h('p', { class: 'petit' }, 'Chaque mois va du jour du salaire à la veille du salaire suivant. Revenus : ta fiche de paie quand elle est connue.'), mensuel, tableMensuel(a.mensuel))),
     carte('Marchands', graphMarchands),
     carte('Problèmes détectés', problemes(a, nbMois)));
+}
+
+/** Les phrases qui résument les mois passés, et le mois en cours face à la moyenne. */
+function enBref(a, postes, nbMois, b) {
+  const moy = (k) => Math.round(a.mensuel.reduce((s, m) => s + m[k], 0) / nbMois);
+  const hab = habitudes(etat, aujourdhui(), { nbMois: Math.min(nbMois, 3) });
+  const top = postes.slice(0, 3);
+  const auDessus = postes.filter((p) => p.ecartCentimes > Math.max(1500, p.attenduCeJourCentimes * 0.25)).sort((x, y) => y.ecartCentimes - x.ecartCentimes).slice(0, 3);
+  const w = a.weekend;
+  const lignes = [
+    h('div', { class: 'stats-chiffres' },
+      statistique('Revenus', eur0(moy('revenusRetenus')), { detail: 'par mois' }),
+      statistique('Dépenses', eur0(moy('depenses')), { detail: 'par mois' }),
+      statistique('Épargne nette', eur0(moy('epargneNette')), { detail: 'par mois', classe: moy('epargneNette') < 0 ? 'negatif' : '' })),
+    top.length ? h('p', {}, 'Tu dépenses le plus en ', ...top.flatMap((p, i) => [i ? (i === top.length - 1 ? ' et ' : ', ') : '', h('strong', {}, p.nom), ` (${eur0(p.moyenneMensuelleCentimes)}/mois, ${Math.round(p.part * 100)} %)`]), '.') : null,
+    hab ? h('p', {}, `Au quotidien, tu dépenses environ ${eur0(hab.parJourCentimes)} par jour${hab.familles[0] ? `, surtout en « ${hab.familles[0].nom} » (environ ${eur0(hab.familles[0].parSemaineCentimes)} par semaine)` : ''}.`) : null,
+    w && w.parJourWeekend > w.parJourSemaine * 1.2 ? h('p', {}, `Le week-end coûte plus cher : ${formatEuros(w.parJourWeekend)} par jour, contre ${formatEuros(w.parJourSemaine)} en semaine.`) : null,
+    auDessus.length
+      ? h('div', { class: 'stats-alerte' }, h('p', {}, h('strong', {}, 'Ce mois-ci, tu es au-dessus de ta moyenne en :')),
+        h('ul', {}, auDessus.map((p) => h('li', {}, `${p.nom} : ${formatEuros(p.ceMoisQuotidienCentimes)} depuis le salaire, contre ${formatEuros(p.attenduCeJourCentimes)} d’habitude à ce stade du mois `, h('button', { type: 'button', class: 'lien-inline', onclick: () => ouvrirConseils(p.id, b) }, 'Conseils')))))
+      : h('p', { class: 'petit' }, 'Ce mois-ci, aucun poste ne dépasse nettement ta moyenne à ce stade du mois.'),
+  ];
+  return h('div', { class: 'stats-bref' }, lignes);
+}
+
+/** Postes de dépense avec barre, moyenne mensuelle et bouton « Conseils ». */
+function listePostes(postes, b) {
+  if (!postes.length) return etatVide('graphique', 'Aucune dépense', 'Pas de dépense sur cette période.');
+  const max = postes[0].moyenneMensuelleCentimes || 1;
+  return h('div', { class: 'postes' }, postes.slice(0, 15).map((p) => h('div', { class: 'poste', style: { '--c': categorie(p.id).couleur } },
+    h('span', { class: 'puce-cat', 'aria-hidden': 'true' }, icone(categorie(p.id).icone)),
+    h('div', { class: 'poste-texte' },
+      h('span', { class: 'poste-nom' }, p.nom),
+      h('div', { class: 'poste-barre', 'aria-hidden': 'true' }, h('span', { style: { width: `${Math.max(2, Math.round((p.moyenneMensuelleCentimes / max) * 100))}%` } })),
+      h('small', { class: 'poste-detail' }, h('strong', { class: 'poste-montant' }, `${eur0(p.moyenneMensuelleCentimes)}/mois`), ` · ${Math.round(p.part * 100)} %${p.ceMoisCentimes > 0 ? ` · ce mois-ci ${eur0(p.ceMoisCentimes)}` : ''}`)),
+    h('button', { type: 'button', class: 'btn btn-secondaire btn-petit poste-conseils', onclick: () => ouvrirConseils(p.id, b), 'aria-label': `Conseils pour ${p.nom}` }, icone('ampoule'), h('span', {}, 'Conseils')))));
+}
+
+/** Feuille « Conseils » d'un poste : chiffres, quoi remplacer par quoi, astuces, gratuit. */
+export function ouvrirConseils(id, b = bornes()) {
+  if (!b) return;
+  const c = conseilsPoste(etat, id, { debut: b.debut, fin: b.fin, aujourdhui: aujourdhui() });
+  const liste = (titreL, items) => (items.length ? h('section', { class: 'conseil-bloc' }, h('h3', {}, titreL), h('ul', {}, items)) : null);
+  ouvrirFeuille({
+    titre: `Conseils : ${c.nom}`,
+    contenu: h('div', { class: 'conseils-feuille' },
+      h('div', { class: 'conseil-chiffres' },
+        h('p', {}, `En moyenne ${eur0(c.moyenneMensuelleCentimes)} par mois${c.passages ? `, ${c.passages} paiement${c.passages > 1 ? 's' : ''} sur la période` : ''}.`),
+        c.marchands.length ? h('p', { class: 'petit' }, `Surtout : ${c.marchands.slice(0, 3).map((m) => `${m.nom} (${eur0(m.centimes)})`).join(', ')}.`) : null,
+        c.economieMensuelleCentimes ? h('p', { class: 'conseil-economie' }, icone('pieces'), ` En réduisant de ${Math.round(c.tauxVise * 100)} % : environ ${eur0(c.economieMensuelleCentimes)} par mois, ${eur0(c.economieAnnuelleCentimes)} par an.`) : null,
+        c.essentiel ? h('p', { class: 'petit' }, 'Poste nécessaire : on l’optimise, on ne le supprime pas.') : null),
+      liste('Remplacer', c.remplacer.map(([avant, apres]) => h('li', {}, h('span', { class: 'conseil-avant' }, avant), h('span', { 'aria-hidden': 'true' }, ' → '), h('span', { class: 'sr' }, ' par '), h('strong', {}, apres)))),
+      c.abonnements.length ? h('section', { class: 'conseil-bloc' }, h('h3', {}, 'Tes abonnements'), c.abonnements.map((s) => h('div', { class: 'conseil-abo' },
+        h('p', {}, h('strong', {}, s.nom), ` · ${formatEuros(s.mensuelCentimes)} /mois`), s.conseil ? h('p', { class: 'petit' }, s.conseil) : null,
+        s.alternatives.length ? h('p', { class: 'petit' }, 'Gratuit ou moins cher : ', s.alternatives.join(', '), '.') : null))) : null,
+      liste('Astuces', c.astuces.map((x) => h('li', {}, x))),
+      liste('Gratuit ou presque', c.gratuit.map((x) => h('li', {}, x)))),
+  });
+}
+
+/** Onglet « Conseils » : postes où agir en premier, puis les actions chiffrées. */
+function vueConseils(redessiner) {
+  const b = bornes();
+  const postes = b ? postesDepense(etat, { debut: b.debut, fin: b.fin, moisEnCours: moisEnCours(b) }) : [];
+  const agir = postes.map((p) => ({ p, c: conseilsPoste(etat, p.id, { debut: b.debut, fin: b.fin, aujourdhui: aujourdhui() }) }))
+    .filter(({ c }) => !c.essentiel && c.economieMensuelleCentimes >= 500).sort((x, y) => y.c.economieMensuelleCentimes - x.c.economieMensuelleCentimes).slice(0, 6);
+  return h('div', {},
+    agir.length ? carte('Où agir en premier', h('div', { class: 'liste-liens' }, agir.map(({ p, c }) => h('button', { type: 'button', class: 'ligne-lien', onclick: () => ouvrirConseils(p.id, b) },
+      icone(categorie(p.id).icone), h('span', { class: 'ligne-lien-texte' }, p.nom, h('small', {}, `${eur0(p.moyenneMensuelleCentimes)}/mois · environ ${eur0(c.economieMensuelleCentimes)} à gagner chaque mois`)), icone('suivant'))))) : null,
+    vueRemedier());
 }
 
 function tableMensuel(m) {
   return h('div', { class: 'tableau-defile' }, h('table', { class: 'tableau' }, h('caption', { class: 'sr' }, 'Synthèse mensuelle'),
     h('thead', {}, h('tr', {}, ['Mois', 'Revenus', 'Dépenses', 'Crédits', 'Épargne nette', 'Solde'].map((x) => h('th', { scope: 'col' }, x)))),
-    h('tbody', {}, m.map((x) => h('tr', {}, h('th', { scope: 'row' }, formatMois(x.mois, true)), h('td', {}, mt(x.revenus)), h('td', {}, mt(x.depenses)), h('td', {}, mt(x.dettes)), h('td', { class: x.epargneNette < 0 ? 'negatif-texte' : '' }, mt(x.epargneNette)), h('td', { class: x.solde < 0 ? 'negatif-texte' : '' }, mt(x.solde)))))));
+    h('tbody', {}, m.map((x) => h('tr', {}, h('th', { scope: 'row' }, formatMois(x.mois, true)), h('td', {}, mt(x.revenusRetenus ?? x.revenus)), h('td', {}, mt(x.depenses)), h('td', {}, mt(x.dettes)), h('td', { class: x.epargneNette < 0 ? 'negatif-texte' : '' }, mt(x.epargneNette)), h('td', { class: x.solde < 0 ? 'negatif-texte' : '' }, mt(x.solde)))))));
 }
 
 function probleme(ic, titreP, texte, niveau = 'info') {

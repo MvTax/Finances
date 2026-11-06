@@ -1,5 +1,6 @@
 // raisonnement.js — transforme les chiffres du mois en constats expliqués : ce qui se passe, pourquoi, et donc quoi faire.
-// Tout est calculé ici, sur le téléphone, sans IA. Chaque point suit la même logique :
+// Tout est calculé ici, sur le téléphone, sans IA, avec le MOIS EN COURS seulement (les mois passés servent
+// aux statistiques : voir habitudes() et la page Statistiques). Chaque point suit la même logique :
 //   constat (le fait chiffré) → pourquoi (ce que ça implique) → donc (la décision concrète).
 
 import { resteADepenser, depensesVariables, chargesFixesPeriode, dettesPeriode, epargneCible, revenusDuMois, estDepenseQuotidienne, projectionDecouvert, periodeBudget } from './calculs.js';
@@ -54,6 +55,18 @@ export function habitudes(etat, dateIso = aujourdhui(), { nbMois = 3 } = {}) {
   return { parJourCentimes: Math.round(mediane(parJour)), nbMois: periodes.length, familles };
 }
 
+/** Plus gros poste du quotidien depuis le début du mois (catégorie), pour savoir où freiner. */
+function principalPoste(etat, debut, fin) {
+  const m = new Map();
+  for (const t of etat.transactions || []) {
+    if (t.date < debut || t.date > fin || t.ajustement || !estDepenseQuotidienne(t)) continue;
+    const v = contributionDepense(t);
+    if (v > 0) m.set(t.categorie, (m.get(t.categorie) || 0) + v);
+  }
+  const [id, centimes] = [...m.entries()].sort((a, b) => b[1] - a[1])[0] || [];
+  return id && centimes >= 1000 ? { id, nom: categorie(id).nom, centimes } : null;
+}
+
 /** Ce qui change le mois suivant : remboursements, charges, budget par jour estimé. */
 function moisSuivant(etat, r) {
   const p2 = periodeBudget(ajouterJours(r.periode.fin, 1), etat.profil || {}, { reference: r.periode.fin });
@@ -86,42 +99,19 @@ export function raisonner(etat, dateIso = aujourdhui()) {
   const enveloppe = rev - r.epargneCibleCentimes - r.chargesCentimes - r.dettesCentimes; // tout le quotidien du mois
   const parJourPrevu = Math.round(enveloppe / per.nbJours);
   const salaire = formatDateCourte(per.salaireAttenduLe || ajouterJours(per.fin, 1));
-  const hab = habitudes(etat, dateIso);
   const suivant = rev > 0 ? moisSuivant(etat, r) : null;
   const points = [];
 
   if (rev <= 0) {
-    return { niveau: 'attention', titre: 'Revenus du mois à saisir', phrase: 'Sans ton salaire du mois, l’app ne peut pas savoir ce que tu peux dépenser.', points: [], chiffres: { r, parJour, hab } };
+    return { niveau: 'attention', titre: 'Revenus du mois à saisir', phrase: 'Sans ton salaire du mois, l’app ne peut pas savoir ce que tu peux dépenser.', points: [], chiffres: { r, parJour } };
   }
 
-  // 1. Habitudes face au budget : le point qui décide si le mois tiendra.
-  let manque = 0;
-  if (hab && hab.parJourCentimes > 0) {
-    const ecart = hab.parJourCentimes - parJour;
-    manque = Math.max(0, hab.parJourCentimes * joursRestants - resteMatin);
-    const gros = hab.familles[0];
-    if (ecart > Math.max(100, parJour * 0.1)) {
-      const facteur = parJour > 0 ? hab.parJourCentimes / parJour : null;
-      points.push({
-        id: 'habitudes', ton: manque > resteMatin * 0.25 ? 'alerte' : 'attention', titre: 'Tes habitudes coûtent plus que ton budget',
-        constat: `Ces ${pluriel(hab.nbMois, 'dernier')} mois, tu dépensais environ ${env(hab.parJourCentimes)} par jour au quotidien. Ce mois-ci, tu as ${exact(parJour)} par jour${facteur && facteur >= 1.5 ? `, soit ${facteur >= 1.9 ? 'deux' : 'une fois et demie'} fois moins` : ''}.`,
-        pourquoi: `Si tu gardes le même rythme, il te manquera environ ${env(manque)} avant le salaire du ${salaire}. Ce manque finirait en découvert, avec des frais.`,
-        donc: gros ? `Il faut dépenser environ ${env(ecart * 7)} de moins par semaine. Le plus gros poste est « ${gros.nom} » : environ ${env(gros.parSemaineCentimes)} par semaine d’habitude. C’est là que réduire rapporte le plus.` : `Il faut dépenser environ ${env(ecart * 7)} de moins par semaine.`,
-        action: gros ? { libelle: 'Voir mes dépenses par catégorie', route: 'depenses' } : null,
-      });
-    } else {
-      points.push({
-        id: 'habitudes', ton: 'bien', titre: 'Ton budget couvre tes habitudes',
-        constat: `D’habitude, tu dépenses environ ${env(hab.parJourCentimes)} par jour au quotidien, et tu as ${exact(parJour)} par jour ce mois-ci.`,
-        pourquoi: 'Ton rythme habituel tient dans le budget du mois.',
-        donc: `Si tu restes à ce rythme, il te restera environ ${env(Math.max(0, resteMatin - hab.parJourCentimes * joursRestants))} au salaire. Ce reste partira dans ton épargne.`,
-      });
-    }
-  }
-
-  // 2. Le mois en cours : le rythme réel depuis le salaire.
+  // 1. Le mois en cours : ce que tu dépenses depuis le salaire, au fur et à mesure.
   const dep = r.depensesVariablesCentimes;
   const rythme = Math.round(dep / joursPasses);
+  // Manque projeté au rythme de CE mois (après 5 jours, avant c'est trop tôt pour juger)
+  const manque = joursPasses >= 5 ? Math.max(0, rythme * joursRestants - resteMatin) : 0;
+  const posteDuMois = principalPoste(etat, per.debut, dateIso);
   if (parJourPrevu > 0) {
     const tot = joursPasses < 5;
     const finProjetee = r.resteCentimes - rythme * (joursRestants - 1);
@@ -137,12 +127,14 @@ export function raisonner(etat, dateIso = aujourdhui()) {
         id: 'rythme', ton: finProjetee < 0 ? 'alerte' : 'attention', titre: 'Tu dépenses plus vite que prévu',
         constat: `Depuis le salaire (${pluriel(joursPasses, 'jour')}), tu as dépensé ${exact(dep)} au quotidien, soit ${exact(rythme)} par jour pour un budget de ${exact(parJourPrevu)}.`,
         pourquoi: finProjetee < 0 ? `À ce rythme, tu finirais le mois à ${env(finProjetee)}, donc à découvert.` : `À ce rythme, il ne te resterait qu’environ ${env(finProjetee)} au salaire.`,
-        donc: r.resteCentimes > 0 ? `Pour finir le mois à zéro, il faut descendre à ${exact(Math.round(r.resteCentimes / joursRestants))} par jour à partir d’aujourd’hui.` : 'Le budget est épuisé : chaque jour sans dépense réduit le découvert.',
+        donc: (r.resteCentimes > 0 ? `Pour finir le mois à zéro, il faut descendre à ${exact(Math.round(r.resteCentimes / joursRestants))} par jour à partir d’aujourd’hui.` : 'Le budget est épuisé : chaque jour sans dépense réduit le découvert.')
+          + (posteDuMois ? ` Ce mois-ci, le plus gros poste est « ${posteDuMois.nom} » (${exact(posteDuMois.centimes)}).` : ''),
+        action: { libelle: 'Conseils pour dépenser moins', route: 'statistiques/conseils' },
       });
     }
   }
 
-  // 3. Ce qui pèse sur le mois : prélèvements et remboursements, et comment ça évolue.
+  // 2. Ce qui pèse sur le mois : prélèvements et remboursements, et comment ça évolue.
   const engage = r.chargesCentimes + r.dettesCentimes;
   const pct = Math.round((engage / rev) * 100);
   if (engage > 0) {
@@ -170,7 +162,7 @@ export function raisonner(etat, dateIso = aujourdhui()) {
     });
   }
 
-  // 4. L'épargne passe après les dépenses obligatoires : le maximum possible, pas un montant fixe.
+  // 3. L'épargne passe après les dépenses obligatoires : le maximum possible, pas un montant fixe.
   const cible = r.epargneCibleCentimes;
   const visee = r.epargneViseeCentimes ?? cible;
   const obligatoires = `tes prélèvements (${exact(r.chargesCentimes)})${r.dettesCentimes ? `, tes remboursements (${exact(r.dettesCentimes)})` : ''} et le nécessaire du quotidien (environ ${env(r.besoinsVitauxCentimes || 0)} de courses, transports, santé)`;
@@ -200,7 +192,7 @@ export function raisonner(etat, dateIso = aujourdhui()) {
     });
   }
 
-  // 5. Le compte courant dans les 7 jours : la date compte autant que le montant.
+  // 4. Le compte courant dans les 7 jours : la date compte autant que le montant.
   const p = projectionDecouvert(etat, dateIso, { jours: 7 });
   let alerteTreso = false;
   if (p) {
@@ -216,7 +208,7 @@ export function raisonner(etat, dateIso = aujourdhui()) {
     }
   }
 
-  // 6. Les abonnements : l'économie qui se répète tous les mois.
+  // 5. Les abonnements : l'économie qui se répète tous les mois.
   const abo = listerAbonnements(etat, dateIso, { resilies: etat.meta?.abonnementsResilies || {} });
   if (abo.aLimiterMensuelCentimes > 0 && parJour > 0) {
     const jours = Math.round(abo.aLimiterMensuelCentimes / parJour);
@@ -229,9 +221,9 @@ export function raisonner(etat, dateIso = aujourdhui()) {
     });
   }
 
-  // Verdict : la conclusion qui découle des points.
+  // Verdict : la conclusion qui découle des points (mois en cours uniquement).
   let niveau; let titre; let phrase;
-  const gros = hab?.familles?.[0];
+  const freine = posteDuMois ? ` Freine surtout sur « ${posteDuMois.nom} ».` : '';
   if (r.resteCentimes < 0) {
     niveau = 'depasse'; titre = 'Budget du mois dépassé';
     phrase = `Tu as dépassé de ${exact(-r.resteCentimes)}. Chaque jour sans dépense d’ici le ${salaire} réduit ce trou.`;
@@ -241,17 +233,17 @@ export function raisonner(etat, dateIso = aujourdhui()) {
     phrase = `Ton budget du mois tient, mais l’argent n’est pas au bon endroit : ${t.constat.charAt(0).toLowerCase()}${t.constat.slice(1)} Fais un virement vers ce compte avant.`;
   } else if (alerteTreso || manque > resteMatin * 0.25) {
     niveau = 'tendu'; titre = 'Mois serré';
-    phrase = pct > 50
-      ? `Tes engagements prennent ${pct} % du salaire, donc il ne reste que ${exact(parJour)} par jour. ${gros ? `Freine surtout sur « ${gros.nom} ».` : 'Évite les dépenses non prévues.'}`
-      : `Ton budget est plus bas que tes habitudes. ${gros ? `Freine surtout sur « ${gros.nom} ».` : ''}`.trim();
-  } else if (manque > 0 || rythme > parJourPrevu) {
+    phrase = `À ton rythme depuis le salaire (${exact(rythme)} par jour), il manquerait environ ${env(manque)} avant le ${salaire}. Il faut descendre à ${exact(parJour)} par jour.${freine}`;
+  } else if (manque > 0 || rythme > parJourPrevu || pct > 60) {
     niveau = 'attention'; titre = 'Mois à surveiller';
-    phrase = `Ça peut tenir si tu restes autour de ${exact(parJour)} par jour.`;
+    phrase = pct > 60
+      ? `Tes engagements prennent ${pct} % du salaire : il te reste ${exact(parJour)} par jour jusqu’au ${salaire}. Ça tient si tu restes à ce rythme.`
+      : `Ça peut tenir si tu restes autour de ${exact(parJour)} par jour.${freine}`;
   } else {
     niveau = 'ok'; titre = 'Tu es dans les clous';
     phrase = `À ce rythme, il te restera de l’argent au salaire du ${salaire}. Il ira dans ton épargne.`;
   }
   const ordre = { alerte: 0, attention: 1, neutre: 2, bien: 3 };
   points.sort((a, b) => ordre[a.ton] - ordre[b.ton]);
-  return { niveau, titre, phrase, points, chiffres: { r, parJour, parJourPrevu, rythme, manque, engagePct: pct, hab, suivant } };
+  return { niveau, titre, phrase, points, chiffres: { r, parJour, parJourPrevu, rythme, manque, engagePct: pct, posteDuMois, suivant } };
 }

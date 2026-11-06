@@ -101,16 +101,24 @@ export default [
     r = resteADepenser(e, '2026-11-10');
     egal(r.epargneCibleCentimes, 0); egal(r.resteCentimes, 155000 - 31000 - 25000 - 100000);
   } },
-  { nom: 'besoins vitaux mesurés sur 3 mois (courses, transports…), les restaurants n’en font pas partie', fn: () => {
+  { nom: 'mois en cours seulement : les dépenses des mois passés ne changent ni le budget ni l’épargne', fn: () => {
     const e = etatNovembre();
+    const avant = resteADepenser(e, '2026-11-10');
     for (const d of ['2026-08-05', '2026-09-10', '2026-10-10']) e.transactions.push(tx({ date: d, montant: 60000, categorie: 'courses' }), tx({ date: d, montant: 50000, categorie: 'restaurants' }));
-    e.transactions.push(tx({ date: '2026-11-04', montant: 100, categorie: 'courses' }));
-    const per = periodeBudget('2026-11-10', e.profil);
-    const b = besoinsVitaux(e, per);
-    egal(b.nbMois, 3);
-    vrai(b.centimes > 57000 && b.centimes < 60500, String(b.centimes));
+    const apres = resteADepenser(e, '2026-11-10');
+    egal(apres.epargneCibleCentimes, avant.epargneCibleCentimes); egal(apres.resteCentimes, avant.resteCentimes);
+    egal(besoinsVitaux(e).centimes, 37500, 'quotidien obligatoire : le montant réglé, pas une moyenne passée');
+  } },
+  { nom: 'abonnement repéré sans charge fixe : réservé dans le mois s’il doit revenir avant la fin', fn: () => {
+    const e = etatNovembre();
+    e.transactions.push(tx({ date: '2026-10-20', montant: 1399, categorie: 'abonnements', marchand: 'Netflix' }));
     const r = resteADepenser(e, '2026-11-10');
-    egal(r.epargneCibleCentimes, Math.floor((155000 - 31000 - 25000 - b.centimes - 1000) / 1000) * 1000);
+    const abo = r.charges.find((c) => c.abonnementDetecte);
+    vrai(!!abo, 'abonnement réservé'); egal(abo.montantPrevuCentimes, 1399); egal(abo.date, '2026-11-19');
+    egal(r.chargesCentimes, 31000 + 1399);
+    e.transactions.push(tx({ date: '2026-11-19', montant: 1399, categorie: 'abonnements', marchand: 'Netflix' }));
+    const r2 = resteADepenser(e, '2026-11-20');
+    egal(r2.charges.filter((c) => c.abonnementDetecte).length, 0, 'une fois payé, il est compté avec les prélèvements, pas deux fois');
   } },
   { nom: 'jauge du jour : figée à la première ouverture puis diminuée des dépenses du jour', fn: () => {
     const e = etatNovembre();

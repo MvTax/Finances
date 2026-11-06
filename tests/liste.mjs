@@ -17,4 +17,5 @@ export const CAS = [
   ['raisonnement', () => import('./cas/raisonnement.mjs')],
   ['comptes', () => import('./cas/comptes.mjs')],
   ['capture', () => import('./cas/capture.mjs')],
+  ['conseils', () => import('./cas/conseils.mjs')],
 ];

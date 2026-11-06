@@ -33,13 +33,13 @@ import { extraireOperations } from './capture.js';
 const ROUTES = [
   ['accueil', []], ['depenses', []], ['budgets', []],
   ['epargne', ['poches']], ['epargne', ['plan']], ['epargne', ['dettes']], ['epargne', ['simulateur']],
-  ['historique', ['bilan']], ['historique', ['remedier']], ['abonnements', []],
+  ['statistiques', ['bilan']], ['statistiques', ['conseils']], ['abonnements', []],
   ['reglages', []], ...['revenus', 'epargne', 'operations', 'sauvegarde', 'profil', 'confidentialite', 'gemini', 'pont', 'diagnostic', 'apropos'].map((x) => ['reglages', [x]]),
   ['reglages', ['import']], ['reglages', ['questions']], ['reglages', ['regles']], ['reglages', ['charges']],
 ];
 const PAGES = {
   accueil: () => import('./pages/accueil.js'), depenses: () => import('./pages/depenses.js'), budgets: () => import('./pages/budgets.js'),
-  epargne: () => import('./pages/epargne.js'), historique: () => import('./pages/historique.js'), reglages: () => import('./pages/reglages.js'), abonnements: () => import('./pages/abonnements.js'),
+  epargne: () => import('./pages/epargne.js'), historique: () => import('./pages/historique.js'), statistiques: () => import('./pages/historique.js'), reglages: () => import('./pages/reglages.js'), abonnements: () => import('./pages/abonnements.js'),
 };
 
 const IDS_CAT = new Set(CATEGORIES.map((c) => c.id));
@@ -387,10 +387,9 @@ export async function lancerDiagnostic(o = {}) {
     const texte = JSON.stringify([a.titre, a.phrase, a.points]);
     const trous = /NaN|undefined|\bnull\b|—/.test(texte);
     const incomplets = a.points.filter((p) => !p.constat || !p.pourquoi || !p.donc).map((p) => p.id);
-    const h = a.chiffres.hab;
     return { statut: trous || incomplets.length ? 'echec' : a.points.length ? 'ok' : 'avert',
-      detail: `verdict ${a.niveau} (« ${a.titre} ») ; ${a.points.length} points : ${a.points.map((p) => `${p.id}/${p.ton}`).join(', ')} ; habitudes ${h ? `${eur(h.parJourCentimes)}/jour sur ${h.nbMois} mois` : 'pas assez d’historique'} ; budget ${eur(a.chiffres.parJour)}/jour ; engagements ${a.chiffres.engagePct ?? 0} % des revenus${trous ? ' ; TEXTE INCOMPLET (NaN/undefined)' : ''}${incomplets.length ? ` ; points incomplets : ${incomplets.join(', ')}` : ''}`,
-      donnees: { niveau: a.niveau, points: a.points.map((p) => ({ id: p.id, ton: p.ton })), parJour: a.chiffres.parJour, habitudes: h?.parJourCentimes ?? null, manque: a.chiffres.manque } };
+      detail: `verdict ${a.niveau} (« ${a.titre} ») ; ${a.points.length} points : ${a.points.map((p) => `${p.id}/${p.ton}`).join(', ')} ; budget ${eur(a.chiffres.parJour)}/jour ; engagements ${a.chiffres.engagePct ?? 0} % des revenus${trous ? ' ; TEXTE INCOMPLET (NaN/undefined)' : ''}${incomplets.length ? ` ; points incomplets : ${incomplets.join(', ')}` : ''}`,
+      donnees: { niveau: a.niveau, points: a.points.map((p) => ({ id: p.id, ton: p.ton })), parJour: a.chiffres.parJour, manque: a.chiffres.manque } };
   });
   test('Projection de découvert (7 jours)', () => {
     const p = projectionDecouvert(etat, auj, { jours: 7 });

@@ -147,7 +147,7 @@ function vueCategories(tx, onCategorie) {
     }))));
   const plus = h('section', { class: 'carte' }, h('div', { class: 'carte-corps' }, h('div', { class: 'liste-liens' },
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => aller('budgets') }, icone('tirelire'), h('span', { class: 'ligne-lien-texte' }, 'Mes enveloppes', h('small', {}, 'une limite par catégorie')), icone('suivant')),
-    h('button', { class: 'ligne-lien', type: 'button', onclick: () => aller('historique') }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Mois passés', h('small', {}, 'le bilan de chaque mois')), icone('suivant')))));
+    h('button', { class: 'ligne-lien', type: 'button', onclick: () => aller('statistiques') }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Statistiques', h('small', {}, 'tes mois passés et des conseils pour dépenser moins')), icone('suivant')))));
   return h('div', { class: 'vue-categories' }, repartition, blocs, plus);
 }
 

@@ -436,3 +436,33 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 @media (prefers-reduced-motion: reduce) { .bloc-nouvelles { animation: none; } }
 .lien-capture { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin: -2px 0 2px; padding: 6px 0; border: 0; background: none; color: var(--accent); text-align: left; font: inherit; font-size: 15px; cursor: pointer; }
 .lien-capture .ic { width: 18px; height: 18px; }
+
+/* Statistiques : en bref, postes avec conseils */
+.stats-bref { display: flex; flex-direction: column; gap: 10px; }
+.stats-bref p { margin: 0; }
+.stats-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stats-alerte { padding: 10px 12px; border-radius: var(--rayon-petit); background: var(--orange-doux); }
+.stats-alerte ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.lien-inline { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.postes { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.poste { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.poste-texte { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.poste-nom { font-weight: 600; }
+.poste-montant { font-family: var(--police-chiffres); color: var(--texte); white-space: nowrap; }
+.poste-barre { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.poste-barre span { display: block; height: 100%; background: var(--c, var(--accent)); border-radius: 3px; }
+.poste-detail { color: var(--texte-3); }
+.poste-conseils { white-space: nowrap; padding: 6px 10px; font-size: 14px; gap: 4px; }
+.poste-conseils .ic { width: 16px; height: 16px; }
+.stats-chiffres .stat-valeur { font-size: 20px; }
+.stats-chiffres .stat.negatif .stat-valeur { color: var(--rouge); }
+.conseils-feuille { display: flex; flex-direction: column; gap: 16px; }
+.conseil-chiffres p { margin: 0 0 6px; }
+.conseil-economie { display: flex; gap: 6px; align-items: flex-start; font-weight: 600; color: var(--vert); }
+.conseil-economie .ic { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+.conseil-bloc h3 { font-size: 16px; margin: 0 0 6px; }
+.conseil-bloc ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.conseil-avant { color: var(--texte-2); }
+.conseil-abo { padding: 8px 0; border-top: 1px solid var(--separateur); }
+.conseil-abo p { margin: 0 0 4px; }
+

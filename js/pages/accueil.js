@@ -181,7 +181,8 @@ function rubriques(r, auj, rappels, critique) {
       tuile('banque', 'Mon argent', mt(s.globalCentimes, { classe: s.globalCentimes < 0 ? 'negatif' : '' }), () => ouvrirFeuille({ titre: 'Mon argent', contenu: h('div', { class: 'feuille-sections' }, positionGlobale(auj), h('h3', { class: 'feuille-sous-titre' }, 'Les 7 prochains jours'), risqueDecouvert(auj)) })),
       tuile('liste', 'Mes dépenses', [mt(depMois), ' ce mois'], () => aller('depenses')),
       tuile('tirelire', 'Mon épargne', mt(poches), () => aller('epargne')),
-      tuile('boucle', 'Abonnements', abo.liste.length ? [mt(abo.aLimiterMensuelCentimes), ' /mois'] : 'Aucun', () => aller('abonnements'))));
+      tuile('boucle', 'Abonnements', abo.liste.length ? [mt(abo.aLimiterMensuelCentimes), ' /mois'] : 'Aucun', () => aller('abonnements')),
+      tuile('graphique', 'Statistiques', 'Mois passés et conseils', () => aller('statistiques'))));
 }
 
 function bandeaux(r, auj) {

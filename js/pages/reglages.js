@@ -111,8 +111,8 @@ function cartesSection(id) {
   ];
   if (id === 'epargne') return [
     carte('Comment l’épargne est calculée', h('div', { class: 'formulaire' },
-      h('p', { class: 'petit' }, `L’épargne passe après tes dépenses obligatoires : prélèvements, remboursements, et le nécessaire du quotidien (courses, transports, santé, d’après tes 3 derniers mois). Elle prend le maximum de ce qui reste, sans montant fixe. Ce mois-ci : ${formatEuros(epargneCible(etat, periodeBudget(aujourdhui(), p).mois, periodeBudget(aujourdhui(), p)))}.`),
-      champ('Quotidien obligatoire, au minimum', champMontant({ valeur: p.parametresPlan?.vieMinCentimes ?? 37500, onValeur: (v) => v !== null && majProfil({ parametresPlan: { ...p.parametresPlan, vieMinCentimes: v } }) }), 'Si tes 3 derniers mois montrent plus, c’est ce montant mesuré qui est gardé pour vivre.'),
+      h('p', { class: 'petit' }, `L’épargne passe après tes dépenses obligatoires : prélèvements, remboursements, et le nécessaire du quotidien (courses, transports, santé : le montant ci-dessous). Elle prend le maximum de ce qui reste, sans montant fixe. Seul le mois en cours compte : les mois passés servent aux statistiques. Ce mois-ci : ${formatEuros(epargneCible(etat, periodeBudget(aujourdhui(), p).mois, periodeBudget(aujourdhui(), p)))}.`),
+      champ('Quotidien obligatoire du mois', champMontant({ valeur: p.parametresPlan?.vieMinCentimes ?? 37500, onValeur: (v) => v !== null && majProfil({ parametresPlan: { ...p.parametresPlan, vieMinCentimes: v } }) }), 'Gardé pour vivre avant l’épargne. Plus il est haut, plus ton budget du jour est large et moins tu épargnes.'),
       h('div', { class: 'deux-colonnes' },
         champ('Taux Livret A (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLivretA).replace('.', ','), onchange: (e) => majParametres({ tauxLivretA: Number(e.target.value.replace(',', '.')) || 0 }) })),
         champ('Taux LEP (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLEP).replace('.', ','), onchange: (e) => majParametres({ tauxLEP: Number(e.target.value.replace(',', '.')) || 0 }) }))),
