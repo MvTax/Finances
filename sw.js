@@ -2,7 +2,7 @@
 // pdf.js (vendor/pdfjs) est mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.10.1';
+const VERSION = '1.10.2';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
 
@@ -78,7 +78,8 @@ const COQUILLE = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_COQUILLE).then((c) => c.addAll(COQUILLE)));
+  // cache: 'reload' : ignore le cache HTTP du navigateur, sinon une nouvelle version pourrait garder d'anciens fichiers
+  e.waitUntil(caches.open(CACHE_COQUILLE).then((c) => c.addAll(COQUILLE.map((u) => new Request(u, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', (e) => {

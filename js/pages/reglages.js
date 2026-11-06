@@ -74,7 +74,8 @@ function rendreAccueilReglages(vue) {
       sect('sauvegarde', pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'))),
     carte('L’app', h('div', { class: 'liste-liens' },
       sect('profil', p.prenomAffichage || 'prénom, jour de salaire'),
-      sect('confidentialite', pa.pinHash ? 'code PIN actif' : 'sans code PIN'))),
+      sect('confidentialite', pa.pinHash ? 'code PIN actif' : 'sans code PIN'),
+      lien('Forcer la mise à jour', `version ${versionApp}, tes données restent`, () => forcerMiseAJour(), 'boucle'))),
     h('details', { class: 'reglages-avance' },
       h('summary', {}, 'Avancé'),
       carte(null, h('div', { class: 'liste-liens' },
@@ -178,6 +179,46 @@ function cartesSection(id) {
       bouton('Effacer toutes les données', effacer, { classe: 'btn-danger-texte' }))),
   ];
   return [];
+}
+
+/**
+ * Télécharge la dernière version publiée de l'app (en ignorant tous les caches) puis recharge.
+ * Ne touche qu'aux fichiers de l'app : les données (IndexedDB) ne sont jamais effacées.
+ */
+export async function forcerMiseAJour() {
+  if (!navigator.onLine) { toastErreur('Pas de connexion internet : la mise à jour ne peut pas être téléchargée.'); return; }
+  const f = ouvrirFeuille({ titre: 'Mise à jour', contenu: h('div', { class: 'formulaire' }, h('p', { class: 'maj-etat' }, 'Recherche de la dernière version…'), h('p', { class: 'petit' }, 'Tes données restent sur ton téléphone.')) });
+  const etape = (t) => { const el = document.querySelector('.maj-etat'); if (el) el.textContent = t; };
+  try {
+    const r = await fetch(`./sw.js?v=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`le serveur a répondu ${r.status}`);
+    const texte = await r.text();
+    const enLigne = texte.match(/const VERSION = '([^']+)'/)?.[1] || '?';
+    const fichiers = [...new Set(texte.match(/'\.\/[^']*'/g) || [])].map((x) => x.slice(1, -1));
+    etape(enLigne === versionApp ? `Tu as déjà la ${enLigne} : je la retélécharge en entier…` : `Version ${enLigne} trouvée (tu as la ${versionApp}). Téléchargement…`);
+    // Rafraîchit le cache HTTP du navigateur pour chaque fichier de l'app
+    let n = 0;
+    await Promise.all(fichiers.map(async (u) => { try { await fetch(u, { cache: 'reload' }); } catch { /* fichier manquant : rechargé à la demande */ } n++; etape(`Téléchargement… ${n}/${fichiers.length}`); }));
+    // Vide les fichiers de l'app gardés hors ligne (pas les données)
+    if ('caches' in globalThis) for (const k of await caches.keys()) if (k.startsWith('budget-coquille')) await caches.delete(k);
+    const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    if (reg) {
+      etape('Installation…');
+      await reg.update().catch(() => {});
+      const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
+      for (let i = 0; i < 20 && reg.installing; i++) await attendre(250);
+      if (reg.waiting) {
+        const change = new Promise((ok) => navigator.serviceWorker.addEventListener('controllerchange', ok, { once: true }));
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        await Promise.race([change, attendre(3000)]);
+      }
+    }
+    etape('Redémarrage de l’app…');
+    location.reload();
+  } catch (e) {
+    f.fermer();
+    toastErreur(`Mise à jour impossible : ${e.message}. Réessaie avec une connexion internet.`);
+  }
 }
 
 /** Choix du fichier privé (même nom, même emplacement) puis mise à jour sans perte. */
