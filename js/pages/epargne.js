@@ -45,7 +45,7 @@ function vuePoches() {
   const per = periodeBudget(aujourdhui(), etat.profil);
   const nette = epargneNettePeriode(etat.transactions, per.debut, per.fin);
   const planMois = proj[0]?.plan;
-  const cartesPoches = etat.poches.filter((p) => p.actif !== false).map((p) => {
+  const cartesPoches = etat.poches.filter((p) => p.actif !== false).sort((a, b) => (a.priorite || 9) - (b.priorite || 9)).map((p) => {
     const s = soldePoche(p);
     const n = epargneNettePoche(p);
     const dateAtt = att[p.id];

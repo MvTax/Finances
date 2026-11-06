@@ -36,7 +36,7 @@ export function carteSysteme() {
   const proj = planDesMois(etat, r.periode.mois, 48);
   const att = pret ? atteintes(etat, proj)[pret.id] : null;
   const prochainPret = echeancesEntre(etat, auj, ajouterJours(auj, 800)).find((x) => x.creditId === pret?.creditId && x.montantCentimes > 2000);
-  const partSecu = securite?.partRepartition ?? 25;
+  const partSecu = securite?.partRepartition ?? 10;
   const pleineSecu = securite && securite.cibleCentimes && soldePoche(securite) >= securite.cibleCentimes;
 
   const flux = (ic, quand, quoi, montant, vers) => h('div', { class: 'flux' },
@@ -59,8 +59,8 @@ export function carteSysteme() {
       flux('pieces', 'Chaque semaine', 'Arrondis à l’euro', arrondis, `→ ${efforts?.nom || 'épargne'}`),
       flux('burger', 'Chaque jour', 'Repas à la maison et privations', priv.moisCentimes, `→ ${efforts?.nom || 'épargne'}`),
       flux('calendrier', 'Au salaire', 'Le reste du mois', null, `réparti comme l’épargne du mois`)),
-    securite && pret ? champ('Part pour la sécurité', segment([['10', '10 %'], ['25', '25 %'], ['50', '50 %']], String(partSecu), changerPart, 'Part pour la sécurité'),
-      `Le reste va au prêt. ${securite.cibleCentimes ? `Une fois ${securite.nom} à ${formatEuros(securite.cibleCentimes)}, tout va au prêt.` : ''}${pleineSecu ? ' C’est déjà le cas.' : ''}`) : null,
+    securite && pret ? champ('Part pour la sécurité', segment([['0', '0 %'], ['10', '10 %'], ['25', '25 %'], ['50', '50 %']], String(partSecu), changerPart, 'Part pour la sécurité'),
+      `Le prêt passe en premier : il reçoit le reste (${100 - partSecu} %), plus tous les arrondis, repas et privations.${securite.cibleCentimes && partSecu ? ` Une fois ${securite.nom} à ${formatEuros(securite.cibleCentimes)}, tout va au prêt.` : ''}${pleineSecu ? ' C’est déjà le cas.' : ''}`) : null,
     efforts ? champ('Arrondis, repas et privations vont dans', selectionner(actives.map((p) => [p.id, p.nom]), efforts.id, (v) => majProfil({ arrondi: { ...etat.profil.arrondi, pocheId: v } }))) : null,
     pret ? h('div', { class: 'systeme-pret' },
       h('p', {}, h('strong', {}, `${pret.nom} : ${formatEuros(soldePoche(pret))}`), pret.cibleCentimes ? ` sur ${formatEuros(pret.cibleCentimes)}` : ''),

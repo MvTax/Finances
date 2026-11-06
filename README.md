@@ -223,7 +223,7 @@ En haut de la page Épargne. Deux poches suffisent : **Sécurité** (pour les im
 
 Trois flux alimentent ces poches :
 
-1. **Épargne du mois** : le maximum possible après les obligations. Elle est répartie selon la « Part pour la sécurité » (10, 25 ou 50 %), et le reste va au prêt. Une fois la Sécurité pleine, tout va au prêt. Le reste du mois, au salaire, est réparti de la même façon.
+1. **Épargne du mois** : le maximum possible après les obligations. Elle est répartie selon la « Part pour la sécurité » (0, 10, 25 ou 50 %, 10 % par défaut), et le reste va au prêt, qui passe en premier. Une fois la Sécurité pleine, tout va au prêt. Le reste du mois, au salaire, est réparti de la même façon.
 2. **Arrondis** à l'euro, chaque semaine, vers la poche choisie (le prêt par défaut).
 3. **Repas à la maison et privations**, chaque jour, vers la même poche.
 
