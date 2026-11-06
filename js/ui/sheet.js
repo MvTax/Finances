@@ -38,6 +38,7 @@ export function ouvrirFeuille(o) {
       else { document.getElementById('app')?.removeAttribute('aria-hidden'); document.documentElement.classList.remove('feuille-ouverte'); }
       if (declencheur && document.contains(declencheur)) declencheur.focus({ preventScroll: true });
       o.onFermer?.(raison);
+      if (!pile.length) document.dispatchEvent(new CustomEvent('feuille-fermee')); // une mise à jour en attente peut s'appliquer
     };
     if (reduitMouvement()) fin(); else setTimeout(fin, 260);
   };

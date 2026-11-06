@@ -232,3 +232,10 @@ La carte affiche aussi quand la poche du prêt sera pleine au rythme du plan.
 ## Épargne sans intérêts
 
 Réglages → Épargne et arrondis → « Épargne sans intérêts (0 %) ». Avec ce réglage, les poches sont sur un compte épargne qui ne rapporte rien. Le simulateur Livret A / LEP et les taux sont masqués, et les textes parlent de « compte épargne », pas de livret. L'app ne compte jamais d'intérêts dans les montants mis de côté : ce sont exactement les sommes versées.
+
+## Mises à jour de l'app
+
+- **Automatiques** : l'app vérifie la version en ligne au lancement, à chaque retour sur l'app et toutes les 30 minutes. La nouvelle version s'installe en arrière-plan puis s'applique toute seule (l'app redémarre). Si une fenêtre de saisie est ouverte, elle attend sa fermeture.
+- **« Forcer la mise à jour »** (Réglages) réinstalle immédiatement la version en ligne.
+- GitHub Pages garde les fichiers jusqu'à 10 minutes en cache. Pour ne jamais recevoir l'ancienne version, chaque version utilise ses propres adresses (`sw.js?v=…`, `fichier?v=…`), et la vérification lit `sw.js?t=<heure>` sans passer par le cache.
+- Les données (IndexedDB) ne sont jamais touchées.

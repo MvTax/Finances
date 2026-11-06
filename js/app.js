@@ -86,25 +86,41 @@ function gererClavier() {
   document.addEventListener('focusin', (e) => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) setTimeout(maj, 250); });
 }
 
-/** Service worker : enregistrement relatif, bandeau « Nouvelle version », vérification au retour au premier plan. */
+/**
+ * Service worker et mises à jour AUTOMATIQUES : vérification au lancement, au retour sur l'app et toutes les
+ * 30 minutes ; la nouvelle version s'installe en arrière-plan puis s'applique d'elle-même (rechargement), sauf
+ * si une fenêtre de saisie est ouverte : elle s'applique alors à la fermeture ou au prochain retour sur l'app.
+ */
 let majDemandee = false;
 async function installerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
-    const proposer = (w) => {
-      const zone = document.getElementById('maj');
-      zone.replaceChildren(h('div', { class: 'bandeau-maj', role: 'status' }, h('span', {}, 'Nouvelle version disponible.'), h('button', { class: 'btn btn-principal btn-petit', type: 'button', onclick: () => { majDemandee = true; w.postMessage({ type: 'SKIP_WAITING' }); } }, 'Mettre à jour')));
+    const { verifierEtInstaller } = await import('./majapp.js');
+    const reg = await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(versionApp)}`, { scope: './' });
+    const saisieOuverte = () => !!document.querySelector('.feuille.visible');
+    const appliquerSiPossible = () => {
+      const w = reg.waiting;
+      if (!w || !navigator.serviceWorker.controller) return;
+      if (saisieOuverte()) {
+        document.getElementById('maj').replaceChildren(h('div', { class: 'bandeau-maj', role: 'status' }, h('span', {}, 'Nouvelle version prête.'),
+          h('button', { class: 'btn btn-principal btn-petit', type: 'button', onclick: () => { majDemandee = true; w.postMessage({ type: 'SKIP_WAITING' }); } }, 'Redémarrer')));
+        return;
+      }
+      majDemandee = true; w.postMessage({ type: 'SKIP_WAITING' });
     };
-    if (reg.waiting && navigator.serviceWorker.controller) proposer(reg.waiting);
+    appliquerSiPossible();
     reg.addEventListener('updatefound', () => {
       const w = reg.installing;
-      w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) proposer(w); });
+      w?.addEventListener('statechange', () => { if (w.state === 'installed') appliquerSiPossible(); });
     });
-    // Rechargement UNIQUEMENT après « Mettre à jour » (pas lors de la toute première installation : clients.claim)
+    // Rechargement seulement pour une mise à jour (pas lors de la toute première installation : clients.claim)
     let recharge = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (!majDemandee || recharge) return; recharge = true; location.reload(); });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    const verifier = () => { if (navigator.onLine) verifierEtInstaller().then(() => appliquerSiPossible()).catch(() => {}); };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { appliquerSiPossible(); verifier(); } });
+    document.addEventListener('feuille-fermee', () => setTimeout(appliquerSiPossible, 400));
+    setInterval(verifier, 30 * 60 * 1000);
+    verifier();
   } catch (e) { console.warn('Service worker non enregistré', e?.message); }
 }
 

@@ -2,7 +2,7 @@
 // pdf.js (vendor/pdfjs) et Tesseract (vendor/tesseract) sont mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.19.0';
+const VERSION = '1.20.0';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
 // Tesseract (lecture des captures, ~5 Mo) : gardé d'une version de l'app à l'autre, change seulement avec la bibliothèque
@@ -25,6 +25,7 @@ const COQUILLE = [
   './js/actions.js',
   './js/diagnostic.js',
   './js/journal.js',
+  './js/majapp.js',
   './js/miseajour.js',
   './js/app-theme.js',
   './js/app.js',
@@ -87,8 +88,16 @@ const COQUILLE = [
 ];
 
 self.addEventListener('install', (e) => {
-  // cache: 'reload' : ignore le cache HTTP du navigateur, sinon une nouvelle version pourrait garder d'anciens fichiers
-  e.waitUntil(caches.open(CACHE_COQUILLE).then((c) => c.addAll(COQUILLE.map((u) => new Request(u, { cache: 'reload' })))));
+  // Chaque fichier est demandé sous une adresse propre à la version (« ?v=1.20.0 ») : ni le cache du navigateur
+  // ni celui de GitHub Pages (jusqu'à 10 min) ne peuvent renvoyer l'ancienne version. Rangé sous l'adresse normale.
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE_COQUILLE);
+    await Promise.all(COQUILLE.map(async (u) => {
+      const rep = await fetch(new Request(`${u}${u.includes('?') ? '&' : '?'}v=${encodeURIComponent(VERSION)}`, { cache: 'reload' }));
+      if (!rep.ok) throw new Error(`${u} : ${rep.status}`);
+      await c.put(u, rep);
+    }));
+  })());
 });
 
 self.addEventListener('activate', (e) => {
@@ -108,6 +117,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Gemini et tout le reste : réseau direct, jamais en cache
+  // Vérification de version (sw.js) et requêtes « sans cache » : toujours le réseau, jamais une copie gardée ici
+  if (url.pathname.endsWith('/sw.js') || req.cache === 'no-store') return;
   if (url.pathname.includes('vendor/pdfjs/') || url.pathname.includes('vendor/tesseract/')) {
     e.respondWith((async () => {
       const c = await caches.open(url.pathname.includes('vendor/tesseract/') ? CACHE_TESSERACT : CACHE_PDFJS);
