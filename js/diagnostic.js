@@ -376,7 +376,7 @@ export async function lancerDiagnostic(o = {}) {
   test('Captures d’écran : lecture des lignes et moteur sur le téléphone', async () => {
     const r = extraireOperations(['Hier', 'Exemple -12,50 €', '10:00', 'Solde disponible', '100,00 €'], '2026-11-06');
     const analyseOk = r.operations.length === 1 && r.operations[0].montantCentimes === 1250 && r.operations[0].date === '2026-11-05';
-    const fichiers = ['tesseract.esm.min.js', 'worker.min.js', 'fra.traineddata.gz'];
+    const fichiers = ['tesseract.esm.min.js', 'worker.min.js', 'fra-donnees.js'];
     const manquants = [];
     for (const f of fichiers) { try { const rep = await fetch(`./vendor/tesseract/${f}`, { method: 'HEAD' }); if (!rep.ok) manquants.push(f); } catch { manquants.push(f); } }
     const enCache = 'caches' in globalThis && (await caches.keys()).some((k) => k.startsWith('budget-tesseract'));

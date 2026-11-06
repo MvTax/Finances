@@ -195,7 +195,9 @@ export async function lireCapture(fichier, { surProgres } = {}) {
     const base = new URL('../vendor/tesseract/', import.meta.url).href;
     const mod = await import(new URL('tesseract.esm.min.js', base).href);
     const T = mod.default || mod;
-    moteur = await T.createWorker('fra', 1, { workerPath: `${base}worker.min.js`, corePath: base, langPath: base, gzip: true, workerBlobURL: false, cacheMethod: 'none' });
+    const { default: donnees } = await import(new URL('fra-donnees.js', base).href);
+    const octets = Uint8Array.from(atob(donnees), (c) => c.charCodeAt(0)); // gzip : décompressé par Tesseract
+    moteur = await T.createWorker([{ code: 'fra', data: octets }], 1, { workerPath: `${base}worker.min.js`, corePath: base, workerBlobURL: false, cacheMethod: 'none' });
   }
   surProgres?.('Lecture de la capture…');
   const image = await preparer(fichier);
