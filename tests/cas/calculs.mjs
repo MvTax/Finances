@@ -130,6 +130,17 @@ export default [
     const j3 = jaugeDuJour(e, '2026-11-06', j1.instantane);
     egal(j3.joursRestants, 29); vrai(j3.parJourCentimes !== j1.parJourCentimes || true);
   } },
+  { nom: 'jauge du jour : recalculée si le reste du mois change pour une autre raison qu’une dépense du jour', fn: () => {
+    const e = etatNovembre();
+    const vieux = { date: '2026-11-06', mois: '2026-11', parJourCentimes: -866 };       // instantané d'avant une correction (ancien format)
+    const j = jaugeDuJour(e, '2026-11-06', vieux);
+    vrai(j.parJourCentimes > 0, 'un ancien instantané faux n’est pas gardé');
+    const j1 = jaugeDuJour(e, '2026-11-06');
+    e.transactions.push(tx({ date: '2026-11-06', montant: 300 }));                        // dépense du jour : la part reste figée
+    egal(jaugeDuJour(e, '2026-11-06', j1.instantane).parJourCentimes, j1.parJourCentimes);
+    e.transactions.push(tx({ date: '2026-11-05', montant: 3000 }));                      // dépense d'hier ajoutée après coup : recalculée
+    vrai(jaugeDuJour(e, '2026-11-06', j1.instantane).parJourCentimes < j1.parJourCentimes);
+  } },
   { nom: 'taux horaire et temps de travail', fn: () => {
     const e = etatNovembre();
     egal(tauxHoraire(e, '2026-11'), Math.round(140000 / 151.67));

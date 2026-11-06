@@ -297,10 +297,12 @@ export function jaugeDuJour(etat, dateIso = aujourdhui(), instantane = null) {
   const r = resteADepenser(etat, dateIso);
   const depJour = depensesVariables(etat, dateIso, dateIso);
   const joursRestants = diffJours(dateIso, r.periode.fin) + 1;
-  let snap = instantane && instantane.date === dateIso && instantane.mois === r.periode.mois ? instantane : null;
+  const resteAvantJour = r.resteCentimes + depJour;
+  // L'instantané ne se fige que face aux dépenses DU JOUR : si le reste du mois change pour une autre raison
+  // (import, correction, charge ou dette modifiée, nouvelle règle de calcul), la part du jour est recalculée.
+  let snap = instantane && instantane.date === dateIso && instantane.mois === r.periode.mois && instantane.baseCentimes === resteAvantJour ? instantane : null;
   if (!snap) {
-    const resteAvantJour = r.resteCentimes + depJour;
-    snap = { date: dateIso, mois: r.periode.mois, parJourCentimes: joursRestants > 0 ? divArrondiBancaire(resteAvantJour, joursRestants) : resteAvantJour };
+    snap = { date: dateIso, mois: r.periode.mois, baseCentimes: resteAvantJour, parJourCentimes: joursRestants > 0 ? divArrondiBancaire(resteAvantJour, joursRestants) : resteAvantJour };
   }
   return {
     parJourCentimes: snap.parJourCentimes,

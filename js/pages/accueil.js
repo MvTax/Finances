@@ -26,7 +26,8 @@ export function rendre(vue) {
   const auj = aujourdhui();
   const r = resteADepenser(etat, auj);
   const jauge = jaugeDuJour(etat, auj, etat.meta.jauge || null);
-  if (!etat.meta.jauge || etat.meta.jauge.date !== jauge.instantane.date || etat.meta.jauge.mois !== jauge.instantane.mois) ecrireMeta('jauge', jauge.instantane);
+  const j0 = etat.meta.jauge;
+  if (!j0 || j0.date !== jauge.instantane.date || j0.mois !== jauge.instantane.mois || j0.baseCentimes !== jauge.instantane.baseCentimes) ecrireMeta('jauge', jauge.instantane);
   const critique = jauge.critique && r.revenus.totalCentimes > 0;
   document.documentElement.classList.toggle('mode-critique', critique);
 
