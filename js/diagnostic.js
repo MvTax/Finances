@@ -28,6 +28,7 @@ import { construireEnveloppe, encoder, decoder, valider as validerPont } from '.
 import { iaDisponible, modeleActif, listerModeles, choisirFlashStable, genererJSON, configReflexion } from './gemini.js';
 import { analyserTexteIA, analyserVoix, analyserTicket, categoriserInconnus } from './ia.js';
 import { choisirMime, mimePourGemini, voixDisponible, blobEnBase64 } from './voice.js';
+import { extraireOperations } from './capture.js';
 
 const ROUTES = [
   ['accueil', []], ['depenses', []], ['budgets', []],
@@ -371,6 +372,15 @@ export async function lancerDiagnostic(o = {}) {
     const ok = ent(j.parJourCentimes) && j.joursRestants >= 1 && j.restantAujourdhuiCentimes === j.parJourCentimes - j.depensesDuJourCentimes;
     const snapAncien = etat.meta?.jauge && (etat.meta.jauge.date !== auj);
     return { statut: ok ? (snapAncien ? 'avert' : 'ok') : 'echec', detail: `${eur(j.parJourCentimes)}/jour sur ${j.joursRestants} jours ; dépensé aujourd’hui ${eur(j.depensesDuJourCentimes)} ; reste ${eur(j.restantAujourdhuiCentimes)}${j.critique ? ' ; MODE CRITIQUE' : ''}${snapAncien ? ` ; instantané stocké du ${etat.meta.jauge.date}` : ''}` };
+  });
+  test('Captures d’écran : lecture des lignes et moteur sur le téléphone', async () => {
+    const r = extraireOperations(['Hier', 'Exemple -12,50 €', '10:00', 'Solde disponible', '100,00 €'], '2026-11-06');
+    const analyseOk = r.operations.length === 1 && r.operations[0].montantCentimes === 1250 && r.operations[0].date === '2026-11-05';
+    const fichiers = ['tesseract.esm.min.js', 'worker.min.js', 'fra.traineddata.gz'];
+    const manquants = [];
+    for (const f of fichiers) { try { const rep = await fetch(`./vendor/tesseract/${f}`, { method: 'HEAD' }); if (!rep.ok) manquants.push(f); } catch { manquants.push(f); } }
+    const enCache = 'caches' in globalThis && (await caches.keys()).some((k) => k.startsWith('budget-tesseract'));
+    return { statut: !analyseOk ? 'echec' : manquants.length ? 'avert' : 'ok', detail: `${analyseOk ? 'analyse des lignes OK' : 'ANALYSE DES LIGNES FAUSSE'} ; moteur ${manquants.length ? `introuvable (${manquants.join(', ')}) : hors ligne ?` : 'disponible'}${enCache ? ', déjà gardé hors ligne' : ', téléchargé à la première capture'}` };
   });
   test('Raisonnement du mois (constat → pourquoi → donc)', () => {
     const a = raisonner(etat, auj);

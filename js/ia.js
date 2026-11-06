@@ -73,6 +73,19 @@ export async function analyserTicket(image) {
   return genererJSON({ systeme: P.PROMPT_TICKET, schema: P.SCHEMA_TICKET, valider: validerTicket, parts: [{ text: contexte() }, { inlineData: { mimeType: image.mime, data: image.base64 } }], timeoutMs: 60000, reflexion: 'faible' });
 }
 
+export function validerCapture(o) {
+  if (!o || !Array.isArray(o.operations)) return null;
+  return {
+    banque: ['revolut', 'lcl'].includes(o.banque) ? o.banque : null,
+    operations: o.operations.slice(0, 60).map(validerTransactionIA).filter(Boolean).map((t) => ({ ...t, libelle: t.marchand || t.libelle })),
+  };
+}
+
+/** Capture d'écran d'une ou plusieurs dépenses (appli bancaire, reçu, commande). */
+export async function analyserCaptureIA(image) {
+  return genererJSON({ systeme: P.PROMPT_CAPTURE, schema: P.SCHEMA_CAPTURE, valider: validerCapture, parts: [{ text: contexte() }, { inlineData: { mimeType: image.mime, data: image.base64 } }], timeoutMs: 60000, reflexion: 'faible' });
+}
+
 /** Catégorisation en lot des marchands inconnus : uniquement marchand normalisé + montant moyen + passages. */
 export function lotInconnus(transactions) {
   const m = new Map();

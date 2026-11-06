@@ -171,3 +171,12 @@ node tests/outils/generer-fixtures.mjs  # régénère les PDF/CSV SYNTHÉTIQUES
 12. Avec VoiceOver activé, ouvre une feuille modale : le focus doit être piégé dedans et la feuille doit se fermer par le bouton. Les montants doivent être lus.
 13. Réglages → Sauvegarde → Exporter : la feuille de partage doit s'ouvrir avec le fichier `.json`.
 14. Thème sombre (Réglages iOS) : vérifie les contrastes et la couleur de la barre d'état.
+
+## Dépenses depuis une capture d'écran
+
+Bouton + → « Depuis une capture d'écran ». Tu peux choisir une ou plusieurs captures : la liste des opérations de ton appli bancaire, un reçu ou un mail de commande.
+
+- La lecture se fait **sur le téléphone** (Tesseract, dans `vendor/tesseract`, téléchargé à la première capture puis gardé hors ligne). Rien n'est envoyé.
+- L'app repère les montants en €, les dates (« Aujourd'hui », « Hier », « Mardi 3 novembre », « 05/11 ») et les libellés. Elle ignore les soldes et les plafonds. Sur un reçu, elle garde seulement le total.
+- Chaque opération est à vérifier avant l'ajout. Celles déjà dans l'app (même montant, à 3 jours près) arrivent décochées. Une lecture incertaine est signalée.
+- Avec Gemini activé, « Relire avec Gemini » envoie la capture recompressée, après l'avoir indiqué.

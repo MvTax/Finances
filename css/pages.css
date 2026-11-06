@@ -421,3 +421,27 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .calcul-details { margin-top: 10px; border-top: 0.5px solid var(--separateur); padding-top: 4px; }
 .calcul-details > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; color: var(--texte-2); }
 .calcul-details[open] > summary { margin-bottom: 4px; }
+
+/* Capture d'écran → opérations à vérifier */
+.capture-resume { margin: 0 0 12px; color: var(--texte-2); }
+.capture-liste { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.capture-op { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--rayon); background: var(--surface); border: 1px solid var(--separateur); transition: opacity var(--duree) var(--sortie); }
+.capture-op.decochee { opacity: .5; }
+.capture-coche { flex: none; width: 22px; height: 22px; margin: 9px 0 0; accent-color: var(--accent); }
+.capture-champs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.capture-op .input { min-height: 40px; padding: 8px 10px; font-size: 15px; background: var(--surface-2); }
+.capture-ligne1 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.capture-ligne2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 6px; }
+.capture-montant { display: flex; align-items: center; gap: 2px; padding: 0 8px; border-radius: var(--rayon-petit); background: var(--surface-2); font-family: var(--police-chiffres); font-weight: 600; }
+.capture-montant .input { width: 4.6em; min-height: 40px; padding: 8px 2px; text-align: right; background: transparent; font-weight: 600; }
+.capture-montant.credit { color: var(--vert); }
+.capture-note { margin: 0; font-size: 13px; color: var(--texte-2); display: flex; gap: 6px; align-items: flex-start; }
+.capture-note svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.capture-apercu { margin: 8px 0 14px; }
+.capture-apercu summary { cursor: pointer; color: var(--accent); padding: 6px 0; }
+.capture-apercu img { display: block; width: 100%; max-width: 360px; margin: 8px auto 0; border-radius: var(--rayon-petit); border: 1px solid var(--separateur); }
+.capture-actions, .capture-vide { display: flex; flex-direction: column; gap: 10px; }
+.capture-vide p { margin: 0; }
+.capture-incertain { color: var(--orange); }
+.lien-capture { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin: -2px 0 2px; padding: 6px 0; border: 0; background: none; color: var(--accent); text-align: left; font: inherit; font-size: 15px; cursor: pointer; }
+.lien-capture .ic { width: 18px; height: 18px; }

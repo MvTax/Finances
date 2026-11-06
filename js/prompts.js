@@ -1,7 +1,7 @@
 // prompts.js — prompts système Gemini, en français, versionnés, avec exemples. Schémas de réponse JSON.
 // Les données envoyées sont minimisées : jamais de relevé complet, d'IBAN, de nom de particulier.
 
-export const VERSION_PROMPTS = '2026-11-05.1';
+export const VERSION_PROMPTS = '2026-11-06.1';
 
 const regleCommune = `Tu réponds UNIQUEMENT en JSON conforme au schéma fourni, sans texte autour. Montants en CENTIMES ENTIERS (4,50 € = 450). Dates au format AAAA-MM-JJ. Langue : français.`;
 
@@ -41,6 +41,27 @@ Extrais : marchand, date, total payé, et chaque article (nom lisible, prixCenti
 Ignore les lignes de TVA, de fidélité et les sous-totaux. Si une remise s'applique à un article, déduis-la de son prix.
 Pour chaque article de marque nationale, estime economieDistributeurCentimes = économie probable avec l'équivalent marque distributeur (0 si inconnu).
 Exemple : {"marchand":"Lidl","date":"2026-11-03","totalCentimes":1287,"articles":[{"nom":"Pâtes 500 g","prixCentimes":89,"quantite":1,"categorie":"courses","sucre":false,"marque":"Combino","typeMarque":"distributeur","economieDistributeurCentimes":0}],"confiance":0.9}`;
+
+export const PROMPT_CAPTURE = `Tu lis une capture d'écran de téléphone montrant une ou plusieurs dépenses : appli bancaire (liste d'opérations), reçu ou mail de commande, appli de paiement.
+${regleCommune}
+Règles :
+- Une opération par dépense ou entrée d'argent visible. Pour un reçu ou une commande, UNE seule opération : le total payé (pas chaque article, pas les frais séparément).
+- Ignore les soldes, plafonds, totaux du mois, montants barrés, opérations refusées ou annulées.
+- sens = "debit" pour une dépense (souvent précédée de « - »), "credit" pour de l'argent reçu (« + », « virement de », « remboursement »).
+- Dates : utilise les en-têtes (« Aujourd'hui », « Hier », « Mardi 3 novembre », « 05/11 ») par rapport à la date du jour fournie. Année absente : la plus récente qui n'est pas dans le futur.
+- marchand : enseigne courte et lisible (« CB CARREFOUR CITY 05/11 » → « Carrefour City »). N'écris jamais de nom de famille, d'IBAN ni de numéro de carte : un virement entre particuliers devient « Virement reçu » ou « Virement envoyé ».
+- categorie : UNIQUEMENT un identifiant de la liste fournie.
+- banque : "revolut" ou "lcl" si l'appli est reconnaissable, sinon "autre".
+Exemple : {"banque":"revolut","operations":[{"sens":"debit","montantCentimes":1890,"libelle":"Uber Eats","marchand":"Uber Eats","categorie":"livraison","date":"2026-11-06","confiance":0.9}]}`;
+
+export const SCHEMA_CAPTURE = {
+  type: 'object',
+  properties: {
+    banque: { type: 'string', enum: ['revolut', 'lcl', 'autre'] },
+    operations: { type: 'array', items: SCHEMA_VOIX },
+  },
+  required: ['operations'],
+};
 
 export const SCHEMA_TICKET = {
   type: 'object',

@@ -18,6 +18,7 @@ import { demarrerEnregistrement, voixDisponible, messageErreurMicro, blobEnBase6
 import { choisirPhoto, compresserImage } from '../camera.js';
 import { indicationEnvoiGemini } from './communs.js';
 import { estEligibleArrondi } from '../epargne.js';
+import { importerCapture } from './capture.js';
 
 /** Ouvre la feuille de saisie. vueInitiale : 'voix' | 'clavier' | 'photo'. */
 export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
@@ -67,8 +68,12 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       ia.ok ? indicationEnvoiGemini('l’enregistrement audio (30 s max), la date du jour et la liste des catégories. Rien n’est ajouté sans ta confirmation.') : null,
       micro, etatTexte, annuler,
       h('button', { class: 'btn btn-principal btn-large', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier'); } }, icone('clavier'), h('span', {}, 'Je ne peux pas parler, écrire')),
-      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => photoTicket() }, icone('camera'), h('span', {}, 'Photographier un ticket')));
+      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => photoTicket() }, icone('camera'), h('span', {}, 'Photographier un ticket')),
+      h('button', { class: 'btn btn-secondaire', type: 'button', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Depuis une capture d’écran')));
   }
+
+  // Une ou plusieurs dépenses lues sur une capture (la feuille de saisie laisse la place à la revue)
+  function depuisCapture() { enreg?.annuler?.(); enreg = null; f.fermer(); importerCapture(); }
 
   // ------------------------------------------------------------------ Vue clavier / confirmation
   function vueClavier(d) {
@@ -176,6 +181,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
     return h('form', { class: 'vue-clavier formulaire', onsubmit: (e) => { e.preventDefault(); ajouter(); } },
       d.confirmation ? h('p', { class: 'confirmation-ia' }, icone('ok'), ` Vérifie puis ajoute${d.confiance !== undefined && d.confiance < 0.7 ? ' (je ne suis pas sûr de tout)' : ''}.`) : null,
       segZone,
+      d.confirmation ? null : h('button', { type: 'button', class: 'lien-capture', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Importer une capture d’écran')),
       h('div', { class: 'montant-bloc' }, champM, ajusteurs, impact, arrondiInfo, recurrent),
       champ('Libellé', libInput),
       h('div', { class: 'champ' }, h('span', { class: 'champ-libelle' }, 'Catégorie'), zoneCats),

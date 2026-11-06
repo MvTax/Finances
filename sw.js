@@ -1,10 +1,12 @@
 // sw.js — service worker : coquille de l'app en cache versionné (cache-first), hors ligne complet.
-// pdf.js (vendor/pdfjs) est mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
+// pdf.js (vendor/pdfjs) et Tesseract (vendor/tesseract) sont mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.10.2';
+const VERSION = '1.11.0';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
+// Tesseract (lecture des captures, ~5 Mo) : gardé d'une version de l'app à l'autre, change seulement avec la bibliothèque
+const CACHE_TESSERACT = 'budget-tesseract-5.1.1';
 
 const COQUILLE = [
   './',
@@ -28,6 +30,7 @@ const COQUILLE = [
   './js/app.js',
   './js/bridge.js',
   './js/calculs.js',
+  './js/capture.js',
   './js/raisonnement.js',
   './js/camera.js',
   './js/categories.js',
@@ -61,6 +64,7 @@ const COQUILLE = [
   './js/pages/abonnements.js',
   './js/pages/accueil.js',
   './js/pages/budgets.js',
+  './js/pages/capture.js',
   './js/pages/communs.js',
   './js/pages/depenses.js',
   './js/pages/epargne.js',
@@ -85,7 +89,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const noms = await caches.keys();
-    await Promise.all(noms.filter((n) => n.startsWith('budget-') && n !== CACHE_COQUILLE && n !== CACHE_PDFJS).map((n) => caches.delete(n)));
+    await Promise.all(noms.filter((n) => n.startsWith('budget-') && n !== CACHE_COQUILLE && n !== CACHE_PDFJS && n !== CACHE_TESSERACT).map((n) => caches.delete(n)));
     await self.clients.claim();
   })());
 });
@@ -99,9 +103,9 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Gemini et tout le reste : réseau direct, jamais en cache
-  if (url.pathname.includes('vendor/pdfjs/')) {
+  if (url.pathname.includes('vendor/pdfjs/') || url.pathname.includes('vendor/tesseract/')) {
     e.respondWith((async () => {
-      const c = await caches.open(CACHE_PDFJS);
+      const c = await caches.open(url.pathname.includes('vendor/tesseract/') ? CACHE_TESSERACT : CACHE_PDFJS);
       const deja = await c.match(req);
       if (deja) return deja;
       const rep = await fetch(req);

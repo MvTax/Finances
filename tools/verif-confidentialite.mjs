@@ -100,7 +100,7 @@ const MOTIFS = [
   ['adresse e-mail', /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g],
 ];
 // Bibliothèque tierce minifiée : constantes numériques légitimes (entiers 32 bits…). Les autres motifs s'y appliquent.
-const EXCEPTIONS_CHIFFRES = [/^vendor\/pdfjs\//];
+const EXCEPTIONS_CHIFFRES = [/^vendor\/pdfjs\//, /^vendor\/tesseract\//]; // constantes de bibliothèques tierces
 
 const fichiers = lister(RACINE);
 const problemes = [];
