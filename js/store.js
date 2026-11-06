@@ -67,7 +67,6 @@ function initialiserDefauts() {
   if (!etat.comptes.length) {
     etat.comptes = [
       { id: 'courant', nom: 'Compte courant', type: 'courant', banque: 'autre', soldeInitialCentimes: 0, dateSoldeInitial: null, soldeReference: null, creeLe: m, modifieLe: m },
-      { id: 'especes', nom: 'Espèces', type: 'especes', banque: 'autre', soldeInitialCentimes: 0, dateSoldeInitial: null, soldeReference: null, creeLe: m, modifieLe: m },
     ];
   }
   if (!etat.poches.length) {
@@ -83,6 +82,52 @@ function initialiserDefauts() {
   ];
 }
 
+/**
+ * Dès qu'un vrai compte bancaire existe, les comptes génériques créés au démarrage (« Compte courant », « Espèces »)
+ * disparaissent : leurs opérations passent sur le compte bancaire principal (sans doublon à ±3 jours),
+ * et tout ce qui y était rattaché (charges, virements…) aussi.
+ * @returns {Array} opérations d'écriture à passer à db.ecrireLot
+ */
+export function rangerComptes() {
+  const principal = etat.comptes.find((c) => c.type === 'courant' && c.banque && c.banque !== 'autre');
+  if (!principal) return [];
+  // Seuls les comptes créés d'office (ids « courant » et « especes ») : un compte ajouté à la main reste.
+  const generiques = etat.comptes.filter((c) => (c.id === 'courant' || c.id === 'especes') && c.id !== principal.id && (!c.banque || c.banque === 'autre'));
+  if (!generiques.length) return [];
+  const ids = new Set(generiques.map((c) => c.id));
+  const ops = [];
+  const jours = (a, b) => Math.abs(Date.parse(a) - Date.parse(b)) / 86400000;
+  const gardees = [];
+  for (const t of etat.transactions) {
+    if (!ids.has(t.compteId)) { gardees.push(t); continue; }
+    const doublon = t.ajustement || etat.transactions.some((x) => x.compteId === principal.id && x.sens === t.sens && x.montantCentimes === t.montantCentimes && jours(x.date, t.date) <= 3);
+    if (doublon) { ops.push({ store: 'transactions', supprimer: true, cle: t.id }); continue; }
+    const v = { ...t, compteId: principal.id, modifieLe: maintenant() };
+    gardees.push(v);
+    ops.push({ store: 'transactions', valeur: v });
+  }
+  etat.transactions = gardees;
+  // Le loyer saisi au démarrage sur le compte par défaut fait doublon avec celui du compte bancaire
+  const loyerBanque = etat.chargesFixes.some((c) => c.actif !== false && c.estLoyer && !ids.has(c.compteId));
+  if (loyerBanque) {
+    const doublons = etat.chargesFixes.filter((c) => c.estLoyer && ids.has(c.compteId));
+    for (const c of doublons) ops.push({ store: 'chargesFixes', supprimer: true, cle: c.id });
+    etat.chargesFixes = etat.chargesFixes.filter((c) => !doublons.includes(c));
+  }
+  for (const c of COLLECTIONS) {
+    if (c === 'transactions' || c === 'comptes') continue;
+    etat[c] = (etat[c] || []).map((o) => {
+      if (!o || !ids.has(o.compteId)) return o;
+      const v = { ...o, compteId: principal.id };
+      ops.push({ store: c, valeur: v });
+      return v;
+    });
+  }
+  etat.comptes = etat.comptes.filter((c) => !ids.has(c.id));
+  for (const c of generiques) ops.push({ store: 'comptes', supprimer: true, cle: c.id });
+  return ops;
+}
+
 /** Charge tout l'état depuis IndexedDB. */
 export async function charger() {
   await db.ouvrirBase();
@@ -96,6 +141,7 @@ export async function charger() {
   const abimees = (etat.reglesCategorie || []).filter((r) => '_re' in r);
   for (const r of abimees) delete r._re;
   const ops = initialiserDefauts();
+  ops.push(...rangerComptes());
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });
@@ -146,6 +192,7 @@ export async function enregistrerLot(elements) {
     if (i >= 0) etat[collection][i] = valeur; else etat[collection].push(valeur);
     ops.push({ store: collection, valeur });
   }
+  ops.push(...rangerComptes());
   await db.ecrireLot(ops);
   if (supprimes.length) await memoriserSuppressions(supprimes);
   notifier('lot');
@@ -196,6 +243,7 @@ export async function appliquerMiseAJour(plan, { estampille, baseProfil, basePar
   etat.profil = { ...plan.profil, cle: 'profil' };
   etat.parametres = { ...plan.parametres, cle: 'parametres' };
   ops.push({ store: 'profil', valeur: etat.profil }, { store: 'parametres', valeur: etat.parametres });
+  ops.push(...rangerComptes());
   const estampilles = [...new Set([...(etat.meta.estampillesFichier || []), estampille].filter(Boolean))];
   const meta = { estampillesFichier: estampilles, baseProfil, baseParametres, baseFichier: bases || null, derniereMiseAJour: { le: maintenant(), totaux: plan.totaux }, jauge: null };
   for (const [k, v] of Object.entries(meta)) { etat.meta[k] = v; ops.push({ store: 'meta', valeur: { cle: k, valeur: v } }); }
@@ -237,6 +285,7 @@ export async function remplacerTout(contenu) {
   etat.parametres = { ...PARAMETRES_DEFAUT, ...(contenu.parametres || {}), ...Object.fromEntries(Object.entries(secrets).filter(([, v]) => v)), cle: 'parametres' };
   ops.push({ store: 'profil', valeur: etat.profil }, { store: 'parametres', valeur: etat.parametres });
   ops.push(...initialiserDefauts());
+  ops.push(...rangerComptes());
   etat.meta.jauge = null;
   ops.push({ store: 'meta', valeur: { cle: 'jauge', valeur: null } });
   const { basesDepuisContenu } = await import('./miseajour.js');

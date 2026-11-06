@@ -93,7 +93,7 @@ export function planActionLocal(etat, { fin, nbMois = 3 } = {}) {
   }
   // 8. Espèces non justifiées
   if (a.especes.totalCentimes >= 20000) {
-    cartes.push(carte('reduire', 'Espèces', `${a.especes.nb} retraits pour ${eur(a.especes.totalCentimes)}${a.especes.fraisCentimes ? ` (dont ${eur(a.especes.fraisCentimes)} de frais)` : ''}, sans justification.`, 'Fixe un budget espèces mensuel et note chaque dépense en espèces dans l’app (bouton +, compte Espèces).', parMois(a.especes.totalCentimes, mois) * 0.3, 3, 'especes'));
+    cartes.push(carte('reduire', 'Espèces', `${a.especes.nb} retraits pour ${eur(a.especes.totalCentimes)}${a.especes.fraisCentimes ? ` (dont ${eur(a.especes.fraisCentimes)} de frais)` : ''}, sans justification.`, 'Fixe un budget espèces mensuel et note chaque dépense en espèces dans l’app (bouton +).', parMois(a.especes.totalCentimes, mois) * 0.3, 3, 'especes'));
   }
   // 9. Shopping (vêtements, beauté, achats en ligne)
   const sh = a.shopping;

@@ -9,7 +9,7 @@ import { revenusDuMois, chargesFixesPeriode, dettesPeriode, periodeBudget } from
 
 const M = () => new Date().toISOString();
 
-export function compteCourant() { return etat.comptes.find((c) => c.type === 'courant') || etat.comptes[0]; }
+export function compteCourant() { return etat.comptes.find((c) => c.type === 'courant' && c.banque && c.banque !== 'autre') || etat.comptes.find((c) => c.type === 'courant') || etat.comptes[0]; }
 export function compteParBanque(banque) { return etat.comptes.find((c) => c.banque === banque); }
 
 /** Transaction saisie à la main (clavier, voix, photo). Non enregistrée tant que l'utilisateur n'a pas confirmé. */
