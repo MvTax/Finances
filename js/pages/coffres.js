@@ -1,4 +1,4 @@
-// coffres.js — en tête d'Accueil et d'Épargne : les deux épargnes (prêt, sécurité) et le prochain virement (4 par mois).
+// coffres.js — en tête d'Accueil et d'Épargne : les deux épargnes (prêt, sécurité) et le prochain virement (tous les 3 jours).
 
 import { h, icone, mt, vibrer } from '../ui/dom.js';
 import { ouvrirFeuille } from '../ui/sheet.js';
@@ -8,7 +8,7 @@ import { etat } from '../store.js';
 import { aller } from '../router.js';
 import { soldePoche } from '../epargne.js';
 import { paliersPoche } from '../paliers.js';
-import { aVirerEpargne, historiqueCagnotte, compteEpargne, pocheDesEfforts, joursDuMoisVirements } from '../virements.js';
+import { aVirerEpargne, historiqueCagnotte, compteEpargne, pocheDesEfforts, libelleVirement, JOURS_PAR_VIREMENT } from '../virements.js';
 import { projectionDecouvert } from '../calculs.js';
 import { virerSemaine } from '../actions.js';
 import { aujourdhui, formatDateCourte, formatJourLong, ajouterJours } from '../dates.js';
@@ -19,6 +19,24 @@ import { aide } from '../ui/aide.js';
 const nomPoche = (id) => etat.poches.find((p) => p.id === id)?.nom || 'Épargne';
 /** « ton Livret A LCL (Prêt 8 000 €) » ou le nom de la poche si son compte n'est pas renseigné. */
 const ouVirer = (id) => { const p = etat.poches.find((x) => x.id === id); const c = compteEpargne(p); return c ? `${/^livret/i.test(c) ? 'ton ' : ''}${c} (${p.type === 'coussin' ? 'sécurité' : p.type === 'remboursementAnticipe' ? 'prêt' : p.nom})` : nomPoche(id); };
+
+/**
+ * Une ligne par virement à faire : montant, compte, et le libellé à mettre dans l'appli bancaire (« Epargne 5/6/7 nov Pret »),
+ * avec un bouton pour le copier.
+ */
+function ligneVirement(x, jours) {
+  const p = etat.poches.find((q) => q.id === x.pocheId);
+  const libelle = libelleVirement(jours, p);
+  const copier = h('button', { type: 'button', class: 'btn-copier', 'aria-label': `Copier le libellé ${libelle}`, onclick: async (e) => {
+    e.stopPropagation();
+    try { await navigator.clipboard.writeText(libelle); toast(`Libellé copié : ${libelle}`, { type: 'succes' }); }
+    catch { toast(`Libellé : ${libelle}`); }
+  } }, icone('copier'), h('span', {}, 'Copier'));
+  return h('div', { class: 'virement-ligne' },
+    h('div', { class: 'virement-ligne-haut' }, h('strong', {}, formatEuros(x.montantCentimes)), h('span', {}, ` sur ${ouVirer(x.pocheId)}`)),
+    h('small', { class: 'virement-libelle-titre' }, 'Libellé à mettre dans le virement'),
+    h('div', { class: 'virement-ligne-libelle' }, h('span', { class: 'virement-libelle' }, libelle), copier));
+}
 
 /**
  * Une case d'épargne : ce qu'il y a dedans, mis à jour tout de suite avec sa part de ce qui reste à virer
@@ -66,27 +84,25 @@ export function blocCoffres(o = {}) {
   const quand = !v.semaineCentimes ? `Prochain virement : ${formatJourLong(v.dateVirement)}`
     : v.dateVirement === auj ? (v.enRetard ? `À faire aujourd’hui (prévu ${formatJourLong(v.datePrevue)})` : 'À faire aujourd’hui')
       : `À faire le ${formatJourLong(v.dateVirement)}`;
-  const jours = joursDuMoisVirements(etat.profil.jourSalaireHabituel || 5);
-  const rappel = () => ajouterAuCalendrier({ uid: 'virement-epargne-4-par-mois@budget', titre: 'Virement vers l’épargne', description: 'Ouvre Budget : la case « Reste à virer vers l’épargne » donne le montant et le partage.', date: v.dateVirement, heure: '19:00', joursDuMois: jours, nomFichier: 'virement-epargne' });
+  const rappel = () => ajouterAuCalendrier({ uid: 'virement-epargne-3-jours@budget', titre: 'Virement vers l’épargne', description: 'Ouvre Budget : la case « Reste à virer vers l’épargne » donne les montants et les libellés à copier.', date: v.dateVirement, heure: '19:00', recurrence: 'TOUS_LES_3_JOURS', nomFichier: 'virement-epargne' });
 
   const virer = h('div', { class: `coffre-virer ${v.semaineCentimes ? '' : 'a-jour'} ${v.enRetard ? 'en-retard' : ''}` },
     h('button', { type: 'button', class: 'coffre-virer-tete', onclick: () => feuilleHistorique(), 'aria-label': `Reste à virer vers l’épargne : ${formatEuros(v.semaineCentimes)}. Voir l’historique de la cagnotte` },
       h('span', { class: 'coffre-nom' }, 'Reste à virer vers l’épargne'),
       h('span', { class: 'coffre-virer-montant' }, mt(v.semaineCentimes), icone('suivant'))),
     h('p', { class: 'coffre-virer-date' }, icone('calendrier'), h('span', {}, majuscule(quand)), h('small', { class: 'coffre-virer-numero' }, `virement ${v.numeroProchain} sur ${v.nbVirements}`)),
-    h('p', { class: 'coffre-detail' }, v.semaineCentimes
-      ? `${repartition.length > 1 ? repartition.map((x) => `${formatEuros(x.montantCentimes)} sur ${ouVirer(x.pocheId)}`).join(', ') : repartition.length ? `Tout sur ${ouVirer(repartition[0].pocheId)}` : ''}. Déjà compté dans tes épargnes ci-dessus.`
-      : 'Rien à virer pour l’instant : c’est à jour.'),
+    v.semaineCentimes ? h('div', { class: 'virements-libelles' }, repartition.map((x) => ligneVirement(x, v.joursCouverts))) : h('p', { class: 'coffre-detail' }, 'Rien à virer pour l’instant : c’est à jour.'),
+    v.semaineCentimes ? h('p', { class: 'coffre-detail' }, 'Déjà compté dans tes épargnes ci-dessus.') : null,
     risque ? h('p', { class: 'coffre-detail coffre-alerte' }, icone('alerte'), ' Ton compte courant passerait sous 0 € : vire seulement ce qui ne te met pas à découvert, ou attends le salaire.') : null,
     v.totalCentimes > v.semaineCentimes ? h('p', { class: 'coffre-detail' }, `D’ici le salaire du ${salaire} : ${formatEuros(v.totalCentimes)} en tout.`) : null,
     h('div', { class: 'groupe-boutons coffre-virer-boutons' },
       v.semaineCentimes ? h('button', { type: 'button', class: 'btn btn-principal btn-petit', onclick: () => feuilleVirement(v) }, icone('ok'), h('span', {}, 'J’ai fait le virement')) : null,
       h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: () => feuilleHistorique() }, icone('historique'), h('span', {}, 'Historique')),
-      h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: rappel }, icone('calendrier'), h('span', {}, `Rappels : le ${jours.join(', ')} du mois`))));
+      h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: rappel }, icone('calendrier'), h('span', {}, `Rappel tous les ${JOURS_PAR_VIREMENT} jours`))));
 
   return h('section', { class: 'coffres', 'aria-label': 'Mon épargne' },
     h('p', { class: 'coffres-titre' }, 'Mon épargne', aide('Mon épargne', () => ({
-      texte: `Chaque case montre ce qui est déjà viré sur l’épargne, plus sa part du prochain virement (« dont … à virer »). « Reste à virer » regroupe le quart de l’épargne du mois (${v.nbVirements} virements : le ${v.datesVirements.map((d) => Number(d.slice(8))).join(', ')}), les arrondis, les repas à la maison, les privations et les restes du jour pas encore virés.`,
+      texte: `Chaque case montre ce qui est déjà viré sur l’épargne, plus sa part du prochain virement (« dont … à virer »). « Reste à virer » regroupe la part de l’épargne du mois (un virement tous les ${JOURS_PAR_VIREMENT} jours, ${v.nbVirements} ce mois-ci : le ${v.datesVirements.map((d) => Number(d.slice(8))).join(', ')}), les arrondis, les repas à la maison, les privations et les restes du jour pas encore virés.`,
       lignes: [['Part de l’épargne du mois (ce virement)', v.moisSemaineCentimes], ['Arrondis', v.arrondisCentimes], ['Repas, privations, restes du jour', v.privationsCentimes], ['= reste à virer', v.semaineCentimes, 'forte'], ['Épargne du mois prévue', v.moisCibleCentimes], ['Déjà virée ce mois-ci', v.moisDejaCentimes]],
       note: 'Partage : 50 % sécurité, 50 % prêt (réglable dans « Mon système d’épargne »).',
     }))),
@@ -124,7 +140,7 @@ function feuilleVirement(v) {
         v.arrondisCentimes ? ligne('Arrondis', v.arrondisCentimes) : null,
         v.privationsCentimes ? ligne('Restes du jour, repas et privations', v.privationsCentimes) : null,
         h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Total à virer'), total)),
-      v.parPoche.length ? h('p', { class: 'petit' }, v.parPoche.length > 1 ? 'Répartition : ' : '', v.parPoche.map((x) => `${formatEuros(x.montantCentimes)} sur ${ouVirer(x.pocheId)}`).join(', '), '.') : null,
+      v.parPoche.length ? h('div', { class: 'virements-libelles' }, v.parPoche.filter((x) => x.montantCentimes > 0).map((x) => ligneVirement(x, v.joursCouverts))) : null,
       valider),
   });
   return f;

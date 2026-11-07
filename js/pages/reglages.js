@@ -22,7 +22,6 @@ import { SCHEMA_VERSION } from '../migrations.js';
 import { coller, recevoir, envoyerAchatsTicket, envoyerListeCourses, messageFrigo } from '../bridge.js';
 import { choisirPhoto, compresserImage } from '../camera.js';
 import { rendreImport } from './import.js';
-import { joursDuMoisVirements } from '../virements.js';
 import { versionApp } from '../version.js';
 
 export const titre = 'Réglages';
@@ -128,7 +127,7 @@ function cartesSection(id) {
         'Ce qui reste de ta part du jour (après les repas à la maison) part à l’épargne le lendemain à 5 h, au lieu de s’ajouter aux jours suivants.'))),
     carte('Arrondis à l’euro supérieur', h('div', { class: 'formulaire' },
       interrupteur('Activer la cagnotte d’arrondis', p.arrondi?.actif, (v) => majProfil({ arrondi: { ...p.arrondi, actif: v, depuis: p.arrondi?.depuis || aujourdhui() } })),
-      h('p', { class: 'petit' }, `Virés avec l’épargne du mois, 4 fois par mois : 6 jours après le salaire, puis tous les 7 jours (salaire le ${p.jourSalaireHabituel || 5} : le ${joursDuMoisVirements(p.jourSalaireHabituel || 5).join(', ')}).`),
+      h('p', { class: 'petit' }, 'Virés avec l’épargne du mois, tous les 3 jours : le mois est découpé en tranches de 3 jours, chacune virée le lendemain de son dernier jour, avec un libellé à copier (« Epargne 5/6/7 nov »).'),
       h('p', { class: 'petit' }, 'Tout ce qui sort du compte est arrondi à l’euro supérieur : courses, abonnements, loyer, prélèvements, échéances. Seuls les virements entre tes comptes et vers l’épargne ne le sont pas. L’arrondi part à l’épargne et sort de ton budget du jour.'),
       champ('Poche alimentée', selectionner([['partage', 'Les deux épargnes (même partage)'], ...etat.poches.filter((x) => x.actif !== false).map((x) => [x.id, x.nom])], p.arrondi?.pocheId || 'partage', (v) => majProfil({ arrondi: { ...p.arrondi, pocheId: v } }))))),
     h('details', { class: 'reglages-avance' }, h('summary', {}, 'Avancé : calcul de l’épargne du mois'),

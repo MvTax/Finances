@@ -8,7 +8,7 @@ import { chiffrer, dechiffrer, estChiffre } from '../../js/chiffrement.js';
 import { resteADepenser } from '../../js/calculs.js';
 import { verdictMois } from '../../js/verdict.js';
 import { analyserPhrases, analyserPhrase } from '../../js/saisie.js';
-import { datesVirements, joursDuMoisVirements } from '../../js/virements.js';
+import { datesVirements, joursDuVirement, libelleVirement } from '../../js/virements.js';
 import { validerVoixMulti } from '../../js/ia.js';
 import { simulerAchat } from '../../js/simulation.js';
 import { compteRevolut, suiviRevolut } from '../../js/revolut.js';
@@ -96,10 +96,14 @@ export default [
     const v = validerVoixMulti({ sens: 'debit', montantCentimes: 300, libelle: 'Vélib', categorie: 'velo', date: '2026-11-07', confiance: 0.9, autres: [{ sens: 'debit', montantCentimes: 950, libelle: 'Menu', categorie: 'restauration-rapide', date: '2026-11-07', confiance: 0.8 }, { sens: 'debit', montantCentimes: -1 }] });
     egal(v.autres.length, 1, 'opérations invalides écartées');
   } },
-  { nom: 'virements : 4 par mois, 6 jours après le salaire puis tous les 7 jours ; rappels au calendrier', fn: () => {
-    egal(datesVirements({ debut: '2026-12-05', fin: '2027-01-04' }).join(' '), '2026-12-11 2026-12-18 2026-12-25 2027-01-01');
-    egal(joursDuMoisVirements(5).join(','), '1,11,18,25');
-    egal(joursDuMoisVirements(28).join(','), '3,10,17,24');
+  { nom: 'virements tous les 3 jours : dates, jours couverts et libellé « Epargne 5/6/7 nov »', fn: () => {
+    const per = { debut: '2026-12-05', fin: '2027-01-04' };
+    egal(datesVirements(per).slice(0, 3).join(' '), '2026-12-08 2026-12-11 2026-12-14');
+    egal(datesVirements(per).at(-1), '2027-01-04', 'le dernier tombe au plus tard la veille du salaire');
+    egal(libelleVirement(joursDuVirement(per, 0)), 'Epargne 5/6/7 dec');
+    egal(libelleVirement(['2026-11-30', '2026-12-01', '2026-12-02'], { type: 'remboursementAnticipe' }), 'Epargne 30 nov/1/2 dec Pret');
+    egal(libelleVirement(['2026-11-05'], { type: 'coussin' }), 'Epargne 5 nov Securite');
+    vrai(libelleVirement(joursDuVirement(per, 0), { type: 'coussin' }).length <= 35, 'court pour l’appli bancaire');
   } },
   { nom: '« Et si j’achète ? » : petit achat sans risque (pris sur le reste du jour), gros achat → après le salaire', fn: () => {
     const e = etat({ transactions: ['05', '06', '07', '08', '09', '10'].map((d) => tx({ date: `2026-11-${d}`, montant: 800, categorie: 'courses' })) });

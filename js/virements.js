@@ -1,6 +1,7 @@
-// virements.js — le virement vers l'épargne, 4 fois par mois : 6 jours après le salaire, puis tous les 7 jours
-// (salaire le 5 → virements le 11, le 18, le 25 et le 1er). Chaque virement regroupe
-//  - un quart de l'épargne du mois (ce qui reste à mettre, réparti sur les virements restants),
+// virements.js — le virement vers l'épargne, tous les 3 jours. Le mois (de salaire à salaire) est découpé en tranches
+// de 3 jours (salaire le 5 → 5/6/7, 8/9/10…) ; chaque tranche est virée le lendemain de son dernier jour (le 8, le 11…),
+// une fois les restes du jour de ses 3 jours ajoutés à 5 h. Libellé proposé : « Epargne 5/6/7 nov ». Chaque virement regroupe
+//  - la part de l'épargne du mois (ce qui reste à mettre, réparti sur les virements restants),
 //  - les arrondis en attente,
 //  - les repas à la maison et les privations pas encore virés.
 // Le montant est aussi réparti par poche (prêt / sécurité), pour savoir quoi mettre où.
@@ -36,7 +37,7 @@ export function aVirerEpargne(etat, dateIso) {
   const moisDeja = viree(per.debut, per.fin);
   const moisCible = Math.max(0, r.epargneCibleCentimes || 0);
   const moisRestant = Math.max(0, moisCible - moisDeja);
-  // 4 virements par mois. Chaque virement couvre une tranche : du lendemain du virement précédent (ou du salaire) à sa date.
+  // Un virement tous les 3 jours. Chaque virement couvre une tranche : du lendemain du virement précédent (ou du salaire) à sa date.
   // Sa part de l'épargne du mois est calculée au début de la tranche, puis on retire ce qui a déjà été viré pendant la tranche :
   // une fois le virement fait, le montant tombe à 0 jusqu'à la tranche suivante.
   const dates = datesVirements(per);
@@ -73,10 +74,12 @@ export function aVirerEpargne(etat, dateIso) {
     if (viree(debutPrec, dates[k - 1]) === 0 && viree(per.debut, ajouterJours(debutPrec, -1)) < moisCible) ceJour = dates[k - 1];
   }
   const enRetard = semaine > 0 && ceJour < dateIso;
-  const suivant = dates[k + 1] || ajouterJours(ajouterJours(per.fin, 1), DECALAGE_PREMIER);
+  const suivant = dates[k + 1] || ajouterJours(ajouterJours(per.fin, 1), JOURS_PAR_VIREMENT);
   const dateVirement = semaine > 0 ? (enRetard ? dateIso : ceJour) : (ceJour >= dateIso && !apresDernier && viree(debutT, per.fin) === 0 && moisRestant > 0 ? ceJour : suivant);
   return {
-    semaineCentimes: semaine, dateVirement, datePrevue: ceJour, enRetard, numeroVirement: k + 1, numeroProchain: semaine > 0 ? k + 1 : (dates.indexOf(dateVirement) + 1 || 1), nbVirements: dates.length, datesVirements: dates,
+    semaineCentimes: semaine, dateVirement, datePrevue: ceJour, enRetard, numeroVirement: k + 1, numeroProchain: semaine > 0 ? k + 1 : (dates.indexOf(dateVirement) + 1 || 1), nbVirements: dates.length,
+    // Jours couverts par ce virement (y compris un virement oublié : les tranches en retard s'ajoutent)
+    joursCouverts: (() => { const kk = semaine > 0 ? k : Math.max(0, dates.indexOf(dateVirement)); const premier = enRetard && ceJour !== dates[k] ? Math.max(0, dates.indexOf(ceJour)) : kk; const j = []; for (let i = premier; i <= kk; i++) j.push(...joursDuVirement(per, i)); return j; })(), datesVirements: dates,
     totalCentimes: moisRestant + arrondis + privations,
     moisCibleCentimes: moisCible, moisDejaCentimes: moisDeja, moisRestantCentimes: moisRestant, moisSemaineCentimes: moisSemaine,
     arrondisCentimes: arrondis, privationsCentimes: privations,
@@ -86,23 +89,43 @@ export function aVirerEpargne(etat, dateIso) {
   };
 }
 
-/** Le premier virement tombe 6 jours après le salaire, puis tous les 7 jours : 4 virements par mois. */
-export const DECALAGE_PREMIER = 6;
-export const NB_VIREMENTS = 4;
+/** Un virement tous les 3 jours : chaque tranche de 3 jours est virée le lendemain de son dernier jour. */
+export const JOURS_PAR_VIREMENT = 3;
 
-/** Dates des virements d'une période (salaire à salaire). */
+/** Dates des virements d'une période (salaire à salaire) : salaire + 3, + 6… ; le dernier tombe au plus tard la veille du salaire. */
 export function datesVirements(per) {
   const dates = [];
-  for (let i = 0; i < NB_VIREMENTS; i++) {
-    const d = ajouterJours(per.debut, DECALAGE_PREMIER + 7 * i);
-    if (d <= per.fin) dates.push(d);
-  }
-  return dates.length ? dates : [per.fin];
+  for (let d = ajouterJours(per.debut, JOURS_PAR_VIREMENT); d <= per.fin; d = ajouterJours(d, JOURS_PAR_VIREMENT)) dates.push(d);
+  if (!dates.length || dates[dates.length - 1] < per.fin) dates.push(per.fin);
+  return dates;
 }
 
-/** Jours du mois des 4 virements pour un salaire le jour J (rappel au calendrier) : J+6, J+13, J+20 et J+27 (mois de 31 jours). */
-export function joursDuMoisVirements(jourSalaire = 5) {
-  return [6, 13, 20, 27].map((n) => ((jourSalaire + n - 1) % 31) + 1).sort((a, b) => a - b);
+/** Jours couverts par le virement numéro k (0 = premier) : du lendemain du précédent (ou du salaire) à la veille du virement. */
+export function joursDuVirement(per, k) {
+  const dates = datesVirements(per);
+  const debut = k === 0 ? per.debut : dates[k - 1];
+  const fin = k === dates.length - 1 && dates[k] === per.fin ? per.fin : ajouterJours(dates[k], -1);
+  const jours = [];
+  for (let d = debut; d <= fin; d = ajouterJours(d, 1)) jours.push(d);
+  return jours;
+}
+
+const MOIS_COURTS = ['jan', 'fev', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout', 'sept', 'oct', 'nov', 'dec'];
+
+/**
+ * Libellé du virement pour l'appli bancaire, sans accents (accepté partout) : « Epargne 5/6/7 nov »,
+ * « Epargne 30 nov/1/2 dec » à cheval sur deux mois ; suivi du nom court de l'épargne (« Pret », « Securite »).
+ */
+export function libelleVirement(jours, poche = null) {
+  const parMois = [];
+  for (const d of jours) {
+    const m = MOIS_COURTS[Number(d.slice(5, 7)) - 1];
+    const dernier = parMois[parMois.length - 1];
+    if (dernier && dernier.m === m) dernier.j.push(Number(d.slice(8))); else parMois.push({ m, j: [Number(d.slice(8))] });
+  }
+  const dates = parMois.map((x) => `${x.j.join('/')} ${x.m}`).join('/');
+  const suffixe = !poche ? '' : poche.type === 'remboursementAnticipe' ? ' Pret' : poche.type === 'coussin' ? ' Securite' : ` ${String(poche.nom).normalize('NFD').replace(/[\u0300-\u036f]/g, '').slice(0, 12)}`;
+  return `Epargne ${dates}${suffixe}`;
 }
 
 /** Compte où se trouve une épargne, en clair (« Revolut », « Livret A LCL »), ou null. */

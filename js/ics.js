@@ -16,7 +16,7 @@ export function construireICS(e) {
   const fin = `${finDate.getUTCFullYear()}${pad(finDate.getUTCMonth() + 1)}${pad(finDate.getUTCDate())}T${pad(finDate.getUTCHours())}${pad(finDate.getUTCMinutes())}00`;
   const maintenant = new Date();
   const stamp = `${maintenant.getUTCFullYear()}${pad(maintenant.getUTCMonth() + 1)}${pad(maintenant.getUTCDate())}T${pad(maintenant.getUTCHours())}${pad(maintenant.getUTCMinutes())}00Z`;
-  const rrule = e.joursDuMois?.length ? `RRULE:FREQ=MONTHLY;BYMONTHDAY=${e.joursDuMois.join(',')}` : { WEEKLY: 'RRULE:FREQ=WEEKLY', BIWEEKLY: 'RRULE:FREQ=WEEKLY;INTERVAL=2', MONTHLY: 'RRULE:FREQ=MONTHLY' }[e.recurrence] || null;
+  const rrule = e.joursDuMois?.length ? `RRULE:FREQ=MONTHLY;BYMONTHDAY=${e.joursDuMois.join(',')}` : { WEEKLY: 'RRULE:FREQ=WEEKLY', BIWEEKLY: 'RRULE:FREQ=WEEKLY;INTERVAL=2', MONTHLY: 'RRULE:FREQ=MONTHLY', TOUS_LES_3_JOURS: 'RRULE:FREQ=DAILY;INTERVAL=3' }[e.recurrence] || null;
   const lignes = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Budget//Rappels//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     'BEGIN:VTIMEZONE', 'TZID:Europe/Paris',
