@@ -2,7 +2,7 @@
 import { egal, vrai } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
 import { cloturerJours, jourBudgetaire, dernierJourClos, resteDuJourPasse } from '../../js/restes.js';
-import { jaugeDuJour } from '../../js/calculs.js';
+import { jaugeDuJour, resteADepenser } from '../../js/calculs.js';
 import { historiqueCagnotte } from '../../js/virements.js';
 
 const revenus = { mois: '2026-11', salaireCentimes: 150000, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' };
@@ -75,5 +75,17 @@ export default [
     const h = historiqueCagnotte(e, '2026-11-08');
     const l = h.lignes.find((x) => x.source === 'reste');
     vrai(l && l.montantCentimes === e.privations[0].montantCentimes);
+  } },
+  { nom: 'restes du jour : rien dépensé + « je me suis privé » d’un menu → toute la part du jour finit à l’épargne', fn: () => {
+    for (const repasActif of [false, true]) {
+      const e = etat({ privations: [{ id: 'mcdo', date: '2026-11-07', categorie: 'restauration-rapide', libelle: 'Un menu au fast-food', montantCentimes: 950, vireLe: null }] });
+      if (repasActif) e.profil.repasAuto = { actif: true, depuis: '2026-11-01', repasParJour: 2 };
+      const part = jaugeDuJour({ ...e, privations: [] }, '2026-11-07').parJourCentimes;
+      appliquer(e, cloturerJours(e, a('2026-11-08', 5, 1)));
+      const r = resteADepenser(e, '2026-11-08');
+      const repas = (r.privationsAuto || []).filter((p) => p.date === '2026-11-07').reduce((s, p) => s + p.montantCentimes, 0);
+      const reste = e.privations.find((p) => p.source === 'resteJour')?.montantCentimes || 0;
+      egal(950 + repas + reste, part, `repas auto ${repasActif ? 'oui' : 'non'} : 9,50 + ${repas} + ${reste} = la part du jour (${part})`);
+    }
   } },
 ];
