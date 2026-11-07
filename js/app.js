@@ -40,7 +40,8 @@ const ORDRE_BALAYAGE = ['reglages', 'accueil', 'depenses', 'epargne'];
 function installerBalayage() {
   const vue = document.getElementById('vue');
   let depart = null;
-  const ZONES_EXCLUES = 'input, textarea, select, [contenteditable], .histo-filtres, .onglets-internes, .express-liste, .graphique, .defilement-horizontal, .sd-calendrier, svg, canvas';
+  // Les lignes qu'on fait glisser (dépenses : Catégorie / Supprimer) gardent leur propre geste
+  const ZONES_EXCLUES = 'input, textarea, select, [contenteditable], .glisse, .actions-glisse, [data-glisse], .histo-filtres, .onglets-internes, .express-liste, .graphique, .defilement-horizontal, .sd-calendrier, svg, canvas';
   vue.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1 || document.querySelector('.feuille.visible') || e.target.closest(ZONES_EXCLUES)) { depart = null; return; }
     const t = e.touches[0];
