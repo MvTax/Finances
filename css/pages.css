@@ -639,3 +639,11 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .poche-compte { font-size: 13px; font-weight: 400; color: var(--texte-3); }
 .poche-attente { margin: -2px 0 0; font-size: 14px; color: var(--laiton); }
 .poche-attente .lien { font-size: 14px; min-height: 0; padding: 0; }
+
+/* Rembourser en avance (poche du prêt → Plus de détails) */
+.remb-resultat { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.remb-resultat > div { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: var(--rayon-petit); background: var(--surface-2); }
+.remb-resultat small { font-size: 13px; color: var(--texte-2); }
+.remb-resultat strong { font-family: var(--police-chiffres); font-size: 22px; font-weight: 650; }
+.remb-palier { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.remb-palier small { color: var(--texte-3); font-size: 13px; }

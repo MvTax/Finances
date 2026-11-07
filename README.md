@@ -261,6 +261,10 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+### Rembourser en avance (poche du prêt → « Plus de détails »)
+
+Rien ne s'affiche par défaut. Le bouton « Plus de détails » de la poche du prêt ouvre le simulateur : le prêt (capital, encore dû, mensualité, intérêts prévus, fin), ce qu'il y a dans la poche, puis « Et si je rembourse… » avec un montant au choix (palier de la poche par défaut). Il donne les intérêts en moins, les mensualités en moins, la nouvelle date de fin (même mensualité, durée réduite), le capital restant et les frais (aucun sous 10 000 € sur 12 mois). Un comparatif « En un coup d'œil » montre 500 €, 1 000 €, 2 000 €, 4 000 € et tout ; toucher une ligne la simule.
+
 ### Reste du jour → épargne (5 h du matin)
 
 Ce qui reste de la part du jour part à l'épargne le lendemain à 5 h du matin. Exemple : le 7, il reste 1,23 € de la part du jour ; à 5 h le 8, 1,23 € s'ajoutent à la cagnotte (« Restes du jour » dans l'historique). La journée se termine à 5 h : une dépense notée à 1 h du matin le 8 est datée du 8, mais le 7 n'est clos qu'à 5 h.

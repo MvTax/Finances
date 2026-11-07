@@ -74,7 +74,8 @@ function vuePoches() {
       paliersPoche(p, s) ? blocPaliers(p, s) : p.cibleCentimes ? barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }) : null,
       h('p', { class: 'petit' }, p.cibleCentimes ? ['Objectif ', mt(p.cibleCentimes), dateAtt ? `, atteint en ${formatMois(dateAtt)}` : ''] : 'Sans objectif chiffré'),
       p.type === 'remboursementAnticipe' && s >= (p.palierCentimes || 50000) ? h('p', { class: 'petit vert-texte' }, icone('ok'), ` Palier atteint : tu peux rembourser ${formatEuros(s)} par anticipation.`) : null,
-      h('div', { class: 'groupe-boutons' }, bouton('Ajouter', () => feuilleMouvement(p, 'versement'), { classe: 'btn-petit btn-principal' }), bouton('Retirer', () => feuilleMouvement(p, 'reprise'), { classe: 'btn-petit' })),
+      h('div', { class: 'groupe-boutons' }, bouton('Ajouter', () => feuilleMouvement(p, 'versement'), { classe: 'btn-petit btn-principal' }), bouton('Retirer', () => feuilleMouvement(p, 'reprise'), { classe: 'btn-petit' }),
+        p.type === 'remboursementAnticipe' ? bouton('Plus de détails', async () => { const { feuilleRemboursement } = await import('./remboursement.js'); feuilleRemboursement(p); }, { classe: 'btn-petit', icone: 'info' }) : null),
       h('details', { class: 'details-discret' }, h('summary', {}, 'Détails'), h('div', { class: 'details-contenu' }, notes, h('button', { class: 'lien', type: 'button', onclick: () => editerPoche(p) }, 'Modifier cette poche'))));
   });
   // Arrondis
