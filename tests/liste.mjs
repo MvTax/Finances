@@ -22,4 +22,5 @@ export const CAS = [
   ['privations', () => import('./cas/privations.mjs')],
   ['paliers', () => import('./cas/paliers.mjs')],
   ['virements', () => import('./cas/virements.mjs')],
+  ['restes', () => import('./cas/restes.mjs')],
 ];

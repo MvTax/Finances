@@ -61,7 +61,7 @@ export function carteSysteme() {
       flux('tirelire', 'Chaque mois, après le salaire', 'Épargne du mois', vise,
         split.length ? split.map((s) => `${formatEuros(s.montantCentimes)} ${nom(s.pocheId)}`).join(' + ') : 'rien ce mois-ci'),
       flux('pieces', 'Chaque semaine', 'Arrondis à l’euro', arrondis, versEfforts),
-      flux('burger', 'Chaque jour', 'Repas à la maison et privations', priv.moisCentimes, versEfforts),
+      flux('burger', 'Chaque jour (à 5 h)', 'Restes du jour, repas et privations', priv.moisCentimes, versEfforts),
       flux('calendrier', 'Au salaire', 'Le reste du mois', null, `réparti comme l’épargne du mois`)),
     securite && pret ? champ('Part pour la sécurité', segment([['0', '0 %'], ['10', '10 %'], ['25', '25 %'], ['50', '50 %']], String(partSecu), changerPart, 'Part pour la sécurité'),
       `Le prêt reçoit le reste (${100 - partSecu} %)${efforts ? `, et ${efforts.nom} reçoit tous les arrondis, repas et privations` : '. Les arrondis, repas et privations sont partagés de la même façon'}.${securite.cibleCentimes && partSecu ? ` Une fois ${securite.nom} à ${formatEuros(securite.cibleCentimes)}, tout va au prêt.` : ''}${pleineSecu ? ' C’est déjà le cas.' : ''}`) : null,

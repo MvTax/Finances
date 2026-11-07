@@ -70,7 +70,7 @@ export function carteprivations() {
     dernieres.length ? h('details', { class: 'details-discret' }, h('summary', {}, 'Détail'),
       h('div', { class: 'liste-cles' }, dernieres.map((p) => h('div', { class: 'ligne-cle' },
         h('span', {}, `${formatDateCourte(p.date)} · ${p.libelle}${p.auto ? ' (auto)' : ''}${p.vireLe ? ' · viré' : ''}`),
-        h('span', { class: 'ligne-cle-valeur' }, mt(p.montantCentimes), p.vireLe || p.auto ? null : h('button', { type: 'button', class: 'btn-icone', 'aria-label': `Retirer ${p.libelle}`, onclick: async () => {
+        h('span', { class: 'ligne-cle-valeur' }, mt(p.montantCentimes), p.vireLe || p.auto || p.source === 'resteJour' ? null : h('button', { type: 'button', class: 'btn-icone', 'aria-label': `Retirer ${p.libelle}`, onclick: async () => {
           if (await confirmer({ titre: 'Retirer ?', message: `« ${p.libelle} » (${formatEuros(p.montantCentimes)}) ne sera plus mis de côté.`, ok: 'Retirer' })) await supprimerObjet('privations', p.id);
         } }, icone('fermer'))))))) : null), { id: 'privations' });
 }

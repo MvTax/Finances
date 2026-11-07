@@ -213,6 +213,13 @@ function bandeaux(r, auj) {
     res.push({ type: 'info', icone: 'tirelire', titre: `Il te reste ${formatEuros(rel.courant.montantCentimes)} jusqu’au salaire`,
       texte: `Ce qui restera à l’arrivée du salaire (vers le ${formatDateCourte(rel.courant.prochainSalaire)}) ira sur ton épargne.` });
   }
+  // Reste de la part d'hier, parti à l'épargne à 5 h
+  const hierReste = (etat.privations || []).find((p) => p.source === 'resteJour' && p.date === ajouterJours(auj, -1));
+  if (hierReste) {
+    res.push({ type: 'info', icone: 'sablier', titre: `Il te restait ${formatEuros(hierReste.montantCentimes)} hier : ajoutés à l’épargne`,
+      texte: 'À 5 h du matin, ce qui reste de ta part du jour part à l’épargne au lieu de s’ajouter aux jours suivants. Une dépense oubliée hier ? Ajoute-la, le montant s’ajuste.',
+      actions: [bouton('Ajouter une dépense d’hier', async () => { const { ouvrirSaisie } = await import('./saisie.js'); ouvrirSaisie('clavier', { passee: true, date: ajouterJours(auj, -1) }); }, { classe: 'btn-petit' })] });
+  }
   // Repas à la maison d'hier, épargnés automatiquement
   const hierAuto = (r.privationsAuto || []).find((p) => p.date === ajouterJours(auj, -1));
   if (hierAuto) {

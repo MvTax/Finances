@@ -241,7 +241,8 @@ export function privationsAuto(etat, periode, dateIso, partDuJourCentimes) {
       if (t.date !== d || t.ajustement) continue;
       if (t.sens === 'debit' && CATS_REPAS.has(t.categorie)) dehors++;
     }
-    for (const p of etat.privations || []) if (!p.auto && p.date === d) { depJour += p.montantCentimes; if (CATS_REPAS.has(p.categorie)) dehors++; }
+    // Le « reste du jour » (5 h le lendemain) passe après les repas : il ne les fait pas baisser
+    for (const p of etat.privations || []) if (!p.auto && p.source !== 'resteJour' && p.date === d) { depJour += p.montantCentimes; if (CATS_REPAS.has(p.categorie)) dehors++; }
     depJour += depensesVariables(etat, d, d);
     const manques = Math.max(0, nbRepas - dehors);
     if (!manques) continue;
@@ -364,7 +365,7 @@ export function resteADepenser(etat, dateIso = aujourdhui()) {
   const reste = avantEpargne - cible;
   return {
     periode, revenus, charges, dettes, epargneCibleCentimes: cible, epargneViseeCentimes: possible.centimes, besoinsVitauxCentimes: possible.besoins.centimes,
-    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, privationsCentimes: privations.totalCentimes, privations: privations.liste, privationsAuto: auto, arrondisCentimes: arrondis, depensesVariablesCentimes: variables, resteCentimes: reste,
+    chargesCentimes: totalCharges, dettesCentimes: totalDettes, prevues, prevuesCentimes: totalPrevues, privationsCentimes: privations.totalCentimes, privations: privations.liste, privationsAuto: auto, partPrevueCentimes: partPrevue, arrondisCentimes: arrondis, depensesVariablesCentimes: variables, resteCentimes: reste,
   };
 }
 

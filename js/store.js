@@ -164,7 +164,8 @@ export function rangerPoches() {
   const autres = etat.poches.filter((p) => p.id !== pret.id && p.id !== secu?.id);
   etat.poches = [...(secu ? [{ ...secu, priorite: 2, partRepartition: 50, modifieLe: m }] : []), pret, ...autres];
   for (const p of etat.poches) if (p.id === pret.id || p.id === secu?.id) ops.push({ store: 'poches', valeur: p });
-  etat.profil.arrondi = { ...etat.profil.arrondi, pocheId: pret.id };
+  // Arrondis, repas et privations : partagés entre les deux épargnes (sauf choix déjà fait d'une poche encore active)
+  if (etat.profil.arrondi?.pocheId !== 'partage' && !etat.poches.some((p) => p.id === etat.profil.arrondi?.pocheId && p.actif !== false && p.type !== 'projet')) etat.profil.arrondi = { ...etat.profil.arrondi, pocheId: 'partage' };
   ops.push({ store: 'profil', valeur: etat.profil });
   etat.meta.pochesRangees = m;
   ops.push({ store: 'meta', valeur: { cle: 'pochesRangees', valeur: m } });

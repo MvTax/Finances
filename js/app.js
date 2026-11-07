@@ -10,6 +10,9 @@ import { appliquerTheme } from './app-theme.js';
 import { verrouiller, installerConfidentialite } from './securite.js';
 import { definirNomsCategories } from './categories.js';
 import { versionApp } from './version.js';
+import { cloturerJoursPasses } from './actions.js';
+import { prochaineCloture } from './restes.js';
+import { formatEuros } from './money.js';
 
 installerJournal();
 
@@ -147,6 +150,28 @@ function illustrationPartage() {
   return d;
 }
 
+/**
+ * Restes du jour : à 5 h du matin, ce qui restait de la part de la veille part à l'épargne.
+ * Fait à l'ouverture, à 5 h si l'app est ouverte, et quand elle revient au premier plan.
+ */
+function annoncerRestes(nouveaux) {
+  const total = nouveaux.reduce((s, p) => s + p.montantCentimes, 0);
+  if (!total) return;
+  toast(nouveaux.length > 1 ? `${formatEuros(total)} non dépensés sur ${nouveaux.length} jours : ajoutés à l’épargne.` : `Il te restait ${formatEuros(total)} hier : ajoutés à l’épargne.`, { type: 'succes', duree: 5000 });
+}
+function programmerRestes() {
+  let minuterie = null;
+  const lancer = async () => {
+    clearTimeout(minuterie);
+    if (etat.parametres.onboarding?.termine) {
+      try { annoncerRestes(await cloturerJoursPasses()); } catch (e) { console.warn('Restes du jour', e?.message); }
+    }
+    minuterie = setTimeout(lancer, Math.max(60000, Math.min(prochaineCloture() - Date.now(), 6 * 3600 * 1000)));
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) lancer(); });
+  minuterie = setTimeout(lancer, Math.max(60000, Math.min(prochaineCloture() - Date.now(), 6 * 3600 * 1000)));
+}
+
 async function demarrer() {
   document.body.insertAdjacentHTML('afterbegin', spriteSVG());
   try {
@@ -159,6 +184,9 @@ async function demarrer() {
   definirMasquage(etat.parametres.masquageMontants);
   definirNomsCategories(etat.parametres.nomsCategories || {});
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => appliquerTheme(etat.parametres.theme));
+  // Restes du jour clos depuis la dernière ouverture (avant le premier affichage, pour des chiffres justes)
+  let restes = [];
+  if (etat.parametres.onboarding?.termine) { try { restes = await cloturerJoursPasses(); } catch (e) { console.warn('Restes du jour', e?.message); } }
   await verrouiller();
   installerConfidentialite(() => { if (!document.hidden) redessiner(); });
   for (const [nom, ch] of Object.entries(PAGES)) definirRoute(nom, ch);
@@ -169,6 +197,8 @@ async function demarrer() {
   gererClavier();
   await rendreRoute();
   aideInstallation();
+  annoncerRestes(restes);
+  programmerRestes();
   installerSW();
   document.documentElement.dataset.version = versionApp;
   window.addEventListener('online', () => { if (etat.fileAttenteIA.length) toast(`${etat.fileAttenteIA.length} saisie(s) en attente : Réglages → Gemini → Analyser maintenant.`); });

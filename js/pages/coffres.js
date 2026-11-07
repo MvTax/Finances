@@ -115,7 +115,7 @@ function feuilleVirement(v) {
       champMois,
       h('div', { class: 'liste-cles' },
         v.arrondisCentimes ? ligne('Arrondis', v.arrondisCentimes) : null,
-        v.privationsCentimes ? ligne('Repas à la maison et privations', v.privationsCentimes) : null,
+        v.privationsCentimes ? ligne('Restes du jour, repas et privations', v.privationsCentimes) : null,
         h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Total à virer'), total)),
       v.parPoche.length ? h('p', { class: 'petit' }, v.parPoche.length > 1 ? 'Répartition : ' : '', v.parPoche.map((x) => `${formatEuros(x.montantCentimes)} sur ${ouVirer(x.pocheId)}`).join(', '), '.') : null,
       valider),
@@ -127,6 +127,7 @@ const SOURCES = {
   arrondi: { icone: 'pieces', nom: 'Arrondi', total: 'Arrondis' },
   repas: { icone: 'burger', nom: 'Repas à la maison', total: 'Repas à la maison' },
   privation: { icone: 'tirelire', nom: 'Privation', total: 'Privations' },
+  reste: { icone: 'sablier', nom: 'Reste du jour', total: 'Restes du jour' },
   mois: { icone: 'calendrier', nom: 'Épargne du mois', total: 'Épargne du mois' },
 };
 
@@ -152,7 +153,7 @@ export function feuilleHistorique() {
     liste.replaceChildren(...(items.length ? items : [h('p', { class: 'petit' }, 'Rien pour l’instant.')]));
   };
   const filtres = h('div', { class: 'histo-filtres', role: 'group', 'aria-label': 'Filtrer par source' },
-    [['tout', 'Tout'], ['arrondi', 'Arrondis'], ['repas', 'Repas'], ['privation', 'Privations'], ['mois', 'Épargne du mois']]
+    [['tout', 'Tout'], ['arrondi', 'Arrondis'], ['reste', 'Restes du jour'], ['repas', 'Repas'], ['privation', 'Privations'], ['mois', 'Épargne du mois']]
       .filter(([k]) => k === 'tout' || hst.lignes.some((l) => l.source === k))
       .map(([k, t]) => h('button', { type: 'button', class: `histo-filtre ${k === filtre ? 'actif' : ''}`, 'aria-pressed': String(k === filtre),
         onclick: (e) => { filtre = k; for (const b of filtres.children) { b.classList.toggle('actif', b === e.currentTarget); b.setAttribute('aria-pressed', String(b === e.currentTarget)); } dessiner(); } }, t)));

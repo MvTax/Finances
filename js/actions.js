@@ -1,6 +1,7 @@
 // actions.js — opérations métier déclenchées par l'interface (saisie, confirmation, virements, échéances, import).
 
-import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, nouvelId, reinitialiserJauge } from './store.js';
+import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, nouvelId, reinitialiserJauge, ecrireMeta } from './store.js';
+import { cloturerJours } from './restes.js';
 import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, REGLES_DEFAUT, normaliserTexte } from './rules.js';
 import { categoriser, empreinte, traiterImport, detecterChargesFixes, rattacherChargesFixes, recalculerAjustement } from './import/pipeline.js';
 import { aujourdhui, dateDuMois, ajouterJours, moisDe } from './dates.js';
@@ -139,6 +140,20 @@ export async function enregistrerVirementEpargne({ montantCentimes, pocheId = nu
   if (virementPrevuId) { const v = etat.virementsPrevus.find((x) => x.id === virementPrevuId); if (v) ops.push({ collection: 'virementsPrevus', valeur: { ...v, fait: true, faitLe: date, transactionId: tx.id } }); }
   await enregistrerLot(ops);
   return tx;
+}
+
+/**
+ * Restes du jour : à partir de 5 h du matin, ce qui restait de la part de la veille part à l'épargne (voir restes.js).
+ * Appelé à l'ouverture de l'app, à 5 h si elle est ouverte, et quand elle revient au premier plan.
+ * @returns les nouvelles lignes créées
+ */
+export async function cloturerJoursPasses(instant = new Date()) {
+  if (etat.profil?.restesDuJour?.actif === false) return [];
+  const { ops, meta, nouveaux } = cloturerJours(etat, instant);
+  const avant = etat.meta.restesJour;
+  if (!avant || avant.depuis !== meta.depuis || avant.dernier !== meta.dernier) await ecrireMeta('restesJour', meta);
+  if (ops.length) await enregistrerLot(ops);
+  return nouveaux;
 }
 
 /** « Je me suis privé » : le montant non dépensé est mis de côté pour l'épargne (à virer sur le livret). */

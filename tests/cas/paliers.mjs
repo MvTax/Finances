@@ -19,7 +19,7 @@ export default [
     egal(palierFranchi(secu, 9000, 60000).nom, 'Mi-chemin');
     egal(palierFranchi(secu, 12000, 20000), null);
   } },
-  { nom: 'deux poches : projet vide supprimé, poche du prêt activée et reliée au prêt, 50/50, efforts vers le prêt', fn: () => {
+  { nom: 'deux poches : projet vide supprimé, poche du prêt activée et reliée au prêt, 50/50', fn: () => {
     etat.meta = {};
     etat.creditsBancaires = [{ id: 'c1', type: 'amortissable', capitalCentimes: 800000, actif: true }];
     etat.profil = { arrondi: { actif: true, pocheId: 'poche-coussin' } };
@@ -34,7 +34,7 @@ export default [
     const pret = etat.poches.find((p) => p.id === 'poche-pret');
     vrai(/^Prêt 8\s?000 €$/u.test(pret.nom), pret.nom); egal(pret.actif, true); egal(pret.creditId, 'c1'); egal(pret.cibleCentimes, 800000); egal(pret.partRepartition, 50);
     egal(etat.poches[0].partRepartition, 50);
-    egal(etat.profil.arrondi.pocheId, 'poche-pret');
+    egal(etat.profil.arrondi.pocheId, 'poche-coussin', 'choix déjà fait d’une poche active : gardé');
     egal(rangerPoches().length, 0, 'une seule fois');
   } },
   { nom: 'une poche projet qui contient de l’argent n’est jamais supprimée', fn: () => {

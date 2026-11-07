@@ -103,6 +103,7 @@ export function historiqueCagnotte(etat, dateIso) {
   }
   // Repas à la maison (automatiques) et privations
   for (const p of [...(etat.privations || []).filter((x) => x.date >= per.debut && x.date <= per.fin), ...(r.privationsAuto || [])]) {
+    if (p.source === 'resteJour') { lignes.push({ date: p.date, source: 'reste', libelle: 'Reste du jour', detail: 'part du jour non dépensée, ajoutée à 5 h le lendemain', montantCentimes: p.montantCentimes, vireLe: p.vireLe || null }); continue; }
     const repas = p.auto || /repas à la maison/i.test(p.libelle || '');
     lignes.push({ date: p.date, source: repas ? 'repas' : 'privation', libelle: repas ? 'Repas à la maison' : p.libelle, detail: repas ? (p.libelle || 'pas de repas dehors noté') : 'Je me suis privé', montantCentimes: p.montantCentimes, vireLe: p.vireLe || null });
   }

@@ -261,6 +261,16 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+### Reste du jour → épargne (5 h du matin)
+
+Ce qui reste de la part du jour part à l'épargne le lendemain à 5 h du matin. Exemple : le 7, il reste 1,23 € de la part du jour ; à 5 h le 8, 1,23 € s'ajoutent à la cagnotte (« Restes du jour » dans l'historique). La journée se termine à 5 h : une dépense notée à 1 h du matin le 8 est datée du 8, mais le 7 n'est clos qu'à 5 h.
+
+- Reste = part du jour − dépenses, arrondis et privations du jour − repas à la maison automatiques (ils passent avant). Jamais négatif.
+- Le reste sort du budget : la part des jours suivants ne grossit plus avec ce qui n'a pas été dépensé.
+- C'est fait à l'ouverture de l'app, à 5 h si elle est ouverte, et quand elle revient au premier plan (une PWA ne tourne pas en arrière-plan sur iPhone). Un message l'annonce, et l'Accueil affiche « Il te restait X € hier ».
+- Tant que le reste n'est pas viré, il est recalculé : une dépense oubliée, ajoutée après coup sur ce jour, le fait baisser.
+- Réglages → « Repas à la maison → épargne » → « Reste du jour → épargne » pour l'arrêter.
+
 ## Épargne sans intérêts
 
 Réglages → Épargne et arrondis → « Épargne sans intérêts (0 %) ». Avec ce réglage, les poches sont sur un compte épargne qui ne rapporte rien. Le simulateur Livret A / LEP et les taux sont masqués, et les textes parlent de « compte épargne », pas de livret. L'app ne compte jamais d'intérêts dans les montants mis de côté : ce sont exactement les sommes versées.
