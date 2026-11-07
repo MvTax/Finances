@@ -136,7 +136,6 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       h('span', { class: 'saisie-tuile-icone', 'aria-hidden': 'true' }, icone(ic)),
       h('span', { class: 'saisie-tuile-titre' }, titreT), h('small', {}, sousTitre));
     return h('div', { class: 'vue-voix' },
-      blocExpress(),
       h('div', { class: 'voix-centre' }, micro, etatTexte, annuler),
       h('button', { class: 'btn btn-secondaire btn-large voix-ecrire', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier'); } }, icone('clavier'), h('span', {}, 'Écrire plutôt')),
       h('div', { class: 'saisie-tuiles', role: 'group', 'aria-label': 'Autres façons d’ajouter' },
@@ -297,7 +296,6 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
     rendreCats(); maj(); majRecurrent();
     return h('form', { class: 'vue-clavier formulaire', onsubmit: (e) => { e.preventDefault(); ajouter(); } },
       d.confirmation ? h('p', { class: 'confirmation-ia' }, icone('ok'), ` Vérifie puis ajoute${d.confiance !== undefined && d.confiance < 0.7 ? ' (je ne suis pas sûr de tout)' : ''}.`) : null,
-      d.confirmation || d.passee || d.montantCentimes ? null : blocExpress(),
       segZone,
       blocPassee,
       d.confirmation || d.passee ? null : h('div', { class: 'liens-saisie' },
