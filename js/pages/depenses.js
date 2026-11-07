@@ -1,7 +1,7 @@
 // depenses.js — Dépenses et Entrées : liste groupée par jour, recherche, filtres, détail, glisser pour agir.
 
 import { h, icone, mt, annoncer } from '../ui/dom.js';
-import { ligneTransaction, etatVide, segment, champ, champMontant, pastillesCategories, bouton, selectionner, interrupteur } from '../ui/composants.js';
+import { ligneTransaction, definirCompteEtiquete, etatVide, segment, champ, champMontant, pastillesCategories, bouton, selectionner, interrupteur } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import { etat, enregistrerLot } from '../store.js';
@@ -14,11 +14,13 @@ import { modifierTransaction, supprimerTransaction, recategoriser, enregistrerRe
 import { coutAnnuelRecurrent } from '../detecteurs.js';
 import { aller } from '../router.js';
 import { estNouvelle } from '../capture.js';
+import { compteRevolut, compteParDefaut, suiviRevolut } from '../revolut.js';
 import { aVenir } from './avenir.js';
 
 export const titre = 'Dépenses';
 
 const filtres = { texte: '', type: 'tout', categorie: '', periode: 'mois', compte: '', source: '', internes: false };
+let revolutOuvert = false; // le suivi Revolut reste ouvert quand la liste se redessine
 let affichage = 'jours'; // 'jours' | 'categories'
 const TAILLE_LOT = 120;
 
@@ -42,9 +44,11 @@ export function rendre(vue) {
     zoneAffichage,
     h('div', { class: 'barre-filtres' }, h('div', { class: 'barre-recherche' }, icone('recherche'), recherche), boutonFiltres),
     h('button', { class: 'lien-avenir', type: 'button', onclick: () => aller('avenir') }, icone('calendrier'), h('span', {}, 'À venir d’ici le salaire'), h('strong', {}, mt(aVenir(etat).totalCentimes)), icone('suivant')),
+    blocRevolut(() => dessiner()),
     puceFiltre, zoneNouvelles, resume, liste);
 
   function dessiner() {
+    definirCompteEtiquete(compteRevolut(etat)?.id);
     // Dépenses tout juste ajoutées depuis une capture : encadrées en haut, puis rangées normalement
     const maintenant = Date.now();
     const nouvelles = etat.transactions.filter((t) => estNouvelle(t, maintenant)).sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -245,7 +249,7 @@ async function appliquerCategorie(tx, id) {
 /** Détail d'une opération : modification, suppression, articles d'un ticket, coût annuel. */
 export function ouvrirDetail(tx) {
   const c = categorie(tx.categorie);
-  let montant = tx.montantCentimes; let libelle = tx.libelle; let date = tx.date; let cat = tx.categorie; let justification = tx.justificationCentimes ?? null;
+  let montant = tx.montantCentimes; let libelle = tx.libelle; let date = tx.date; let cat = tx.categorie; let justification = tx.justificationCentimes ?? null; let compteId = tx.compteId;
   const n = natureTransaction(tx);
   const recurrent = n === 'depense' ? coutAnnuelRecurrent(etat, tx.marchand, aujourdhui()) : null;
   const compte = etat.comptes.find((x) => x.id === tx.compteId);
@@ -266,6 +270,7 @@ export function ouvrirDetail(tx) {
     champ('Libellé', h('input', { class: 'input', value: libelle, oninput: (e) => { libelle = e.target.value; } })),
     champ('Date', h('input', { class: 'input', type: 'date', value: date, oninput: (e) => { date = e.target.value; } })),
     champ('Catégorie', selectionner(CATEGORIES.filter((x) => x.id !== 'ajustement').map((x) => [x.id, x.nom]), cat, (v) => { cat = v; })),
+    payeAvec(tx, (v) => { compteId = v; }),
     tx.categorie === 'especes' && tx.sens === 'debit' ? champ('Montant justifié (ce que ce retrait a payé)', champMontant({ valeur: justification, onValeur: (v) => { justification = v; } }), 'Les espèces non justifiées sont signalées dans le bilan.') : null) : h('p', { class: 'texte-feuille' }, 'Cette ligne aligne le solde affiché sur ton solde réel. Elle est exclue des dépenses et des revenus et se recalcule à chaque import.');
   const f = ouvrirFeuille({
     titre: tx.libelle,
@@ -280,6 +285,7 @@ export function ouvrirDetail(tx) {
         if (montant === null || montant <= 0) { toast('Montant invalide.', { type: 'erreur' }); return; }
         if (!estIso(date)) { toast('Date invalide.', { type: 'erreur' }); return; }
         const changements = { montantCentimes: montant, libelle, date };
+        if (compteId && compteId !== tx.compteId) changements.compteId = compteId;
         if (justification !== null) changements.justificationCentimes = justification;
         f.fermer();
         if (cat !== tx.categorie) { await modifierTransaction(tx, changements); await appliquerCategorie({ ...tx, ...changements }, cat); }
@@ -287,6 +293,34 @@ export function ouvrirDetail(tx) {
       }, { classe: 'btn-principal' }),
     ] : null,
   });
+}
+
+/**
+ * Suivi Revolut, discret : une ligne repliée (dépenses du mois, solde), et en l'ouvrant les dernières opérations
+ * Revolut et « Voir tout » (filtre sur le compte). Les dépenses Revolut restent aussi dans la liste principale.
+ */
+function blocRevolut(redessiner) {
+  const s = suiviRevolut(etat, aujourdhui());
+  if (!s) return null;
+  const dernieres = s.operations.slice(0, 8);
+  return h('details', { class: 'suivi-revolut', open: revolutOuvert || null, ontoggle: (e) => { revolutOuvert = e.target.open; } },
+    h('summary', {},
+      h('span', { class: 'suivi-revolut-nom' }, icone('banque'), 'Revolut'),
+      h('span', { class: 'suivi-revolut-chiffres' }, mt(s.depensesCentimes), h('small', {}, ` · ${s.nbDepenses} dépense${s.nbDepenses > 1 ? 's' : ''} ce mois-ci${s.soldeCentimes !== null ? ` · solde ${formatEuros(s.soldeCentimes)}` : ''}`))),
+    h('div', { class: 'suivi-revolut-corps' },
+      dernieres.length ? dernieres.map((t) => ligneTransaction(t, ouvrirDetail, { avecDate: true })) : h('p', { class: 'petit' }, 'Aucune opération Revolut depuis le salaire. Quand tu paies avec Revolut, touche « Payé avec Revolut » en ajoutant la dépense.'),
+      s.operations.length > dernieres.length || s.operations.length ? h('button', { type: 'button', class: 'lien', onclick: () => { filtres.compte = s.compte.id; filtres.periode = 'mois'; redessiner(); window.scrollTo({ top: 0, behavior: 'smooth' }); toast('Liste filtrée sur Revolut (Filtres → Tous les comptes pour revenir).'); } }, `Voir tout dans la liste (${s.operations.length})`) : null));
+}
+
+/** « Payé avec » : le compte du quotidien ou Revolut (étiquette), pour une dépense notée à la main ou importée. */
+function payeAvec(tx, onCompte) {
+  const rev = compteRevolut(etat);
+  const def = compteParDefaut(etat);
+  if (!rev || !def || tx.virementInterne?.estInterne || tx.epargne?.estEpargne) return null;
+  const options = [[def.id, def.nom], [rev.id, 'Revolut']];
+  const actuel = tx.compteId === rev.id ? rev.id : tx.compteId === def.id ? def.id : null;
+  if (!actuel) return null;
+  return champ('Payé avec', segment(options, actuel, (v) => onCompte(v), 'Payé avec'), tx.source === 'import' ? 'Ligne d’un relevé : change seulement si elle a été rangée sur le mauvais compte.' : null);
 }
 
 function ligne(l, v) { return h('div', { class: 'ligne-cle' }, h('span', {}, l), h('span', { class: 'ligne-cle-valeur' }, v)); }

@@ -1,7 +1,7 @@
 // prompts.js — prompts système Gemini, en français, versionnés, avec exemples. Schémas de réponse JSON.
 // Les données envoyées sont minimisées : jamais de relevé complet, d'IBAN, de nom de particulier.
 
-export const VERSION_PROMPTS = '2026-11-06.1';
+export const VERSION_PROMPTS = '2026-11-07.1';
 
 const regleCommune = `Tu réponds UNIQUEMENT en JSON conforme au schéma fourni, sans texte autour. Montants en CENTIMES ENTIERS (4,50 € = 450). Dates au format AAAA-MM-JJ. Langue : français.`;
 
@@ -14,6 +14,7 @@ Règles :
 - categorie : choisis UNIQUEMENT un identifiant de la liste fournie.
 - marchand : enseigne ou personne courte (« Lidl », « McDonald's ») ; libelle : description courte.
 - sucre = true si l'achat est une sucrerie, une boisson sucrée ou une viennoiserie.
+- revolut = true si la personne dit avoir payé avec Revolut (« avec Revolut », « sur Revolut »), sinon false.
 - confiance entre 0 et 1.
 Exemples :
 « quatre euros cinquante de pain chez Paul hier » → {"sens":"debit","montantCentimes":450,"libelle":"Pain","marchand":"Paul","categorie":"restauration-rapide","date":"<hier>","sucre":false,"confiance":0.92}
@@ -30,6 +31,7 @@ export const SCHEMA_VOIX = {
     categorie: { type: 'string' },
     date: { type: 'string' },
     sucre: { type: 'boolean' },
+    revolut: { type: 'boolean' },
     confiance: { type: 'number' },
   },
   required: ['sens', 'montantCentimes', 'libelle', 'categorie', 'date', 'confiance'],

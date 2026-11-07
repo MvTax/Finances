@@ -25,6 +25,7 @@ export function validerTransactionIA(o) {
     categorie: IDS.includes(o.categorie) ? o.categorie : (o.sens === 'credit' ? 'autres-entrees' : 'autres'),
     date,
     sucre: !!o.sucre,
+    revolut: !!o.revolut,
     confiance: Math.max(0, Math.min(1, Number(o.confiance) || 0)),
   };
 }

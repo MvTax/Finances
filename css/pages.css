@@ -812,3 +812,24 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .accueil-entete-bas { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .accueil-entete-bas .grand-titre { min-width: 0; }
 .accueil-entete .bouton-reglages { position: static; flex: none; margin-right: -4px; }
+
+/* Payé avec Revolut */
+.puce-revolut { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 14px; border: 1.5px solid var(--separateur); border-radius: var(--rayon-pastille); background: transparent; color: var(--texte-2); font: inherit; font-size: 15px; cursor: pointer; }
+.puce-revolut .ic { width: 16px; height: 16px; }
+.puce-revolut.active { border-color: var(--accent); background: var(--accent-doux); color: var(--texte); font-weight: 600; }
+.puce-revolut.active::after { content: '✓'; margin-left: 2px; color: var(--accent); }
+.puce-revolut.petite { min-height: 30px; padding: 3px 10px; font-size: 13px; }
+.plusieurs-options { display: flex; align-items: center; gap: 6px; }
+.plusieurs-options select { flex: 1; min-width: 0; }
+.etiquette-compte { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: var(--accent-doux); color: var(--accent); font-size: 11px; font-weight: 700; line-height: 18px; }
+/* Suivi Revolut (Dépenses) : une ligne repliée, discrète */
+.suivi-revolut { border-radius: var(--rayon-petit); background: var(--surface); }
+.suivi-revolut > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; cursor: pointer; list-style: none; font-size: 15px; }
+.suivi-revolut > summary::-webkit-details-marker { display: none; }
+.suivi-revolut > summary::before { content: none !important; display: none !important; }
+.suivi-revolut-nom { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--texte-2); }
+.suivi-revolut-nom .ic { width: 16px; height: 16px; }
+.suivi-revolut-chiffres { text-align: right; font-variant-numeric: tabular-nums; }
+.suivi-revolut-chiffres small { color: var(--texte-3); font-size: 13px; }
+.suivi-revolut-corps { padding: 0 8px 10px; display: flex; flex-direction: column; }
+.suivi-revolut-corps .lien { align-self: flex-start; margin: 6px 4px 0; }

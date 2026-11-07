@@ -21,6 +21,7 @@ import { estEligibleArrondi } from '../epargne.js';
 import { importerCapture } from './capture.js';
 import { feuillePrivation } from './privation.js';
 import { depensesFrequentes } from '../express.js';
+import { compteRevolut, compteParDefaut } from '../revolut.js';
 import { estAnnoncee } from '../sansdepense.js';
 import { estDepenseQuotidienne } from '../calculs.js';
 
@@ -45,11 +46,15 @@ export function feuillePlusieurs(operations, source = 'phrase') {
     const rang = h('div', { class: 'plusieurs-ligne' });
     const lib = h('input', { class: 'input', value: l.libelle || '', 'aria-label': 'Libellé', oninput: (e) => { l.libelle = e.target.value; } });
     const m = champMontant({ valeur: l.montantCentimes, label: `Montant de ${l.libelle || 'l’opération'}`, onValeur: (c) => { l.montantCentimes = c || 0; maj(); } });
+    const revL = compteRevolut(etat);
+    if (l.revolut && revL) l.compteId = revL.id;
+    const puceL = revL && l.sens !== 'credit' ? h('button', { type: 'button', class: `puce-revolut petite ${l.compteId === revL.id ? 'active' : ''}`, 'aria-pressed': String(l.compteId === revL.id),
+      onclick: (e) => { l.compteId = l.compteId === revL.id ? null : revL.id; e.currentTarget.classList.toggle('active', !!l.compteId); e.currentTarget.setAttribute('aria-pressed', String(!!l.compteId)); } }, 'Revolut') : null;
     const garder = h('input', { type: 'checkbox', checked: true, 'aria-label': `Garder ${l.libelle}`, onchange: (e) => { l.garder = e.target.checked; rang.classList.toggle('retiree', !l.garder); maj(); } });
     const choixCat = l.sens === 'credit' ? h('small', { class: 'plusieurs-info' }, 'Entrée')
       : selectionner(categoriesDepense().map((c) => [c.id, c.nom]), l.categorie || 'autres', (v) => { l.categorie = v; }, { aria: `Catégorie de ${l.libelle}` });
     choixCat.classList?.add('plusieurs-categorie');
-    rang.append(garder, h('div', { class: 'plusieurs-champs' }, lib, choixCat,
+    rang.append(garder, h('div', { class: 'plusieurs-champs' }, lib, h('div', { class: 'plusieurs-options' }, choixCat, puceL),
       l.date !== aujourdhui() ? h('small', { class: 'plusieurs-info' }, formatDateCourte(l.date)) : null), m);
     return rang;
   });
@@ -57,7 +62,7 @@ export function feuillePlusieurs(operations, source = 'phrase') {
     valider.disabled = true;
     const g = lignes.filter((l) => l.garder && l.montantCentimes > 0);
     const txs = g.map((l) => {
-      const tx = nouvelleTransaction({ sens: l.sens || 'debit', montantCentimes: l.montantCentimes, libelle: (l.libelle || '').trim() || 'Dépense', categorie: l.categorie || null, date: l.date || aujourdhui(), source });
+      const tx = nouvelleTransaction({ sens: l.sens || 'debit', montantCentimes: l.montantCentimes, libelle: (l.libelle || '').trim() || 'Dépense', categorie: l.categorie || null, date: l.date || aujourdhui(), source, ...(l.compteId ? { compteId: l.compteId } : {}) });
       if (l.marchand) tx.marchand = l.marchand;
       return tx;
     });
@@ -181,7 +186,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
     let cat = d.categorie || null;
     const hier = ajouterJours(aujourdhui(), -1);
     let date = d.date || (d.passee ? hier : aujourdhui());
-    let compteId = d.compteId || (etat.comptes.find((c) => c.type === 'courant') || etat.comptes[0])?.id;
+    let compteId = d.compteId || (d.revolut ? compteRevolut(etat)?.id : null) || (etat.comptes.find((c) => c.type === 'courant') || etat.comptes[0])?.id;
     let sansArrondi = false;
     const source = d.source || 'texte';
     const th = tauxHoraire(etat, periodeBudget(aujourdhui(), etat.profil).mois);
@@ -247,6 +252,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       if (r.libelle) { libelle = r.libelle; libInput.value = libelle; }
       if (r.date) { date = r.date; dateInput.value = date; }
       if (r.categorie) cat = r.categorie;
+      if (r.revolut && rev) { compteId = rev.id; compteSel.value = compteId; majRevolut(); }
       rendreCats(); devinerCategorie(); maj(); majRecurrent();
     };
     phrase.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); analyserPhraseLocale(); } });
@@ -275,7 +281,12 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       puces, champ('Ou choisis la date', dateInput), notePassee) : null;
     if (d.passee) { majPuces(); majNotePassee(); }
     const passerEnPassee = () => montrer('clavier', { ...d, sens, montantCentimes: montant, libelle, categorie: cat, compteId, passee: true, date: hier });
-    const compteSel = selectionner(etat.comptes.map((c) => [c.id, c.nom]), compteId, (v) => { compteId = v; });
+    // « Payé avec Revolut » : une étiquette en un toucher (le compte change), le choix du compte reste possible
+    const rev = compteRevolut(etat);
+    const compteSel = selectionner(etat.comptes.map((c) => [c.id, c.nom]), compteId, (v) => { compteId = v; majRevolut(); });
+    const puceRevolut = rev ? h('button', { type: 'button', class: 'puce-revolut', onclick: () => { compteId = compteId === rev.id ? compteParDefaut(etat)?.id : rev.id; compteSel.value = compteId; majRevolut(); } }, icone('banque'), h('span', {}, 'Payé avec Revolut')) : null;
+    const majRevolut = () => { if (!puceRevolut) return; const oui = compteId === rev.id; puceRevolut.classList.toggle('active', oui); puceRevolut.setAttribute('aria-pressed', String(oui)); };
+    majRevolut();
     const erreur = h('p', { class: 'erreur', role: 'alert', hidden: true });
 
     const ajouter = async () => {
@@ -303,6 +314,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
         h('button', { type: 'button', class: 'lien-capture', onclick: () => privation() }, icone('tirelire'), h('span', {}, 'Je me suis privé → épargne')),
         h('button', { type: 'button', class: 'lien-capture', onclick: () => depuisCapture() }, icone('importer'), h('span', {}, 'Importer une capture d’écran'))),
       h('div', { class: 'montant-bloc' }, champM, ajusteurs, impact, arrondiInfo, recurrent),
+      puceRevolut,
       champ('Libellé', libInput),
       h('div', { class: 'champ' }, h('span', { class: 'champ-libelle' }, 'Catégorie'), zoneCats),
       d.passee ? champ('Compte', compteSel) : h('div', { class: 'deux-colonnes' }, champ('Date', dateInput), champ('Compte', compteSel)),

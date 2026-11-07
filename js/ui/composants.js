@@ -107,6 +107,10 @@ export function puceCategorie(id) {
 }
 
 /** Ligne de transaction : marchand et catégorie à gauche, montant (et date si demandée) à droite. */
+/** Compte à signaler par une petite étiquette dans les listes (Revolut). Réglé par la page qui affiche la liste. */
+let compteEtiquete = null;
+export function definirCompteEtiquete(id, nom = 'Revolut') { compteEtiquete = id ? { id, nom } : null; }
+
 export function ligneTransaction(tx, onClick, o = {}) {
   const n = natureTransaction(tx);
   const neutre = ['interne', 'epargne', 'ajustement', 'pret', 'deblocage'].includes(n);
@@ -116,7 +120,8 @@ export function ligneTransaction(tx, onClick, o = {}) {
     puceCategorie(tx.categorie),
     h('span', { class: 'ligne-tx-texte' },
       h('span', { class: 'ligne-tx-titre' }, tx.libelle || tx.marchand || 'Sans libellé'),
-      h('span', { class: 'ligne-tx-sous' }, tx.aQualifier || o.aVerifier ? h('span', { class: 'a-qualifier' }, 'À vérifier') : null, c.nom)),
+      h('span', { class: 'ligne-tx-sous' }, tx.aQualifier || o.aVerifier ? h('span', { class: 'a-qualifier' }, 'À vérifier') : null,
+        compteEtiquete && tx.compteId === compteEtiquete.id ? h('span', { class: 'etiquette-compte' }, compteEtiquete.nom) : null, c.nom)),
     h('span', { class: 'ligne-tx-droite' },
       h('span', { class: 'ligne-tx-montant' }, h('span', { class: 'signe', 'aria-hidden': 'true' }, signe), mt(tx.montantCentimes), h('span', { class: 'sr' }, tx.sens === 'credit' ? ' en entrée' : ' en sortie')),
       o.avecDate ? h('span', { class: 'ligne-tx-date' }, libelleRelatif(tx.date)) : null));

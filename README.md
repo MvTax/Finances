@@ -261,6 +261,13 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## Payé avec Revolut (1.33)
+
+- **À l'ajout** : sous le montant, l'étiquette « Payé avec Revolut » (un toucher) range la dépense sur le compte Revolut ; le choix du compte reste possible plus bas. Dans une phrase, le mot « revolut » (« menu 9,50 revolut », « par revolut hier 12 € uber ») fait la même chose ; au micro, Gemini le repère aussi. Dans la vérification de plusieurs dépenses, chaque ligne a sa petite étiquette « Revolut ».
+- **Après coup** : dans le détail d'une dépense, « Payé avec » LCL / Revolut.
+- **Dans la liste** : une petite étiquette « Revolut » sur les opérations Revolut ; elles restent dans la liste principale et dans le budget.
+- **Suivi Revolut**, discret, en haut des Dépenses : une ligne repliée (dépenses Revolut depuis le salaire, nombre, solde Revolut). Ouverte : les 8 dernières opérations Revolut et « Voir tout » (liste filtrée sur Revolut).
+
 ## Version 1.32
 
 - **Virement en 4 fois par mois** : 6 jours après le salaire, puis tous les 7 jours (salaire le 5 → le 11, le 18, le 25 et le 1er ou le 2). Chaque virement : la part de l'épargne du mois (ce qui reste, divisé par les virements restants, arrondi à l'euro) + arrondis + repas, privations, restes du jour. La case affiche « virement 1 sur 4 » et la date ; un virement oublié passe en « à faire aujourd'hui » avec la part reportée. Le rappel au calendrier se répète chaque mois à ces dates.

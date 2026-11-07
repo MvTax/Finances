@@ -3,14 +3,18 @@
 
 import { extraireMontantPhrase } from './money.js';
 import { extraireDatePhrase, aujourdhui } from './dates.js';
+import { MOT_REVOLUT } from './revolut.js';
 
 const MOTS_CREDIT = /\b(re[çc]u|recu|reçois|rembours[ée]e? par|m'a (donn[ée]|rendu|vir[ée]|envoy[ée]|rembours[ée])|salaire|prime|gagn[ée]|vendu|vente|entr[ée]e)\b/i;
 // Limites de mot « unicode » : sans elles, « ma » serait retiré de « cinéma » (le é n'est pas une lettre pour \b)
 const MOTS_VIDES = /(?<![\p{L}'])(j'ai|jai|j ai|d[ée]pens[ée]|pay[ée]|achet[ée]|pris|un|une|des|de|du|le|la|les|l'|au|aux|à|a|en|pour|chez|ce|cet|cette|matin|midi|soir|euros?|balles?|€|re[çc]u|recu|m'a|ma|mon|mes|sa|son|ses|fois|x|et)(?![\p{L}])/giu;
 
 export function analyserPhrase(texte, ref = aujourdhui()) {
-  const brut = String(texte || '').trim();
-  if (!brut) return null;
+  const original = String(texte || '').trim();
+  if (!original) return null;
+  // « revolut » : payé avec Revolut. Remplacé par des espaces de même longueur (les positions du montant restent justes)
+  const revolut = MOT_REVOLUT.test(original);
+  const brut = original.replace(new RegExp(MOT_REVOLUT.source, 'giu'), (x) => ' '.repeat(x.length));
   const m = extraireMontantPhrase(brut);
   const d = extraireDatePhrase(brut, ref);
   let reste = brut;
@@ -26,6 +30,7 @@ export function analyserPhrase(texte, ref = aujourdhui()) {
     libelle,
     date: d ? d.date : ref,
     dateExplicite: !!d,
+    revolut,
     confiance: m ? (libelle ? 'haute' : 'moyenne') : 'basse',
   };
 }

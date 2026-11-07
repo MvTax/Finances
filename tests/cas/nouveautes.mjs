@@ -11,6 +11,7 @@ import { analyserPhrases, analyserPhrase } from '../../js/saisie.js';
 import { datesVirements, joursDuMoisVirements } from '../../js/virements.js';
 import { validerVoixMulti } from '../../js/ia.js';
 import { simulerAchat } from '../../js/simulation.js';
+import { compteRevolut, suiviRevolut } from '../../js/revolut.js';
 
 const revenus = { mois: '2026-11', salaireCentimes: 150000, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' };
 const etat = (extra = {}) => { const e = etatBase({ revenusMensuels: [revenus], privations: [], ...extra }); e.profil.repasAuto = { actif: false }; e.meta = {}; return e; };
@@ -110,5 +111,17 @@ export default [
     const gros = simulerAchat(e, '2026-11-11', { montantCentimes: 30000 });
     egal(gros.sansRisque, false); egal(gros.dateSansRisque, '2026-12-05', 'après le salaire');
     vrai(gros.apres.partSuivantsCentimes < gros.avant.partSuivantsCentimes);
+  } },
+  { nom: 'payé avec Revolut : le mot dans une phrase, et le suivi des dépenses Revolut du mois', fn: () => {
+    egal(analyserPhrase('revolut menu 9,50', '2026-11-07').revolut, true);
+    egal(analyserPhrase('revolut menu 9,50', '2026-11-07').montantCentimes, 950, 'le montant reste juste');
+    egal(analyserPhrase('menu 9,50', '2026-11-07').revolut, false);
+    const e = etat({ transactions: [
+      tx({ date: '2026-11-06', montant: 731, compteId: 'neo' }), tx({ date: '2026-11-07', montant: 300, compteId: 'neo' }),
+      tx({ date: '2026-11-07', montant: 950 }), tx({ date: '2026-10-30', montant: 500, compteId: 'neo' })] });
+    e.comptes[1] = { ...e.comptes[1], nom: 'Revolut', banque: 'revolut' };
+    egal(compteRevolut(e).id, 'neo');
+    const s = suiviRevolut(e, '2026-11-07');
+    egal(s.depensesCentimes, 1031); egal(s.nbDepenses, 2); egal(s.operations[0].date, '2026-11-07', 'le plus récent d’abord');
   } },
 ];
