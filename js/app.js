@@ -7,6 +7,7 @@ import { spriteSVG } from './ui/icones.js';
 import { h, icone, definirMasquage } from './ui/dom.js';
 import { toast, toastErreur } from './ui/toast.js';
 import { appliquerTheme } from './app-theme.js';
+import { appliquerStyle, noterJourVu } from './ui/fete.js';
 import { verrouiller, installerConfidentialite } from './securite.js';
 import { definirNomsCategories } from './categories.js';
 import { versionApp } from './version.js';
@@ -203,7 +204,7 @@ function programmerRestes() {
   const lancer = async () => {
     clearTimeout(minuterie);
     if (etat.parametres.onboarding?.termine) {
-      try { annoncerRestes(await cloturerJoursPasses()); } catch (e) { console.warn('Restes du jour', e?.message); }
+      try { annoncerRestes(await cloturerJoursPasses()); await noterJourVu(); } catch (e) { console.warn('Restes du jour', e?.message); }
     }
     minuterie = setTimeout(lancer, Math.max(60000, Math.min(prochaineCloture() - Date.now(), 6 * 3600 * 1000)));
   };
@@ -220,18 +221,20 @@ async function demarrer() {
     return;
   }
   appliquerTheme(etat.parametres.theme);
+  appliquerStyle();
   definirMasquage(etat.parametres.masquageMontants);
   definirNomsCategories(etat.parametres.nomsCategories || {});
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => appliquerTheme(etat.parametres.theme));
   // Restes du jour clos depuis la dernière ouverture (avant le premier affichage, pour des chiffres justes)
   let restes = [];
   if (etat.parametres.onboarding?.termine) { try { restes = await cloturerJoursPasses(); } catch (e) { console.warn('Restes du jour', e?.message); } }
+  try { await noterJourVu(); } catch (e) { console.warn('Jeu', e?.message); }
   await verrouiller();
   installerConfidentialite(() => { if (!document.hidden) redessiner(); });
   for (const [nom, ch] of Object.entries(PAGES)) definirRoute(nom, ch);
   quandNavigation((r) => afficher(r));
   demarrerRouteur();
-  surChangement((raison) => { if (raison === 'parametres') definirMasquage(etat.parametres.masquageMontants); redessiner(); });
+  surChangement((raison) => { if (raison === 'parametres') { definirMasquage(etat.parametres.masquageMontants); appliquerStyle(); } redessiner(); });
   document.getElementById('bouton-plus').addEventListener('click', () => ouvrirPlus());
   gererClavier();
   installerBalayage();

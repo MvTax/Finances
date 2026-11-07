@@ -31,6 +31,7 @@ export const PROFIL_DEFAUT = {
 export const PARAMETRES_DEFAUT = {
   cle: 'parametres',
   theme: 'auto',
+  style: 'classique',
   mode100Local: false,
   modeleGemini: null,
   cleGemini: '',

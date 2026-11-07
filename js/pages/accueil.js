@@ -26,6 +26,8 @@ import { previsionFinDeMois } from '../prevision.js';
 import { phrasePrevision, feuillePrevision } from './prevision.js';
 import { estAnnoncee, bilanJour } from '../sansdepense.js';
 import { feuilleSansDepense, annoncerSansDepense } from './sans-depense.js';
+import { estJoyeux } from '../ui/fete.js';
+import { heroJoyeux, boutonsJoyeux, carteQuetes, banniereJoyeux } from './accueil-joyeux.js';
 
 export const titre = 'Accueil';
 let dernierReste = null;
@@ -47,7 +49,7 @@ export function rendre(vue) {
       h('p', { class: 'accueil-date' }, jour.charAt(0).toUpperCase() + jour.slice(1)),
       h('a', { class: 'bouton-reglages', href: '#reglages', 'aria-label': 'Réglages' }, icone('reglages'))),
     h('div', { class: 'accueil-entete-bas' },
-      h('h1', { class: 'grand-titre' }, etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour'),
+      h('h1', { class: 'grand-titre' }, estJoyeux() ? (etat.profil.prenomAffichage ? `Salut ${etat.profil.prenomAffichage} 👋` : 'Salut 👋') : etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour'),
       pastilleSolde(auj)));
 
   const ajout = h('button', { class: 'btn btn-principal btn-large ajout-depense', type: 'button', onclick: async () => { const { ouvrirSaisie } = await import('./saisie.js'); ouvrirSaisie(); } }, icone('plus'), h('span', {}, 'Ajouter une dépense'));
@@ -73,7 +75,13 @@ export function rendre(vue) {
   const voirPlus = h('details', { class: 'voir-plus', open: voirPlusOuvert || null, ontoggle: (e) => { voirPlusOuvert = e.target.open; } },
     h('summary', {}, h('span', {}, 'Voir plus'), h('small', {}, 'analyse du mois, prévision, rappels, raccourcis')),
     h('div', { class: 'voir-plus-contenu' }, ...[carteAnalyse(r, jauge, analyse), carteOutils(prev, auj), urgent ? null : ess, rubriques(r, auj, infos, critique)].filter(Boolean)));
-  vue.replaceChildren(...[entete, hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
+  if (estJoyeux()) {
+    // Joyeux : Sou et le reste du jour, les deux gros boutons, les quêtes, puis les épargnes (mêmes chiffres)
+    const prevNode = prev && phrasePrevision(prev) ? h('button', { type: 'button', class: `hero-prevision ${prev.alerte ? 'alerte' : prev.previsionCentimes < 0 ? 'attention' : ''}`, onclick: () => feuillePrevision() }, prev.alerte ? icone('alerte') : icone('graphique'), h('span', {}, phrasePrevision(prev), prev.alerte ? `. Pour tenir : ${formatEuros(prev.partMaxCentimes)}/jour maximum.` : '')) : null;
+    vue.replaceChildren(...[entete, heroJoyeux(r, jauge, { extras: [prevNode, puceSansDepense(jauge)], aideNode: aideJour(r, jauge) }), boutonsJoyeux(), carteQuetes(), blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
+    return;
+  }
+  vue.replaceChildren(...[entete, banniereJoyeux(), hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
 }
 
 /** Solde du compte, coloré selon la lancée du mois (vert, orange, rouge). Toucher : le détail. */
@@ -126,10 +134,7 @@ function hero(r, j, analyse = null, prev = null) {
   const pct = j.parJourCentimes > 0 ? Math.min(100, Math.max(0, Math.round((j.depensesDuJourCentimes / j.parJourCentimes) * 100))) : 0;
   return h('section', { class: `hero ${j.critique && r.revenus.totalCentimes > 0 ? 'hero-critique' : ''}`, 'aria-labelledby': 'hero-t' },
     h('h2', { id: 'hero-t', class: 'hero-libelle' }, moisDepasse ? 'Ce mois-ci, tu as dépassé de' : depasse ? 'Aujourd’hui, tu as dépassé de' : 'Aujourd’hui, tu peux dépenser',
-      aide('Ce que tu peux dépenser aujourd’hui', () => ({
-        texte: `Ce qui te reste pour le mois au début de la journée, divisé par les ${j.joursRestants} jours jusqu’au salaire, moins ce que tu as déjà dépensé aujourd’hui. Ce qui n’est pas dépensé part à l’épargne demain à 5 h.`,
-        lignes: [['Reste du mois ce matin', j.instantane?.baseCentimes ?? r.resteCentimes], ['÷ jours jusqu’au salaire', String(j.joursRestants)], ['= ta part du jour', j.parJourCentimes, 'forte'], ['− dépensé aujourd’hui (arrondis et privations compris)', j.depensesDuJourCentimes], ['= reste aujourd’hui', j.restantAujourdhuiCentimes, 'forte']],
-      }), { clair: true })),
+      aideJour(r, j)),
     valeur,
     h('div', { class: 'hero-jauge', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `Dépensé aujourd'hui : ${formatEuros(j.depensesDuJourCentimes)} sur ${formatEuros(j.parJourCentimes)}` },
       h('span', { style: { width: `${pct}%` } })),
@@ -143,6 +148,14 @@ function hero(r, j, analyse = null, prev = null) {
     prev && phrasePrevision(prev) ? h('button', { type: 'button', class: `hero-prevision ${prev.alerte ? 'alerte' : prev.previsionCentimes < 0 ? 'attention' : ''}`, onclick: () => feuillePrevision() }, prev.alerte ? icone('alerte') : icone('graphique'), h('span', {}, phrasePrevision(prev), prev.alerte ? `. Pour tenir : ${formatEuros(prev.partMaxCentimes)}/jour maximum.` : '')) : null,
     puceSansDepense(j),
     analyse ? null : h('button', { type: 'button', class: 'hero-lien', onclick: () => feuilleCalcul(r, j) }, 'Pourquoi ce chiffre ?', icone('suivant')));
+}
+
+/** Le « ? » du chiffre du jour : comment il est calculé. */
+function aideJour(r, j) {
+  return aide('Ce que tu peux dépenser aujourd’hui', () => ({
+    texte: `Ce qui te reste pour le mois au début de la journée, divisé par les ${j.joursRestants} jours jusqu’au salaire, moins ce que tu as déjà dépensé aujourd’hui. Ce qui n’est pas dépensé part à l’épargne demain à 5 h.`,
+    lignes: [['Reste du mois ce matin', j.instantane?.baseCentimes ?? r.resteCentimes], ['÷ jours jusqu’au salaire', String(j.joursRestants)], ['= ta part du jour', j.parJourCentimes, 'forte'], ['− dépensé aujourd’hui (arrondis et privations compris)', j.depensesDuJourCentimes], ['= reste aujourd’hui', j.restantAujourdhuiCentimes, 'forte']],
+  }), { clair: true });
 }
 
 /** Journée sans dépense : annoncée → son état ; sinon, une proposition tant que rien n'est dépensé aujourd'hui. */

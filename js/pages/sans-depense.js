@@ -8,11 +8,13 @@ import { etat, ecrireMeta } from '../store.js';
 import { calendrierSansDepense, estAnnoncee, serieSansDepense } from '../sansdepense.js';
 import { aujourdhui, formatDateCourte } from '../dates.js';
 import { formatEuros } from '../money.js';
+import { feter } from '../ui/fete.js';
 
 export async function annoncerSansDepense(jour = aujourdhui(), oui = true) {
   const jours = { ...(etat.meta.sansDepense?.jours || {}) };
   if (oui) jours[jour] = { annonceLe: new Date().toISOString() }; else delete jours[jour];
   await ecrireMeta('sansDepense', { jours }, { avertir: true });
+  if (oui && jour === aujourdhui()) feter('sansDepense', { texte: 'à gagner si tu tiens' });
 }
 
 const LIBELLES = { tenue: 'tenue', rompue: 'rompue', enCours: 'en cours', sansDepense: 'sans dépense (non annoncée)', libre: '', futur: '' };

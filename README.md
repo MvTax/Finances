@@ -261,6 +261,23 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## Style Joyeux (1.35)
+
+Deux styles au choix, avec exactement les mêmes chiffres : **Classique** (sobre, celui d'avant) et **Joyeux**.
+Réglages → Confidentialité et apparence → Style de l'app. En Classique, une bannière propose d'essayer le Joyeux une fois.
+
+- **Sou**, une pièce mascotte, change de tête selon ce qui te reste aujourd'hui (ravie, contente, inquiète, pile, triste) et dit une petite phrase. Touche-la pour une autre phrase.
+- Le reste du jour en très grand, et **10 pièces** : celles qui restent dorées, c'est ce qu'il te reste de ta part du jour.
+- **Série 🔥** : jours d'affilée où tu ouvres l'app ou notes une dépense.
+- **Points (XP) et niveaux** : Petite pièce, Tirelire, Écureuil malin, Coffre-fort, Gardien du trésor, Légende de l'épargne.
+  +5 par dépense notée à la main (6 par jour au plus), +10 pour la première du jour, +10 par « Je me suis privé »,
+  +15 par journée finie sous ta part, +25 par virement vers l'épargne, +40 par journée sans dépense annoncée et tenue.
+  Les points sont recalculés depuis les données (un relevé importé ne rapporte rien ; supprimer une saisie retire ses points).
+- **Quêtes du jour** : noter ce que tu dépenses, rester sous ta part, mettre une pièce de côté. Elles se cochent toutes seules.
+- Confettis et « +XP » à chaque dépense notée, privation, virement ou journée sans dépense annoncée ; grand bravo au passage de niveau.
+  Avec « Réduire les animations » sur l'iPhone, pas de confettis.
+- Polices Fredoka et Nunito (licence SIL OFL, fichiers dans `fonts/`), embarquées : rien n'est chargé depuis Internet.
+
 ## Payé avec Revolut (1.33)
 
 - **À l'ajout** : sous le montant, l'étiquette « Payé avec Revolut » (un toucher) range la dépense sur le compte Revolut ; le choix du compte reste possible plus bas. Dans une phrase, le mot « revolut » (« menu 9,50 revolut », « par revolut hier 12 € uber ») fait la même chose ; au micro, Gemini le repère aussi. Dans la vérification de plusieurs dépenses, chaque ligne a sa petite étiquette « Revolut ».

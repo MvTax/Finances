@@ -24,6 +24,8 @@ import { depensesFrequentes } from '../express.js';
 import { compteRevolut, compteParDefaut } from '../revolut.js';
 import { estAnnoncee } from '../sansdepense.js';
 import { estDepenseQuotidienne } from '../calculs.js';
+import { feter, estJoyeux } from '../ui/fete.js';
+import { estSaisie, POINTS } from '../jeu.js';
 
 /**
  * Plusieurs opérations dites ou tapées en une phrase : une seule vérification, puis tout est ajouté d'un coup.
@@ -85,9 +87,15 @@ export function feuillePlusieurs(operations, source = 'phrase') {
 /** Toast après un ajout : montant, arrondi, et la journée sans dépense rompue s'il y en avait une. */
 function toastAjout(tx, { annuler = true } = {}) {
   const auj = aujourdhui();
+  if (estSaisie(tx)) {
+    // Joyeux : +5 XP par dépense (6 par jour au plus), +10 pour la première du jour
+    const n = etat.transactions.filter((t) => t.date === tx.date && estSaisie(t)).length;
+    const xp = n > POINTS.saisiesMaxJour ? 0 : POINTS.saisie + (n === 1 ? POINTS.jourNote : 0);
+    feter('saisie', { xp, texte: n === 1 ? 'première du jour' : 'dépense notée' });
+  }
   const arr = estEligibleArrondi(tx, etat.profil.arrondi) && etat.profil.arrondi?.actif ? arrondiEuroSuperieur(tx.montantCentimes) : 0;
   const rompue = tx.sens === 'debit' && tx.date === auj && estAnnoncee(etat, auj) && estDepenseQuotidienne(tx);
-  toast(`${tx.sens === 'debit' ? 'Dépense' : 'Entrée'}${tx.date !== auj ? ` du ${formatDateCourte(tx.date)}` : ''} ajoutée : ${formatEuros(tx.montantCentimes)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}${rompue ? '. Ta journée sans dépense est rompue.' : ''}`,
+  toast(`${estJoyeux() ? (tx.sens === 'debit' ? '🎉 ' : '💰 ') : ''}${tx.sens === 'debit' ? 'Dépense' : 'Entrée'}${tx.date !== auj ? ` du ${formatDateCourte(tx.date)}` : ''} ajoutée : ${formatEuros(tx.montantCentimes)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}${rompue ? '. Ta journée sans dépense est rompue.' : ''}`,
     annuler ? { action: { libelle: 'Annuler', fn: () => supprimerTransaction(tx) }, duree: 5000 } : {});
 }
 

@@ -1,0 +1,360 @@
+/* joyeux.css — le style « Joyeux » : une fête foraine de poche. Fond menthe, encre prune, raisin pour le grand bloc,
+   or pour les pièces, rose et menthe vive pour les actions. Look « autocollant » : contours d'encre 2 px, ombres pleines
+   décalées qui s'enfoncent quand on appuie. Fredoka pour les titres et les chiffres, Nunito pour le texte.
+   Tout est rangé sous :root[data-style="joyeux"] : le style Classique n'est pas touché. */
+
+@font-face { font-family: "Fredoka"; src: url("../fonts/fredoka.woff2") format("woff2"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "Nunito"; src: url("../fonts/nunito.woff2") format("woff2"); font-weight: 200 1000; font-display: swap; }
+
+/* ---------- Sou, la mascotte (aussi utilisée par la bannière du style Classique) ---------- */
+.sou { overflow: visible; }
+.sou-piece { fill: #ffc531; stroke: #1b1740; stroke-width: 4; }
+.sou-bord { fill: none; stroke: #e09a00; stroke-width: 3; }
+.sou-brillance { fill: none; stroke: #fff; stroke-width: 5; stroke-linecap: round; opacity: .85; }
+.sou-joue { fill: #ff7a9c; opacity: .75; }
+.sou-oeil, .sou-bouche { fill: #1b1740; }
+.sou-reflet { fill: #fff; }
+.sou-trait { fill: none; stroke: #1b1740; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.sou-trait.fin { stroke-width: 3; }
+.sou-langue { fill: none; stroke: #ff4f79; stroke-width: 4; stroke-linecap: round; }
+.sou-larme { fill: #3ec5ff; stroke: #1b1740; stroke-width: 1.5; }
+.sou-ombre { fill: rgb(27 23 64 / 22%); }
+
+/* Bannière « Nouveau : le style Joyeux » (affichée en Classique) */
+.banniere-joyeux { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: var(--rayon); background: var(--surface); }
+.banniere-joyeux-sou { flex: none; }
+.banniere-joyeux p { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.banniere-joyeux small { font-size: 13px; color: var(--texte-2); }
+.banniere-joyeux-boutons { display: flex; align-items: center; gap: 2px; flex: none; }
+
+/* ---------- Jetons ---------- */
+:root[data-style="joyeux"] {
+  --police: "Nunito", ui-rounded, -apple-system, system-ui, sans-serif;
+  --police-chiffres: "Fredoka", ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  --police-titres: "Fredoka", ui-rounded, -apple-system, system-ui, sans-serif;
+  --rayon: 22px;
+  --rayon-petit: 14px;
+  --encre: #1b1740;
+  --or: #ffc531;
+  --or-fonce: #e09a00;
+  --rose: #ff4f79;
+  --menthe: #12c784;
+  --pop: 0 4px 0 var(--encre);
+  --pop-fort: 0 6px 0 var(--encre);
+  --trait: 2px solid var(--encre);
+  --case-bord: var(--encre);
+  --puce-fond: #1b1740;
+
+  --fond: #e8f8f1;
+  --surface: #ffffff;
+  --surface-2: #f1eeff;
+  --surface-3: #ddd6ff;
+  --texte: #1b1740;
+  --texte-2: #4a4570;
+  --texte-3: #67638c;
+  --separateur: #e4e0f5;
+  --accent: #6c4cf1;
+  --accent-doux: #ece7ff;
+  --accent-texte: #ffffff;
+  --laiton: #946600;
+  --laiton-doux: #fff1c7;
+  --vert: #0b7a50;
+  --vert-doux: #d5f5e6;
+  --orange: #b35500;
+  --orange-doux: #ffe7cf;
+  --rouge: #c8264f;
+  --rouge-doux: #ffe1e8;
+  --bleu: #6c4cf1;
+  --hero-fond: #6c4cf1;
+  --hero-texte: #ffffff;
+  --hero-texte-2: #e6deff;
+  --voile: rgb(27 23 64 / 45%);
+  --ombre-forte: 0 6px 0 var(--encre);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-style="joyeux"]:not([data-theme="clair"]) {
+    --encre: #07051a;
+    --case-bord: #a69ed3;
+    --puce-fond: #3a3068;
+    --fond: #15112b;
+    --surface: #211a40;
+    --surface-2: #2c2354;
+    --surface-3: #3a3068;
+    --texte: #f5f2ff;
+    --texte-2: #cac3ef;
+    --texte-3: #a69ed3;
+    --separateur: #342b60;
+    --accent: #a895ff;
+    --accent-doux: #2e2560;
+    --accent-texte: #15112b;
+    --laiton: #ffc83d;
+    --laiton-doux: #3a2e12;
+    --vert: #3ddc97;
+    --vert-doux: #133628;
+    --orange: #ffaa5c;
+    --orange-doux: #3a2410;
+    --rouge: #ff7a9c;
+    --rouge-doux: #3d1626;
+    --bleu: #a895ff;
+    --hero-fond: #5b3fd9;
+    --hero-texte-2: #ddd3ff;
+    --voile: rgb(0 0 0 / 60%);
+  }
+}
+:root[data-style="joyeux"][data-theme="sombre"] {
+  --encre: #07051a;
+  --case-bord: #a69ed3;
+  --puce-fond: #3a3068;
+  --fond: #15112b;
+  --surface: #211a40;
+  --surface-2: #2c2354;
+  --surface-3: #3a3068;
+  --texte: #f5f2ff;
+  --texte-2: #cac3ef;
+  --texte-3: #a69ed3;
+  --separateur: #342b60;
+  --accent: #a895ff;
+  --accent-doux: #2e2560;
+  --accent-texte: #15112b;
+  --laiton: #ffc83d;
+  --laiton-doux: #3a2e12;
+  --vert: #3ddc97;
+  --vert-doux: #133628;
+  --orange: #ffaa5c;
+  --orange-doux: #3a2410;
+  --rouge: #ff7a9c;
+  --rouge-doux: #3d1626;
+  --bleu: #a895ff;
+  --hero-fond: #5b3fd9;
+  --hero-texte-2: #ddd3ff;
+  --voile: rgb(0 0 0 / 60%);
+}
+
+/* ---------- Base ---------- */
+:root[data-style="joyeux"] body { font-weight: 600; letter-spacing: .1px; }
+:root[data-style="joyeux"] strong, :root[data-style="joyeux"] b { font-weight: 800; }
+:root[data-style="joyeux"] .grand-titre, :root[data-style="joyeux"] .titre-page { font-family: var(--police-titres); font-weight: 600; letter-spacing: 0; }
+:root[data-style="joyeux"] .carte-titre, :root[data-style="joyeux"] .feuille-titre, :root[data-style="joyeux"] .sous-titre, :root[data-style="joyeux"] .coffres-titre, :root[data-style="joyeux"] .feuille-sous-titre { font-family: var(--police-titres); font-weight: 600; letter-spacing: 0; }
+:root[data-style="joyeux"] .accueil-date { font-weight: 700; color: var(--texte-2); }
+:root[data-style="joyeux"] .bouton-reglages { border: var(--trait); border-radius: 50%; background: var(--surface); box-shadow: 0 3px 0 var(--encre); color: var(--texte); }
+:root[data-style="joyeux"] .bouton-reglages:active { transform: translateY(3px); box-shadow: none; }
+
+/* Blocs « autocollants » */
+:root[data-style="joyeux"] .carte-corps, :root[data-style="joyeux"] .ligne-a-traiter, :root[data-style="joyeux"] .tuile, :root[data-style="joyeux"] .voir-plus > summary, :root[data-style="joyeux"] .banniere-joyeux {
+  border: var(--trait); box-shadow: var(--pop); border-radius: var(--rayon);
+}
+:root[data-style="joyeux"] .voir-plus > summary { border-style: dashed; box-shadow: none; background: transparent; font-family: var(--police-titres); font-weight: 600; }
+:root[data-style="joyeux"] .tuile:active, :root[data-style="joyeux"] .ligne-a-traiter:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--encre); }
+
+/* Boutons qui s'enfoncent */
+:root[data-style="joyeux"] .btn { font-family: var(--police-titres); font-weight: 600; letter-spacing: .1px; border: var(--trait); transition: transform 90ms ease-out, box-shadow 90ms ease-out; }
+:root[data-style="joyeux"] .btn-principal { background: var(--accent); color: var(--accent-texte); box-shadow: var(--pop); }
+:root[data-style="joyeux"] .btn-secondaire { background: var(--surface); color: var(--texte); box-shadow: 0 3px 0 var(--encre); }
+:root[data-style="joyeux"] .btn-danger { box-shadow: var(--pop); }
+:root[data-style="joyeux"] .btn-danger-texte { border-color: transparent; }
+:root[data-style="joyeux"] .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--encre); }
+:root[data-style="joyeux"] .btn:disabled { box-shadow: none; }
+:root[data-style="joyeux"] .btn-large { border-radius: 18px; min-height: 58px; }
+:root[data-style="joyeux"] .lien { font-weight: 800; }
+
+/* Champs */
+:root[data-style="joyeux"] .input { border: 2px solid transparent; font-weight: 700; }
+:root[data-style="joyeux"] .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-doux); }
+:root[data-style="joyeux"] .segment, :root[data-style="joyeux"] .onglets-internes { background: var(--surface-2); border: var(--trait); border-radius: 16px; padding: 3px; }
+:root[data-style="joyeux"] .segment-option, :root[data-style="joyeux"] .onglet-interne { border-radius: 12px; font-family: var(--police-titres); font-weight: 600; }
+:root[data-style="joyeux"] .segment-option.actif, :root[data-style="joyeux"] .onglet-interne.actif { background: var(--accent); color: var(--accent-texte); box-shadow: none; }
+
+/* Barre d'onglets : le + est une grosse pièce d'or */
+:root[data-style="joyeux"] .barre-onglets { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border-top: var(--trait); }
+:root[data-style="joyeux"] .onglet { font-weight: 800; font-size: 11.5px; color: var(--texte-3); }
+:root[data-style="joyeux"] .onglet.actif { color: var(--accent); }
+:root[data-style="joyeux"] .onglet.actif .ic { transform: translateY(-1px) scale(1.08); }
+:root[data-style="joyeux"] .onglet-plus { width: 62px; height: 62px; margin-top: -24px; background: var(--or); color: #1b1740; border: 2.5px solid var(--encre); box-shadow: var(--pop); }
+:root[data-style="joyeux"] .onglet-plus .ic { stroke-width: 3; }
+:root[data-style="joyeux"] .onglet-plus:active { transform: translateY(4px); box-shadow: none; }
+
+/* Feuilles */
+:root[data-style="joyeux"] .feuille { border: 2.5px solid var(--encre); border-bottom: 0; border-radius: 28px 28px 0 0; box-shadow: none; }
+:root[data-style="joyeux"] .feuille-poignee { background: var(--surface-3); width: 46px; height: 6px; }
+:root[data-style="joyeux"] .feuille-titre { font-size: 20px; }
+:root[data-style="joyeux"] .feuille-actions { border-top: 2px solid var(--separateur); }
+
+/* Toasts */
+:root[data-style="joyeux"] .toast { background: var(--surface); color: var(--texte); border: var(--trait); box-shadow: var(--pop); border-radius: 18px; font-weight: 700; }
+:root[data-style="joyeux"] .toast-succes { background: #c9f7e2; color: #0a3a27; }
+:root[data-style="joyeux"] .toast-erreur { background: #ffd6e0; color: #5a0f24; }
+:root[data-style="joyeux"] .toast-action { color: var(--accent); }
+:root[data-style="joyeux"] .toast-succes .toast-action, :root[data-style="joyeux"] .toast-erreur .toast-action { color: inherit; }
+
+/* Solde à droite de « Salut » */
+:root[data-style="joyeux"] .pastille-solde { border: var(--trait); box-shadow: 0 3px 0 var(--encre); border-radius: 16px; }
+:root[data-style="joyeux"] .pastille-solde:active { transform: translateY(3px); box-shadow: none; }
+:root[data-style="joyeux"] .pastille-solde-montant { font-family: var(--police-chiffres); font-weight: 600; }
+
+/* Épargnes */
+:root[data-style="joyeux"] .coffres-titre { font-size: 20px; }
+:root[data-style="joyeux"] .coffre { border: var(--trait); border-radius: var(--rayon); box-shadow: var(--pop), inset 0 7px 0 var(--pc); padding-top: 18px; }
+:root[data-style="joyeux"] .coffre:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--encre), inset 0 7px 0 var(--pc); }
+:root[data-style="joyeux"] .coffre-solde, :root[data-style="joyeux"] .coffre-virer-montant { font-family: var(--police-chiffres); font-weight: 600; letter-spacing: 0; }
+:root[data-style="joyeux"] .coffre-barre { height: 10px; border-radius: 6px; border: 1.5px solid var(--encre); }
+:root[data-style="joyeux"] .coffre-virer { border: var(--trait); box-shadow: var(--pop); border-radius: var(--rayon); }
+:root[data-style="joyeux"] .coffre-virer .coffre-nom { font-family: var(--police-titres); font-weight: 600; font-size: 16px; }
+:root[data-style="joyeux"] .btn-copier { border-radius: 999px; }
+
+/* Montants : Fredoka partout où il y a un gros chiffre */
+:root[data-style="joyeux"] .chiffre-principal, :root[data-style="joyeux"] .stat-valeur, :root[data-style="joyeux"] .ligne-tx-montant, :root[data-style="joyeux"] .fiche-solde, :root[data-style="joyeux"] .input-montant { font-family: var(--police-chiffres); font-weight: 600; letter-spacing: 0; }
+
+/* ---------- Accueil Joyeux ---------- */
+:root[data-style="joyeux"] .hero-joyeux {
+  position: relative; display: flex; flex-direction: column; gap: 8px; margin-top: 2px; padding: 16px 16px 16px;
+  border: 2.5px solid var(--encre); border-radius: 28px; box-shadow: var(--pop-fort);
+  background-color: var(--hero-fond); color: var(--hero-texte);
+  background-image: radial-gradient(circle at 2px 2px, rgb(255 255 255 / 13%) 1.6px, transparent 0);
+  background-size: 18px 18px;
+}
+:root[data-style="joyeux"] .hero-joyeux.humeur-triste { --hero-fond: #c7254f; }
+:root[data-style="joyeux"] .hero-joyeux .mt { color: inherit; font-weight: 800; }
+:root[data-style="joyeux"] .hero-joyeux :focus-visible { outline-color: #fff; }
+
+:root[data-style="joyeux"] .hj-haut { display: flex; align-items: center; gap: 10px; }
+:root[data-style="joyeux"] .hj-sou { flex: none; padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:root[data-style="joyeux"] .hj-sou .sou { animation: sou-flotte 3.4s ease-in-out infinite; transform-origin: 50% 90%; }
+:root[data-style="joyeux"] .hj-sou .sou-ombre { animation: sou-ombre 3.4s ease-in-out infinite; transform-origin: 52px 98px; }
+:root[data-style="joyeux"] .hj-sou.saute .sou { animation: sou-saute 720ms cubic-bezier(.3, 1.4, .5, 1) 1, sou-flotte 3.4s ease-in-out 720ms infinite; }
+:root[data-style="joyeux"] .hero-joyeux.humeur-triste .sou { animation: sou-tremble 3.4s ease-in-out infinite; }
+@keyframes sou-flotte { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+@keyframes sou-ombre { 0%, 100% { transform: scale(1); } 50% { transform: scale(.85); } }
+@keyframes sou-saute { 0% { transform: translateY(0) scale(1); } 25% { transform: translateY(2px) scale(1.12, .86); } 55% { transform: translateY(-22px) rotate(-10deg) scale(.96, 1.06); } 80% { transform: translateY(0) scale(1.08, .92); } 100% { transform: translateY(0) scale(1); } }
+@keyframes sou-tremble { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(2px) rotate(-3deg); } }
+
+:root[data-style="joyeux"] .hj-bulle {
+  position: relative; flex: 1; min-width: 0; padding: 10px 14px; border: var(--trait); border-radius: 18px;
+  background: #fff; color: #1b1740; box-shadow: 0 3px 0 var(--encre);
+  font-family: var(--police-titres); font-weight: 500; font-size: 16.5px; line-height: 1.25;
+}
+:root[data-style="joyeux"] .hj-bulle::before { content: ''; position: absolute; left: -9px; top: 50%; width: 14px; height: 14px; margin-top: -8px; background: #fff; border-left: var(--trait); border-bottom: var(--trait); transform: rotate(45deg); border-radius: 0 0 0 3px; }
+
+:root[data-style="joyeux"] .hj-libelle { margin-top: 2px; font-family: var(--police-titres); font-weight: 500; font-size: 17px; color: var(--hero-texte-2); display: flex; align-items: center; }
+:root[data-style="joyeux"] .hj-montant {
+  font-family: var(--police-chiffres); font-weight: 600; font-size: clamp(54px, 17vw, 72px); line-height: .95; letter-spacing: -.5px;
+  font-variant-numeric: tabular-nums; text-shadow: 0 4px 0 rgb(27 23 64 / 38%);
+}
+:root[data-style="joyeux"] .hj-montant.depasse { color: #ffd2dd; }
+
+:root[data-style="joyeux"] .hj-pieces { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin: 6px 0 2px; }
+:root[data-style="joyeux"] .hj-pieces > span { aspect-ratio: 1; border-radius: 50%; background: rgb(255 255 255 / 14%); border: 2px dashed rgb(255 255 255 / 35%); }
+:root[data-style="joyeux"] .hj-pieces > span.pleine {
+  background: radial-gradient(circle at 35% 30%, #ffe08a 0 22%, var(--or) 23%); border: 2px solid var(--encre); box-shadow: inset 0 -3px 0 var(--or-fonce), 0 2px 0 var(--encre);
+  animation: piece-pop 420ms cubic-bezier(.3, 1.5, .5, 1) backwards;
+}
+:root[data-style="joyeux"] .hj-pieces > span:nth-child(2) { animation-delay: 40ms; } :root[data-style="joyeux"] .hj-pieces > span:nth-child(3) { animation-delay: 80ms; }
+:root[data-style="joyeux"] .hj-pieces > span:nth-child(4) { animation-delay: 120ms; } :root[data-style="joyeux"] .hj-pieces > span:nth-child(5) { animation-delay: 160ms; }
+:root[data-style="joyeux"] .hj-pieces > span:nth-child(6) { animation-delay: 200ms; } :root[data-style="joyeux"] .hj-pieces > span:nth-child(7) { animation-delay: 240ms; }
+:root[data-style="joyeux"] .hj-pieces > span:nth-child(8) { animation-delay: 280ms; } :root[data-style="joyeux"] .hj-pieces > span:nth-child(9) { animation-delay: 320ms; }
+:root[data-style="joyeux"] .hj-pieces > span:nth-child(10) { animation-delay: 360ms; }
+@keyframes piece-pop { from { transform: scale(0) rotate(-90deg); } }
+
+:root[data-style="joyeux"] .hj-sous { font-size: 14.5px; line-height: 1.35; color: var(--hero-texte-2); }
+
+:root[data-style="joyeux"] .hj-stats { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 6px; }
+:root[data-style="joyeux"] .hj-serie, :root[data-style="joyeux"] .hj-niveau {
+  display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 8px 12px; border-radius: 18px;
+  border: 2px solid rgb(255 255 255 / 28%); background: rgb(27 23 64 / 22%); color: #fff; font: inherit; text-align: left; cursor: pointer;
+}
+:root[data-style="joyeux"] .hj-serie:active, :root[data-style="joyeux"] .hj-niveau:active { transform: scale(.97); }
+:root[data-style="joyeux"] .hj-flamme { font-size: 24px; line-height: 1; }
+:root[data-style="joyeux"] .hj-serie.eteinte .hj-flamme { filter: grayscale(1); opacity: .6; }
+:root[data-style="joyeux"] .hj-serie strong { font-family: var(--police-chiffres); font-weight: 600; font-size: 24px; line-height: 1; }
+:root[data-style="joyeux"] .hj-serie small { font-size: 13px; opacity: .85; }
+:root[data-style="joyeux"] .hj-niveau-emoji { font-size: 26px; line-height: 1; flex: none; }
+:root[data-style="joyeux"] .hj-niveau-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+:root[data-style="joyeux"] .hj-niveau-nom { font-family: var(--police-titres); font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-style="joyeux"] .hj-niveau small { font-size: 12px; opacity: .85; font-variant-numeric: tabular-nums; }
+:root[data-style="joyeux"] .hj-xp { display: block; height: 10px; border-radius: 6px; background: rgb(255 255 255 / 22%); overflow: hidden; }
+:root[data-style="joyeux"] .hj-xp > span { display: block; height: 100%; min-width: 8px; border-radius: 6px; background: var(--or); background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgb(255 255 255 / 35%) 5px 10px); transition: width 600ms cubic-bezier(.3, 1.3, .5, 1); }
+:root[data-style="joyeux"] .hero-joyeux .hero-prevision, :root[data-style="joyeux"] .hero-joyeux .hero-puce { margin-top: 2px; border-radius: 14px; }
+:root[data-style="joyeux"] .hero-joyeux .hero-prevision { background: rgb(27 23 64 / 22%); }
+:root[data-style="joyeux"] .hero-joyeux .hero-puce.proposer { border: 2px dashed rgb(255 255 255 / 50%); font-weight: 800; }
+
+/* Les deux gros boutons */
+:root[data-style="joyeux"] .hj-actions { display: grid; grid-template-columns: 1.25fr 1fr; gap: 10px; margin-top: 6px; }
+:root[data-style="joyeux"] .hj-bouton {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 10px;
+  min-height: 98px; padding: 12px 14px 14px; border: 2.5px solid var(--encre); border-radius: 24px; box-shadow: 0 5px 0 var(--encre);
+  color: #1b1740; font: inherit; text-align: left; cursor: pointer; transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+}
+:root[data-style="joyeux"] .hj-bouton:active { transform: translateY(5px); box-shadow: 0 0 0 var(--encre); }
+:root[data-style="joyeux"] .hj-bouton-depense { background: var(--rose); }
+:root[data-style="joyeux"] .hj-bouton-piece { background: var(--or); }
+:root[data-style="joyeux"] .hj-bouton-icone { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: var(--trait); background: #fff; font-size: 22px; line-height: 1; }
+:root[data-style="joyeux"] .hj-bouton-icone .ic { width: 24px; height: 24px; stroke-width: 3; color: #1b1740; }
+:root[data-style="joyeux"] .hj-bouton-texte { font-family: var(--police-titres); font-weight: 600; font-size: 19px; line-height: 1.1; }
+:root[data-style="joyeux"] .hj-bouton .hj-xp-puce { position: absolute; top: 12px; right: 12px; }
+:root[data-style="joyeux"] .hj-xp-puce { flex: none; display: inline-block; padding: 3px 8px; border-radius: 999px; background: var(--puce-fond); color: var(--or); font-family: var(--police-chiffres); font-weight: 600; font-size: 12.5px; line-height: 1.2; white-space: nowrap; }
+
+/* Quêtes du jour */
+:root[data-style="joyeux"] .quetes { margin-top: 8px; padding: 14px 14px 4px; border: var(--trait); border-radius: var(--rayon); background: var(--surface); box-shadow: var(--pop); }
+:root[data-style="joyeux"] .quetes-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+:root[data-style="joyeux"] .quetes-tete h2 { font-family: var(--police-titres); font-weight: 600; font-size: 20px; }
+:root[data-style="joyeux"] .quetes-compte { padding: 3px 10px; border-radius: 999px; background: var(--accent-doux); color: var(--accent); font-family: var(--police-chiffres); font-weight: 600; font-size: 15px; }
+:root[data-style="joyeux"] .quetes-liste { list-style: none; margin: 0; padding: 0; }
+:root[data-style="joyeux"] .quetes-liste li + li { border-top: 2px dashed var(--separateur); }
+:root[data-style="joyeux"] .quete { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+:root[data-style="joyeux"] .quete-case { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 2.5px solid var(--case-bord); background: var(--surface); font-size: 15px; }
+:root[data-style="joyeux"] .quete-case .ic { width: 18px; height: 18px; stroke-width: 3.4; color: #1b1740; }
+:root[data-style="joyeux"] .quete.faite .quete-case { background: var(--menthe); animation: piece-pop 420ms cubic-bezier(.3, 1.5, .5, 1); }
+:root[data-style="joyeux"] .quete.en-cours .quete-case { background: var(--laiton-doux); border-style: dashed; }
+:root[data-style="joyeux"] .quete.ratee .quete-case { background: var(--surface-2); border-color: var(--texte-3); color: var(--texte-3); }
+:root[data-style="joyeux"] .quete-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+:root[data-style="joyeux"] .quete-titre { font-family: var(--police-titres); font-weight: 500; font-size: 16.5px; }
+:root[data-style="joyeux"] .quete small { font-size: 13.5px; color: var(--texte-2); }
+:root[data-style="joyeux"] .quete.faite .quete-titre { color: var(--vert); }
+:root[data-style="joyeux"] .quete.faite .hj-xp-puce { background: var(--menthe); color: #1b1740; }
+:root[data-style="joyeux"] .quete.ratee .hj-xp-puce { opacity: .4; }
+
+/* Mes points */
+.jeu-feuille { display: flex; flex-direction: column; gap: 12px; }
+.jeu-niveau { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: var(--rayon); background: var(--accent-doux); text-align: center; }
+.jeu-niveau-emoji { font-size: 56px; line-height: 1; }
+.jeu-niveau-nom { font-family: var(--police-titres, inherit); font-weight: 600; font-size: 22px; }
+.jeu-niveau .hj-xp { width: 100%; height: 14px; border-radius: 8px; background: var(--surface); border: 2px solid var(--encre, var(--texte)); overflow: hidden; display: block; }
+.jeu-niveau .hj-xp > span { display: block; height: 100%; background: var(--or, #e2b13c); }
+.jeu-serie { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--rayon); background: var(--laiton-doux); }
+.jeu-serie > span { font-size: 32px; }
+.jeu-serie p { display: flex; flex-direction: column; gap: 2px; }
+.jeu-serie small { font-size: 13px; color: var(--texte-2); }
+.jeu-niveaux { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.jeu-niveaux li { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 8px; padding: 6px 4px; opacity: .5; }
+.jeu-niveaux li span:first-child { font-size: 22px; }
+.jeu-niveaux li small { color: var(--texte-2); font-variant-numeric: tabular-nums; }
+.jeu-feuille .xp-nombre { white-space: nowrap; }
+.jeu-niveaux li.atteint { opacity: 1; font-weight: 800; }
+
+/* ---------- Fête : confettis et « +XP » ---------- */
+.confettis { position: fixed; inset: 0; z-index: 90; pointer-events: none; overflow: hidden; }
+.confettis i { position: absolute; display: block; border: 1.5px solid #1b1740; animation: confetti var(--d, 1200ms) cubic-bezier(.15, .7, .35, 1) forwards; }
+@keyframes confetti {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  45% { transform: translate(calc(var(--dx) * .75), var(--dy)) rotate(calc(var(--rot) * .5)); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--dy) + 460px)) rotate(var(--rot)); opacity: 0; }
+}
+.bulle-xp {
+  position: fixed; left: 50%; bottom: calc(var(--barre-onglets) + env(safe-area-inset-bottom) + 128px); z-index: 91; pointer-events: none;
+  display: flex; align-items: baseline; gap: 8px; padding: 8px 16px; border: 2.5px solid #1b1740; border-radius: 999px;
+  background: #ffc531; color: #1b1740; box-shadow: 0 4px 0 #1b1740; white-space: nowrap;
+  font-family: "Fredoka", ui-rounded, system-ui, sans-serif; font-weight: 600; font-size: 20px;
+  transform: translateX(-50%); animation: bulle-xp 1.8s cubic-bezier(.3, 1.3, .5, 1) forwards;
+}
+.bulle-xp span { font-size: 14px; font-weight: 500; }
+@keyframes bulle-xp {
+  0% { transform: translate(-50%, 16px) scale(.5); opacity: 0; }
+  15% { transform: translate(-50%, 0) scale(1.1); opacity: 1; }
+  25% { transform: translate(-50%, 0) scale(1); }
+  75% { transform: translate(-50%, -18px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -48px) scale(.95); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bulle-xp { animation: none !important; }
+  :root[data-style="joyeux"] .hj-sou .sou, :root[data-style="joyeux"] .hj-sou .sou-ombre { animation: none !important; }
+}

@@ -83,7 +83,7 @@ function rendreAccueilReglages(vue) {
     carte('L’app', h('div', { class: 'liste-liens' },
       sect('sauvegarde', `${pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'}${pa.motDePasseSauvegarde ? ', chiffrée' : ''}`),
       sect('profil', p.prenomAffichage || 'prénom, jour de salaire'),
-      sect('confidentialite', pa.pinHash ? 'code PIN actif' : 'sans code PIN'),
+      sect('confidentialite', `${pa.pinHash ? 'code PIN actif' : 'sans code PIN'}, style ${pa.style === 'joyeux' ? 'Joyeux' : 'Classique'}`),
       lien('Forcer la mise à jour', `version ${versionApp}, tes données restent`, () => forcerMiseAJour(), 'boucle'))),
     h('details', { class: 'reglages-avance' },
       h('summary', {}, 'Avancé'),
@@ -176,7 +176,9 @@ function cartesSection(id) {
       interrupteur('Mode 100 % local', pa.mode100Local, (v) => majParametres({ mode100Local: v }), 'Tout fonctionne par règles ; aucune requête réseau hors mise à jour de l’app.'),
       interrupteur('Masquer les montants', pa.masquageMontants, (v) => { definirMasquage(v); majParametres({ masquageMontants: v }); }),
       h('div', { class: 'ligne-reglage' }, h('span', { class: 'ligne-reglage-libelle' }, 'Code PIN', h('small', {}, PIN_EST_UN_VERROU)), pa.pinHash ? h('div', { class: 'groupe-boutons' }, bouton('Changer', () => feuillePin(), { classe: 'btn-petit' }), bouton('Supprimer', async () => { await supprimerPin(); toast('Code PIN supprimé.'); }, { classe: 'btn-petit btn-danger-texte' })) : bouton('Définir', () => feuillePin(), { classe: 'btn-petit' })))),
-    carte('Apparence', segment([['auto', 'Automatique'], ['clair', 'Clair'], ['sombre', 'Sombre']], pa.theme || 'auto', async (v) => { await majParametres({ theme: v }); appliquerTheme(v); }, 'Thème')),
+    carte('Apparence', h('div', { class: 'formulaire' },
+      champ('Style de l’app', segment([['classique', 'Classique'], ['joyeux', 'Joyeux']], pa.style || 'classique', async (v) => { await majParametres({ style: v }); }, 'Style de l’app'), 'Joyeux : couleurs vives, une mascotte, des points et des quêtes du jour. Les chiffres sont les mêmes.'),
+      champ('Thème', segment([['auto', 'Automatique'], ['clair', 'Clair'], ['sombre', 'Sombre']], pa.theme || 'auto', async (v) => { await majParametres({ theme: v }); appliquerTheme(v); }, 'Thème')))),
   ];
   if (id === 'gemini') return [
     carteGemini(ia),

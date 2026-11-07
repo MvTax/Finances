@@ -11,6 +11,8 @@ import { periodeBudget, resteADepenser, prixRepas } from '../calculs.js';
 import { aujourdhui, formatDateCourte } from '../dates.js';
 import { formatEuros, versChamp } from '../money.js';
 import { categorie } from '../categories.js';
+import { feter, estJoyeux } from '../ui/fete.js';
+import { POINTS } from '../jeu.js';
 
 /** Feuille « Je me suis privé ». */
 export function feuillePrivation() {
@@ -39,7 +41,8 @@ export function feuillePrivation() {
     await ajouterPrivation({ categorie: choix.id === 'autre' ? 'autres' : choix.categorie, libelle, montantCentimes: montant });
     vibrer(20); f.fermer();
     const b = bilanPrivations(etat, periodeBudget(aujourdhui(), etat.profil), resteADepenser(etat, aujourdhui()).privationsAuto || []);
-    toast(`Bravo : ${formatEuros(montant)} mis de côté. À virer sur ton compte épargne : ${formatEuros(b.aVirerCentimes)}.`, { type: 'succes', duree: 5000 });
+    feter('privation', { xp: POINTS.privation, texte: 'pièce mise de côté' });
+    toast(`${estJoyeux() ? '🐷 ' : ''}Bravo : ${formatEuros(montant)} mis de côté. À virer sur ton compte épargne : ${formatEuros(b.aVirerCentimes)}.`, { type: 'succes', duree: 5000 });
   });
   const f = ouvrirFeuille({
     titre: 'Je me suis privé',

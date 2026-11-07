@@ -15,6 +15,8 @@ import { aujourdhui, formatDateCourte, formatJourLong, ajouterJours } from '../d
 import { ajouterAuCalendrier } from '../ics.js';
 import { formatEuros } from '../money.js';
 import { aide } from '../ui/aide.js';
+import { feter } from '../ui/fete.js';
+import { POINTS } from '../jeu.js';
 
 const nomPoche = (id) => etat.poches.find((p) => p.id === id)?.nom || 'Épargne';
 /** « ton Livret A LCL (Prêt 8 000 €) » ou le nom de la poche si son compte n'est pas renseigné. */
@@ -128,6 +130,7 @@ function feuilleVirement(v) {
     valider.disabled = true;
     const t = await virerSemaine({ epargneMoisCentimes: mois || 0, auto: v.privationsAuto });
     vibrer(20); f.fermer();
+    feter('virement', { xp: POINTS.virement, texte: 'virement fait' });
     toast(`${formatEuros(t)} virés sur ton épargne. Bravo !`, { type: 'succes' });
   });
   maj();
