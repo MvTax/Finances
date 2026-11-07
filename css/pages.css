@@ -806,3 +806,9 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .barre-onglets { grid-template-columns: 1fr 1fr 76px 2fr; }
 .coffre-virer-date { flex-wrap: wrap; row-gap: 0; }
 .coffre-virer-numero { flex-basis: 100%; padding-left: 23px; font-size: 13px; font-weight: 500; color: var(--texte-2); }
+/* En-tête de l'Accueil (1.32.2) : l'icône des réglages a sa ligne, le solde ne passe plus dessous */
+.accueil-entete { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.accueil-entete-haut { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.accueil-entete-bas { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.accueil-entete-bas .grand-titre { min-width: 0; }
+.accueil-entete .bouton-reglages { position: static; flex: none; margin-right: -4px; }

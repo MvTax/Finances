@@ -41,10 +41,14 @@ export function rendre(vue) {
   document.documentElement.classList.toggle('mode-critique', critique);
 
   const jour = formatJourLong(auj);
+  // Deux lignes : la date et l'icône des réglages, puis « Bonjour » et le solde (jamais l'un sur l'autre)
   const entete = h('header', { class: 'accueil-entete' },
-    h('div', {}, h('p', { class: 'accueil-date' }, jour.charAt(0).toUpperCase() + jour.slice(1),
-      h('a', { class: 'bouton-reglages', href: '#reglages', 'aria-label': 'Réglages' }, icone('reglages'))), h('h1', { class: 'grand-titre' }, etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour')),
-    pastilleSolde(auj));
+    h('div', { class: 'accueil-entete-haut' },
+      h('p', { class: 'accueil-date' }, jour.charAt(0).toUpperCase() + jour.slice(1)),
+      h('a', { class: 'bouton-reglages', href: '#reglages', 'aria-label': 'Réglages' }, icone('reglages'))),
+    h('div', { class: 'accueil-entete-bas' },
+      h('h1', { class: 'grand-titre' }, etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour'),
+      pastilleSolde(auj)));
 
   const ajout = h('button', { class: 'btn btn-principal btn-large ajout-depense', type: 'button', onclick: async () => { const { ouvrirSaisie } = await import('./saisie.js'); ouvrirSaisie(); } }, icone('plus'), h('span', {}, 'Ajouter une dépense'));
   // « Je me suis privé » juste sous l'ajout : un repas évité part à l'épargne en deux touches
