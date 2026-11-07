@@ -1,7 +1,8 @@
 // store.js — état de l'app en mémoire, persistance IndexedDB et notifications de changement.
 
 import * as db from './db.js';
-import { datesDeSalaire } from './calculs.js';
+import { datesDeSalaire, periodeBudget } from './calculs.js';
+import { aujourdhui } from './dates.js';
 import { tousLesStores, SCHEMA_VERSION } from './migrations.js';
 import { nouvelId } from './import/pipeline.js';
 
@@ -207,6 +208,23 @@ export function placerEpargnes() {
   return ops;
 }
 
+/**
+ * Une seule fois : la première envie, GTA 6 à 79,99 € (sortie le 19 novembre 2026), comptée depuis le salaire du mois.
+ * Si une envie existe déjà, rien n'est ajouté ; supprimée ensuite, elle ne revient pas.
+ */
+export function amorcerEnvies() {
+  if (etat.meta.enviesAmorcees || !etat.parametres.onboarding?.termine) return [];
+  const m = maintenant();
+  etat.meta.enviesAmorcees = m;
+  const ops = [{ store: 'meta', valeur: { cle: 'enviesAmorcees', valeur: m } }];
+  if ((etat.profil.envies?.liste || []).length) return ops;
+  const auj = aujourdhui();
+  etat.profil = { ...etat.profil, envies: { depuis: etat.profil.envies?.depuis || periodeBudget(auj, etat.profil).debut,
+    liste: [{ id: 'envie-gta6', nom: 'GTA 6', type: 'jeu', montantCentimes: 7999, sortieLe: '2026-11-19', creeLe: auj, achat: null }] } };
+  ops.push({ store: 'profil', valeur: etat.profil });
+  return ops;
+}
+
 /** Charge tout l'état depuis IndexedDB. */
 export async function charger() {
   await db.ouvrirBase();
@@ -225,6 +243,7 @@ export async function charger() {
   ops.push(...rangerPoches());
   ops.push(...partagerEfforts());
   ops.push(...placerEpargnes());
+  ops.push(...amorcerEnvies());
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });
