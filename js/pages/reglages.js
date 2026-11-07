@@ -1,5 +1,6 @@
 // reglages.js — Profil & Finances, sécurité, Gemini, sauvegarde, comptes, règles, questions, pont.
 
+import { cartesReglagesEnvies } from './envies.js';
 import { h, icone, mt, definirMasquage } from '../ui/dom.js';
 import { carte, bouton, champ, champMontant, interrupteur, selectionner, segment, etatVide, pastillesCategories } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
@@ -30,6 +31,7 @@ export const titre = 'Réglages';
 const SECTIONS = {
   revenus: { titre: 'Revenus et logement', icone: 'mallette' },
   epargne: { titre: 'Épargne automatique', icone: 'tirelire' },
+  envies: { titre: 'Mes envies', icone: 'etoile' },
   operations: { titre: 'Opérations et catégories', icone: 'liste' },
   sauvegarde: { titre: 'Sauvegarde', icone: 'partage' },
   profil: { titre: 'Profil', icone: 'personnes' },
@@ -79,6 +81,7 @@ function rendreAccueilReglages(vue) {
       vide ? null : lien('Mettre à jour depuis mon fichier', der ? `dernière le ${formatDate(der.le.slice(0, 10))}, tes saisies sont gardées` : 'budget-import-prive.json, tes saisies sont gardées', () => choisirFichierMiseAJour(), 'telecharger'))),
     carte('Épargne automatique', h('div', { class: 'liste-liens' },
       sect('epargne', actifs.length ? `${actifs.join(', ')} : actifs` : 'tout est désactivé'),
+      sect('envies', (() => { const l = (p.envies?.liste || []); return l.length ? l.map((e) => e.nom).join(', ') : 'un jeu, des baskets… mis de côté jour après jour'; })()),
       lien('Mes épargnes', 'prêt, sécurité, plan du mois', () => aller('epargne'), 'graphique'))),
     carte('L’app', h('div', { class: 'liste-liens' },
       sect('sauvegarde', `${pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'}${pa.motDePasseSauvegarde ? ', chiffrée' : ''}`),
@@ -171,6 +174,7 @@ function cartesSection(id) {
       champ('Heures travaillées par mois', h('input', { class: 'input', inputmode: 'decimal', value: String(p.heuresMensuelles || 151.67).replace('.', ','), onchange: (e) => majProfil({ heuresMensuelles: Number(e.target.value.replace(',', '.')) || 151.67 }) })),
       champ('Nom du titulaire sur les relevés', h('input', { class: 'input', value: p.nomTitulaire || '', autocomplete: 'off', onchange: (e) => majProfil({ nomTitulaire: e.target.value.trim() }) }), 'Stocké uniquement sur cet iPhone : sert à reconnaître tes virements à toi-même.'))),
   ];
+  if (id === 'envies') return cartesReglagesEnvies();
   if (id === 'confidentialite') return [
     carte('Confidentialité', h('div', { class: 'formulaire' },
       interrupteur('Mode 100 % local', pa.mode100Local, (v) => majParametres({ mode100Local: v }), 'Tout fonctionne par règles ; aucune requête réseau hors mise à jour de l’app.'),

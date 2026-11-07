@@ -6,6 +6,7 @@
 //  - les repas à la maison et les privations pas encore virés.
 // Le montant est aussi réparti par poche (prêt / sécurité), pour savoir quoi mettre où.
 
+import { fluxEnvies, retenueAvance } from './envies.js';
 import { resteADepenser, cagnotteArrondis } from './calculs.js';
 import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrondis } from './epargne.js';
 import { formatEuros } from './money.js';
@@ -54,7 +55,12 @@ export function aVirerEpargne(etat, dateIso) {
   const ar = etat.profil?.arrondi;
   const arrondis = ar?.actif ? cagnotteArrondis(etat, dateIso).total : 0;
   const auto = r.privationsAuto || [];
-  const privations = bilanPrivations(etat, per, auto).aVirerCentimes;
+  // Restes du jour : la part des envies reste sur le compte ; une avance d'envie est reprise sur ce qui reste (envies.js)
+  const flux = fluxEnvies(etat, { auto, aujourdhuiIso: dateIso });
+  const privationsBrutes = bilanPrivations(etat, per, auto).aVirerCentimes;
+  const enviesGarde = Math.min(privationsBrutes, flux.gardeAVirerCentimes);
+  const retenue = retenueAvance(flux, privationsBrutes - enviesGarde);
+  const privations = privationsBrutes - enviesGarde - retenue;
 
   // Répartition par épargne, montant par montant (exactement comme ils seront enregistrés au virement)
   const parPoche = new Map();
@@ -83,6 +89,7 @@ export function aVirerEpargne(etat, dateIso) {
     totalCentimes: moisRestant + arrondis + privations,
     moisCibleCentimes: moisCible, moisDejaCentimes: moisDeja, moisRestantCentimes: moisRestant, moisSemaineCentimes: moisSemaine,
     arrondisCentimes: arrondis, privationsCentimes: privations,
+    enviesCentimes: enviesGarde, retenueAvanceCentimes: retenue, avanceRestanteCentimes: flux.avanceRestanteCentimes,
     semainesRestantes: semaines, finPeriode: per.fin,
     parPoche: [...parPoche.entries()].map(([pocheId, montantCentimes]) => ({ pocheId, montantCentimes })),
     privationsAuto: auto,
@@ -143,6 +150,7 @@ export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
   const r = resteADepenser(etat, dateIso);
   const per = r.periode;
   const lignes = [];
+  const flux = fluxEnvies(etat, { auto: r.privationsAuto || [], aujourdhuiIso: dateIso });
   // Arrondis : toutes les sorties du compte depuis le début du mois (ou du suivi)
   const ar = etat.profil?.arrondi;
   if (ar?.actif) {
@@ -157,9 +165,17 @@ export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
   }
   // Repas à la maison (automatiques) et privations
   for (const p of [...(etat.privations || []).filter((x) => x.date >= per.debut && x.date <= per.fin), ...(r.privationsAuto || [])]) {
-    if (p.source === 'resteJour') { lignes.push({ date: p.date, source: 'reste', libelle: 'Reste du jour', detail: 'part du jour non dépensée, ajoutée à 5 h le lendemain', montantCentimes: p.montantCentimes, vireLe: p.vireLe || null }); continue; }
+    if (p.source === 'resteJour') {
+      // La part gardée pour une envie reste sur le compte : seule la part de l'épargne va dans la cagnotte
+      const garde = p.vireLe ? (p.envieGardeCentimes || 0) : (flux.parReste.get(p.id)?.garde || 0);
+      const envie = garde ? flux.envies.find((e) => e.id === (p.envieId || flux.parReste.get(p.id)?.envieId)) : null;
+      lignes.push({ date: p.date, source: 'reste', libelle: 'Reste du jour', detail: `part du jour non dépensée, ajoutée à 5 h le lendemain${garde ? ` (${formatEuros(p.montantCentimes)}, dont ${formatEuros(garde)} pour ${envie?.nom || 'ton envie'})` : ''}`, montantCentimes: p.montantCentimes - garde, vireLe: p.vireLe || null });
+      continue;
+    }
     const repas = p.auto || /repas à la maison/i.test(p.libelle || '');
-    lignes.push({ date: p.date, source: repas ? 'repas' : 'privation', libelle: repas ? 'Repas à la maison' : p.libelle, detail: repas ? (p.libelle || 'pas de repas dehors noté') : 'Je me suis privé', montantCentimes: p.montantCentimes, vireLe: p.vireLe || null });
+    const gardeP = p.vireLe ? (p.envieGardeCentimes || 0) : (flux.parReste.get(p.id)?.garde || 0);
+    const envieP = gardeP ? flux.envies.find((e) => e.id === (p.envieId || flux.parReste.get(p.id)?.envieId)) : null;
+    lignes.push({ date: p.date, source: repas ? 'repas' : 'privation', libelle: repas ? 'Repas à la maison' : p.libelle, detail: `${repas ? (p.libelle || 'pas de repas dehors noté') : 'Je me suis privé'}${gardeP ? ` (${formatEuros(p.montantCentimes)}, dont ${formatEuros(gardeP)} pour ${envieP?.nom || 'ton envie'})` : ''}`, montantCentimes: p.montantCentimes - gardeP, vireLe: p.vireLe || null });
   }
   // Épargne du mois : virements déjà faits, puis la part du prochain virement
   for (const t of etat.transactions || []) {
@@ -167,6 +183,7 @@ export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
     lignes.push({ date: t.date, source: 'mois', libelle: 'Épargne du mois', detail: t.marchand || t.libelle || 'Virement vers l’épargne', montantCentimes: t.montantCentimes, vireLe: t.date });
   }
   const v = aVirerEpargne(etat, dateIso);
+  if (v.retenueAvanceCentimes) lignes.push({ date: dateIso, source: 'avance', libelle: 'Avance d’une envie reprise', detail: `achetée avant d’être complète : ${formatEuros(v.avanceRestanteCentimes)} à reprendre en tout, au plus la moitié à chaque virement`, montantCentimes: -v.retenueAvanceCentimes, vireLe: null });
   if (v.moisSemaineCentimes) lignes.push({ date: dateIso, source: 'mois', libelle: 'Épargne du mois', detail: `part de ce virement (reste ${formatEuros(v.moisRestantCentimes)} ce mois-ci)`, montantCentimes: v.moisSemaineCentimes, vireLe: null });
   // Restes du jour : une ligne par jour, même à 0 €. La journée en cours (jusqu'à 5 h le lendemain) est estimée.
   if (etat.profil?.restesDuJour?.actif !== false) {

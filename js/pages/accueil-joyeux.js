@@ -5,7 +5,7 @@ import { h, icone, mt, estMasque } from '../ui/dom.js';
 import { ouvrirFeuille } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
 import { etat, ecrireMeta, majParametres } from '../store.js';
-import { profilJeu, quetesDuJour, humeur, NIVEAUX, POINTS } from '../jeu.js';
+import { profilJeu, quetesDuJour, humeur, flammesDesJours, NIVEAUX, POINTS } from '../jeu.js';
 import { mascotte, phraseDuJour } from '../ui/mascotte.js';
 import { vientDeFeter, confettis } from '../ui/fete.js';
 import { aujourdhui, formatDateCourte, ajouterJours } from '../dates.js';
@@ -39,7 +39,7 @@ export function heroJoyeux(r, j, { extras = [], aideNode = null } = {}) {
     moisDepasse ? null : pieces,
     h('p', { class: 'hj-sous' }, moisDepasse ? 'Chaque journée sans dépense te rapproche de zéro.' : [`sur ${formatEuros(j.parJourCentimes)} pour la journée. Encore `, mt(r.resteCentimes), ` pour tenir ${jours} jour${jours > 1 ? 's' : ''}, jusqu’au salaire du ${formatDateCourte(r.periode.salaireAttenduLe || ajouterJours(r.periode.fin, 1))}.`]),
     h('div', { class: 'hj-stats' },
-      h('button', { type: 'button', class: `hj-serie ${p.serie ? '' : 'eteinte'}`, onclick: () => feuilleJeu(), 'aria-label': `Série de ${p.serie} jour${p.serie > 1 ? 's' : ''}. Voir mes points` },
+      h('button', { type: 'button', class: `hj-serie ${p.serie ? '' : 'eteinte'} ${p.superFlammeHier ? 'super' : ''}`, onclick: () => feuilleJeu(), 'aria-label': `Série de ${p.serie} jour${p.serie > 1 ? 's' : ''}${p.superFlammeHier ? ', super flamme hier' : ''}. Voir mes flammes et mes points` },
         h('span', { class: 'hj-flamme', 'aria-hidden': 'true' }, '🔥'), h('strong', {}, String(p.serie)), h('small', {}, p.serie > 1 ? 'jours' : 'jour')),
       h('button', { type: 'button', class: 'hj-niveau', onclick: () => feuilleJeu(), 'aria-label': `Niveau ${p.niveau.numero}, ${p.niveau.nom}, ${p.xp} points. Voir mes points` },
         h('span', { class: 'hj-niveau-emoji', 'aria-hidden': 'true' }, p.niveau.emoji),
@@ -94,7 +94,11 @@ export function feuilleJeu() {
         h('p', { class: 'jeu-niveau-nom' }, `Niveau ${p.niveau.numero} : ${p.niveau.nom}`),
         h('div', { class: 'hj-xp grand' }, h('span', { style: { width: `${Math.round(p.progression * 100)}%` } })),
         h('p', { class: 'petit' }, p.prochain ? `${p.xp} XP. Encore ${p.prochain.xp - p.xp} XP pour ${p.prochain.emoji} ${p.prochain.nom}.` : `${p.xp} XP : tu as tout débloqué !`)),
-      h('div', { class: 'jeu-serie' }, h('span', { 'aria-hidden': 'true' }, '🔥'), h('p', {}, h('strong', {}, `${p.serie} jour${p.serie > 1 ? 's' : ''} d’affilée`), h('small', {}, 'Ouvre l’app ou note une dépense chaque jour pour garder la flamme.'))),
+      h('div', { class: 'jeu-serie' }, h('span', { 'aria-hidden': 'true', class: p.superFlammeHier ? 'flamme-super' : '' }, '🔥'), h('p', {}, h('strong', {}, `${p.serie} jour${p.serie > 1 ? 's' : ''} d’affilée`), h('small', {}, 'Flamme : un jour où tu notes une dépense. Super flamme (bleue) : une journée sans aucune dépense, elle garde la série et remplit ton envie.'))),
+      h('ol', { class: 'flammes-jours', 'aria-label': 'Tes 14 derniers jours' }, flammesDesJours(etat, auj, 14).map((d) => h('li', { class: d.statut, title: d.date },
+        h('span', { 'aria-hidden': 'true' }, d.statut === 'rien' ? '·' : d.statut === 'enCours' ? '…' : '🔥'),
+        h('small', {}, String(Number(d.date.slice(8)))),
+        h('span', { class: 'sr' }, `${formatDateCourte(d.date)} : ${d.statut === 'super' ? 'super flamme' : d.statut === 'flamme' ? 'flamme' : d.statut === 'enCours' ? 'en cours' : 'rien'}`)))),
       h('h3', { class: 'sous-titre' }, 'Comment gagner des points'),
       h('div', { class: 'liste-cles' },
         ligne('Noter une dépense (6 par jour au plus)', POINTS.saisie),
@@ -102,11 +106,11 @@ export function feuilleJeu() {
         ligne('« Je me suis privé »', POINTS.privation),
         ligne('Finir la journée sous ta part', POINTS.resteDuJour),
         ligne('Virement vers l’épargne', POINTS.virement),
-        ligne('Journée sans dépense annoncée et tenue', POINTS.sansDepense)),
+        ligne('Super flamme : journée sans aucune dépense', POINTS.sansDepense)),
       h('h3', { class: 'sous-titre' }, `Gagnés depuis le ${formatDateCourte(p.depuis)}`),
       h('div', { class: 'liste-cles' },
         ligne('Dépenses notées', d.saisies + d.joursNotes), ligne('Privations', d.privations), ligne('Journées sous ta part', d.restes),
-        ligne('Journées sans dépense', d.sansDepense), ligne('Virements', d.virements),
+        ligne('Super flammes', d.sansDepense), ligne('Virements', d.virements),
         h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Total'), h('strong', {}, `${p.xp} XP`))),
       h('h3', { class: 'sous-titre' }, 'Les niveaux'),
       h('ol', { class: 'jeu-niveaux' }, NIVEAUX.map((n, i) => h('li', { class: p.xp >= n.xp ? 'atteint' : '' },

@@ -5,11 +5,13 @@
 // Points :
 //  +5   par dépense notée à la main (au plus 6 par jour)          +10 par jour où tu as noté au moins une dépense
 //  +10  par « Je me suis privé »                                    +15 par jour fini sous ta part (reste du jour à 5 h)
-//  +40  par journée sans dépense tenue                              +25 par jour de virement vers l'épargne
-// Série : jours d'affilée où tu es passé dans l'app ou as noté quelque chose (aujourd'hui compte dès que c'est fait).
+//  +40  par super flamme (journée sans dépense)                     +25 par jour de virement vers l'épargne
+// Flammes 🔥 : jours d'affilée où tu notes une dépense (ou un « Je me suis privé »). Une journée close sans aucune dépense
+// est une super flamme : elle garde la série (et remplit l'envie en cours, voir envies.js). Aujourd'hui compte dès que c'est fait.
 
 import { jaugeDuJour } from './calculs.js';
 import { ajouterJours, diffJours } from './dates.js';
+import { estSuperFlamme } from './envies.js';
 
 export const NIVEAUX = [
   { xp: 0, nom: 'Petite pièce', emoji: '🪙' },
@@ -27,12 +29,32 @@ const SOURCES_MAIN = new Set(['saisie', 'manuel', 'texte', 'voix', 'phrase', 'ph
  *  garde sa source d'origine dans sourceInitiale : elle compte toujours. */
 export const estSaisie = (t) => t.sens === 'debit' && !t.ajustement && !t.epargne?.estEpargne && !t.virementInterne?.estInterne && SOURCES_MAIN.has(t.sourceInitiale || t.source);
 
-/** Les jours « actifs » : app ouverte (meta.joursVus) ou dépense notée. */
-function joursActifs(etat) {
-  const jours = new Set(etat.meta?.joursVus || []);
+/** Jours avec une dépense notée à la main (ou un « Je me suis privé ») : les flammes. */
+function joursNotes(etat) {
+  const jours = new Set();
   for (const t of etat.transactions || []) if (estSaisie(t)) jours.add(t.date);
   for (const p of etat.privations || []) if (!p.auto && p.source !== 'resteJour') jours.add(p.date);
   return jours;
+}
+
+/** Super flammes : journées closes (avant aujourd'hui), depuis le début du jeu, sans aucune dépense du quotidien. */
+export function superFlammes(etat, aujourdhuiIso) {
+  const depuis = etat.meta?.jeu?.depuis || aujourdhuiIso;
+  const res = new Set();
+  for (let d = depuis, n = 0; d < aujourdhuiIso && n < 400; d = ajouterJours(d, 1), n += 1) if (estSuperFlamme(etat, d)) res.add(d);
+  return res;
+}
+
+/** Les derniers jours, du plus ancien à aujourd'hui : 'super' | 'flamme' | 'rien' | 'enCours'. */
+export function flammesDesJours(etat, aujourdhuiIso, nb = 14) {
+  const notes = joursNotes(etat);
+  const sup = superFlammes(etat, aujourdhuiIso);
+  const res = [];
+  for (let i = nb - 1; i >= 0; i -= 1) {
+    const d = ajouterJours(aujourdhuiIso, -i);
+    res.push({ date: d, statut: sup.has(d) ? 'super' : notes.has(d) ? 'flamme' : d === aujourdhuiIso ? 'enCours' : 'rien' });
+  }
+  return res;
 }
 
 /**
@@ -52,12 +74,7 @@ export function profilJeu(etat, aujourdhuiIso) {
     if (p.date < depuis || p.date > aujourdhuiIso || p.auto) continue;
     if (p.source === 'resteJour') { if (p.montantCentimes > 0) details.restes += POINTS.resteDuJour; } else details.privations += POINTS.privation;
   }
-  const annonces = etat.meta?.sansDepense?.jours || {};
-  for (const jour of Object.keys(annonces)) {
-    if (jour < depuis || jour >= aujourdhuiIso) continue;
-    const dep = (etat.transactions || []).some((t) => t.date === jour && t.sens === 'debit' && !t.ajustement && !t.epargne?.estEpargne && !t.virementInterne?.estInterne && !t.chargeFixeId && t.categorie !== 'abonnements');
-    if (!dep) details.sansDepense += POINTS.sansDepense;
-  }
+  details.sansDepense = superFlammes(etat, aujourdhuiIso).size * POINTS.sansDepense;
   const joursVirement = new Set((etat.transactions || []).filter((t) => t.date >= depuis && t.date <= aujourdhuiIso && t.epargne?.estEpargne && t.sens === 'debit').map((t) => t.date));
   details.virements = joursVirement.size * POINTS.virement;
   const xp = Object.values(details).reduce((s, x) => s + x, 0);
@@ -66,12 +83,14 @@ export function profilJeu(etat, aujourdhuiIso) {
   const niveau = { ...NIVEAUX[i], numero: i + 1 };
   const prochain = NIVEAUX[i + 1] ? { ...NIVEAUX[i + 1], numero: i + 2 } : null;
   const progression = prochain ? (xp - niveau.xp) / (prochain.xp - niveau.xp) : 1;
-  return { xp, niveau, prochain, progression, serie: serieJours(etat, aujourdhuiIso), details, depuis };
+  const sup = superFlammes(etat, aujourdhuiIso);
+  return { xp, niveau, prochain, progression, serie: serieJours(etat, aujourdhuiIso), superFlammeHier: sup.has(ajouterJours(aujourdhuiIso, -1)), details, depuis };
 }
 
 /** Série : jours d'affilée actifs, jusqu'à aujourd'hui (ou hier si aujourd'hui n'est pas encore fait). */
 export function serieJours(etat, aujourdhuiIso) {
-  const actifs = joursActifs(etat);
+  const actifs = joursNotes(etat);
+  for (const d of superFlammes(etat, aujourdhuiIso)) actifs.add(d);
   let d = actifs.has(aujourdhuiIso) ? aujourdhuiIso : ajouterJours(aujourdhuiIso, -1);
   let n = 0;
   while (actifs.has(d) && n < 1000) { n += 1; d = ajouterJours(d, -1); }

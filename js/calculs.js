@@ -159,6 +159,7 @@ export function dettesPeriode(etat, periode) {
  */
 export function estDepenseQuotidienne(t) {
   if (t.chargeFixeId) return false;
+  if (t.envieId) return false; // payé avec l'argent mis de côté pour une envie (envies.js)
   if (t.categorie === 'abonnements') return false;
   if (t.sens === 'debit' && /^PRLV\b/i.test(t.libellePrincipal || t.libelleBrut || '')) return false;
   return true;
@@ -168,7 +169,7 @@ export function estDepenseQuotidienne(t) {
 export function prelevementsHorsCharges(etat, debut, fin) {
   const res = [];
   for (const t of etat.transactions || []) {
-    if (t.date < debut || t.date > fin || t.ajustement || estDepenseQuotidienne(t) || t.chargeFixeId) continue;
+    if (t.date < debut || t.date > fin || t.ajustement || estDepenseQuotidienne(t) || t.chargeFixeId || t.envieId) continue;
     const v = contributionDepense(t);
     if (v) res.push({ id: `tx-${t.id}`, libelle: t.libelle || t.marchand, categorie: t.categorie, date: t.date, montantPrevuCentimes: v, paye: true, transactionId: t.id, horsCharges: true });
   }

@@ -261,6 +261,24 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## Mes envies et super flammes (1.36)
+
+**Flammes 🔥** (style Joyeux) : un jour où tu notes une dépense à la main (ou un « Je me suis privé »). Ouvrir l'app ne suffit plus.
+**Super flamme** (flamme bleue) : une journée close sans aucune dépense du quotidien (les prélèvements et abonnements ne comptent pas).
+Elle garde la série, rapporte 40 XP et remplit l'envie en cours. Le détail des 14 derniers jours est dans « Mes points ».
+
+**Mes envies** (Réglages → Mes envies, ou la carte de l'Accueil) : un plaisir à mériter, par exemple un jeu à 80 €.
+- La carte montre l'argent de côté, ce qu'il reste à mettre, une barre en euros, et un décor selon le type (coucher de soleil néon pour un jeu vidéo).
+- Elle se remplit avec ce que chaque journée a mis de côté en ne dépensant pas (reste du jour, repas à la maison, « Je me suis privé ») :
+  **50 %** une journée sans aucune dépense, **20 %** les autres jours. Le reste part à l'épargne comme avant.
+  L'épargne du mois et les arrondis ne sont jamais touchés.
+- Exemple avec une part du jour de 13,46 € : une journée sans dépense rapporte 6,73 € à l'envie, donc 80 € ≈ 12 journées sans dépense.
+- L'argent de l'envie reste sur le compte courant : il n'est pas viré sur l'épargne, c'est lui qui paie l'achat (l'achat ne touche pas au budget du jour).
+- Une envie se remplit à la fois, dans l'ordre de la liste ; le surplus passe à la suivante.
+- Achat bloqué tant que la barre n'est pas pleine. Petit bouton « exception » : l'achat est enregistré, la différence est une avance
+  reprise sur les prochains virements d'épargne (au plus la moitié des restes et privations à virer à chaque fois), et la barre continue.
+  Ce qu'elle reçoit ensuite rembourse l'épargne : à la fin, l'épargne a reçu la même chose que si tu avais attendu.
+
 ## Style Joyeux (1.35)
 
 Deux styles au choix, avec exactement les mêmes chiffres : **Classique** (sobre, celui d'avant) et **Joyeux**.

@@ -28,6 +28,7 @@ import { estAnnoncee, bilanJour } from '../sansdepense.js';
 import { feuilleSansDepense, annoncerSansDepense } from './sans-depense.js';
 import { estJoyeux } from '../ui/fete.js';
 import { heroJoyeux, boutonsJoyeux, carteQuetes, banniereJoyeux } from './accueil-joyeux.js';
+import { carteEnvie } from './envies.js';
 
 export const titre = 'Accueil';
 let dernierReste = null;
@@ -78,10 +79,10 @@ export function rendre(vue) {
   if (estJoyeux()) {
     // Joyeux : Sou et le reste du jour, les deux gros boutons, les quêtes, puis les épargnes (mêmes chiffres)
     const prevNode = prev && phrasePrevision(prev) ? h('button', { type: 'button', class: `hero-prevision ${prev.alerte ? 'alerte' : prev.previsionCentimes < 0 ? 'attention' : ''}`, onclick: () => feuillePrevision() }, prev.alerte ? icone('alerte') : icone('graphique'), h('span', {}, phrasePrevision(prev), prev.alerte ? `. Pour tenir : ${formatEuros(prev.partMaxCentimes)}/jour maximum.` : '')) : null;
-    vue.replaceChildren(...[entete, heroJoyeux(r, jauge, { extras: [prevNode, puceSansDepense(jauge)], aideNode: aideJour(r, jauge) }), boutonsJoyeux(), carteQuetes(), blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
+    vue.replaceChildren(...[entete, heroJoyeux(r, jauge, { extras: [prevNode, puceSansDepense(jauge)], aideNode: aideJour(r, jauge) }), boutonsJoyeux(), carteEnvie(), carteQuetes(), blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
     return;
   }
-  vue.replaceChildren(...[entete, banniereJoyeux(), hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
+  vue.replaceChildren(...[entete, banniereJoyeux(), hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), carteEnvie(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
 }
 
 /** Solde du compte, coloré selon la lancée du mois (vert, orange, rouge). Toucher : le détail. */

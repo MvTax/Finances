@@ -58,7 +58,7 @@ export function rendre(vue) {
     const total = tx.reduce((s, t) => s + contributionDepense(t), 0);
     const per = periodeBudget(aujourdhui(), etat.profil);
     const quand = { mois: ` depuis le salaire du ${per.debut.slice(8)}/${per.debut.slice(5, 7)}`, moisPrecedent: ' le mois précédent', 90: ' en 3 mois', 365: ' en 12 mois', tout: '' }[filtres.periode] ?? '';
-    const prel = tx.filter((t) => !estDepenseQuotidienne(t)).reduce((s, t) => s + contributionDepense(t), 0);
+    const prel = tx.filter((t) => !estDepenseQuotidienne(t) && !t.envieId).reduce((s, t) => s + contributionDepense(t), 0);
     resume.textContent = `${formatEuros(total)} dépensés${quand}${prel > 0 && prel < total ? `, dont ${formatEuros(prel)} de prélèvements` : ''}`;
     puceFiltre.replaceChildren(...(filtres.categorie ? [h('button', { type: 'button', class: 'pastille active', style: { '--c': categorie(filtres.categorie).couleur }, 'aria-label': `Retirer le filtre ${categorie(filtres.categorie).nom}`, onclick: () => { filtres.categorie = ''; dessiner(); } },
       icone(categorie(filtres.categorie).icone), h('span', {}, categorie(filtres.categorie).nom), icone('fermer'))] : []));

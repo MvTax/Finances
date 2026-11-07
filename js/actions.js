@@ -1,5 +1,6 @@
 // actions.js — opérations métier déclenchées par l'interface (saisie, confirmation, virements, échéances, import).
 
+import { fluxEnvies, retenueAvance, repartirRetenue } from './envies.js';
 import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, nouvelId, reinitialiserJauge, ecrireMeta } from './store.js';
 import { cloturerJours } from './restes.js';
 import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, REGLES_DEFAUT, normaliserTexte } from './rules.js';
@@ -166,15 +167,31 @@ export async function ajouterPrivation({ categorie, libelle, montantCentimes, da
 /** Virement des privations en attente sur le livret (« C'est fait ») : versement dans la poche choisie. */
 export async function virerPrivations(pocheId = null, auto = []) {
   const aVirer = [...(etat.privations || []), ...auto].filter((p) => !p.vireLe);
-  const total = aVirer.reduce((s, p) => s + p.montantCentimes, 0);
-  if (!total) return null;
+  const brut = aVirer.reduce((s, p) => s + p.montantCentimes, 0);
+  if (!brut) return null;
   const date = aujourdhui();
+  // Envies : la part des restes du jour gardée pour une envie n'est pas virée ; une avance d'envie est reprise ici
+  const flux = fluxEnvies(etat, { auto });
+  const garde = Math.min(brut, flux.gardeAVirerCentimes);
+  const retenue = retenueAvance(flux, brut - garde);
+  const total = brut - garde - retenue;
+  const figer = (p) => { const x = flux.parReste.get(p.id); return x ? { envieId: x.envieId, partEnvieCentimes: x.part, envieGardeCentimes: x.garde, superFlamme: x.superFlamme } : {}; };
+  if (retenue) {
+    const parts = repartirRetenue(flux, retenue);
+    const liste = (etat.profil.envies?.liste || []).map((e) => { const r = parts.find((x) => x.envieId === e.id); return r && e.achat ? { ...e, achat: { ...e.achat, retenues: [...(e.achat.retenues || []), { date, montantCentimes: r.montantCentimes }] } } : e; });
+    await majProfil({ envies: { ...etat.profil.envies, liste } });
+  }
+  if (total <= 0) {
+    // Tout reste sur le compte (envie, avance) : les lignes sont figées sans virement
+    await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: null, ...figer(p) } })));
+    return null;
+  }
   // Même poche que les arrondis (réglable dans « Mon système d'épargne »)
   // Partagées entre les épargnes (réglage « partage ») : pocheId null → répartition comme l'épargne du mois
   const cible = pocheId || (etat.profil.arrondi?.pocheId === 'partage' ? null : etat.poches.find((p) => p.id === etat.profil.arrondi?.pocheId && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'remboursementAnticipe' && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null);
   const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: cible, type: 'privation', libelle: 'Privations virées sur l’épargne' });
   // Les repas automatiques virés sont enregistrés : leur jour est figé, une dépense ajoutée ensuite ne les change plus
-  await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: tx.id } })));
+  await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: tx.id, ...figer(p) } })));
   return tx;
 }
 

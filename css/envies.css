@@ -1,0 +1,96 @@
+/* envies.css — « Mes envies » : un rectangle au thème de l'envie (coucher de soleil néon pour un jeu vidéo), une grosse barre en euros.
+   Fonctionne dans les deux styles (Classique et Joyeux). Titres en Fredoka (déclarée dans joyeux.css). */
+
+.envie {
+  --e-fond: linear-gradient(160deg, #3b1d8f 0%, #6c4cf1 100%);
+  --e-texte: #fff;
+  --e-texte-2: rgb(255 255 255 / 82%);
+  --e-plein: linear-gradient(90deg, #3ef0ff, #8a7dff 55%, #ff4fd8);
+  position: relative; overflow: hidden; isolation: isolate; margin-top: 12px; border-radius: 24px;
+  background: var(--e-fond); color: var(--e-texte);
+}
+.envie-jeu { --e-fond: linear-gradient(180deg, #1c0640 0%, #4a0f6b 38%, #b0186e 72%, #ff6a3d 100%); }
+.envie-tech { --e-fond: linear-gradient(160deg, #0a1f4d 0%, #2f6bff 100%); }
+.envie-mode { --e-fond: linear-gradient(160deg, #7a1f4b 0%, #ff5f7e 100%); }
+.envie-sortie { --e-fond: linear-gradient(160deg, #3a1c71 0%, #b8466e 100%); }
+.envie-voyage { --e-fond: linear-gradient(160deg, #0b4f6c 0%, #1c9cc0 100%); }
+.envie-maison { --e-fond: linear-gradient(160deg, #3d4f24 0%, #6f8a3a 100%); }
+.envie-autre { --e-fond: linear-gradient(160deg, #5a2a83 0%, #c04fb8 100%); }
+.envie-decor { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+.envie-contenu { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; text-shadow: 0 1px 3px rgb(20 0 40 / 75%); }
+.envie-vide .envie-contenu, .envie-vide { text-shadow: none; }
+.envie-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.envie-type { font-size: 13px; font-weight: 700; color: var(--e-texte-2); }
+.envie-liste { display: inline-flex; align-items: center; gap: 2px; min-height: 36px; min-width: 44px; justify-content: flex-end; padding: 0; border: 0; background: none; color: var(--e-texte); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+.envie-liste .ic { width: 18px; height: 18px; }
+.envie-titre {
+  align-self: flex-start; padding: 0; border: 0; background: none; color: var(--e-texte); cursor: pointer; text-align: left;
+  font-family: "Fredoka", ui-rounded, system-ui, sans-serif; font-weight: 700; font-size: clamp(34px, 11vw, 46px); line-height: 1; letter-spacing: .5px;
+  transform: skewX(-8deg); transform-origin: left bottom;
+  text-shadow: 0 3px 0 rgb(0 0 0 / 35%), 0 0 18px rgb(255 79 216 / 65%);
+}
+.envie-sortie { margin-top: -2px; font-size: 14px; font-weight: 700; color: #ffe56b; }
+.envie-barre {
+  position: relative; height: 26px; margin-top: 4px; border-radius: 14px; overflow: hidden;
+  background: rgb(10 0 30 / 45%); border: 2px solid rgb(255 255 255 / 85%); box-shadow: 0 0 14px rgb(62 240 255 / 35%);
+}
+.envie-barre-plein {
+  display: block; height: 100%; min-width: 10px; border-radius: 12px; background: var(--e-plein);
+  background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgb(255 255 255 / 22%) 8px 16px), var(--e-plein);
+  transition: width 700ms cubic-bezier(.3, 1.2, .5, 1);
+}
+.envie-barre-pct { position: absolute; inset: 0; display: grid; place-items: center; font-family: "Fredoka", ui-rounded, system-ui, sans-serif; font-weight: 600; font-size: 14px; text-shadow: 0 1px 2px rgb(0 0 0 / 70%); }
+.envie-chiffres { display: flex; justify-content: space-between; gap: 12px; }
+.envie-chiffres p { display: flex; flex-direction: column; }
+.envie-chiffres .droite { align-items: flex-end; text-align: right; }
+.envie-chiffres strong { font-family: "Fredoka", ui-rounded, system-ui, sans-serif; font-weight: 600; font-size: 24px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.envie-chiffres small { font-size: 13px; color: var(--e-texte-2); font-weight: 600; }
+.envie-soir, .envie-rythme, .envie-statut { font-size: 14px; font-weight: 700; color: #fff; }
+.envie-soir strong { color: #7dffb0; font-size: 16px; }
+.envie-statut { align-self: flex-start; padding: 6px 12px; border-radius: 999px; background: rgb(0 0 0 / 30%); color: #fff; font-weight: 700; }
+.envie-statut.debloque { background: #12c784; color: #0a2a1d; }
+.envie-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.envie-acheter { min-height: 44px; padding: 8px 16px; border-radius: 999px; border: 2px solid #fff; background: rgb(255 255 255 / 12%); color: #fff; font: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
+.envie-acheter.verrou { opacity: .75; cursor: not-allowed; border-style: dashed; }
+.envie-acheter.pret { background: #ffe56b; color: #1b1740; border-color: #1b1740; box-shadow: 0 4px 0 #1b1740; }
+.envie-acheter.pret:active { transform: translateY(4px); box-shadow: none; }
+.envie-exception { min-height: 32px; padding: 4px 6px; border: 0; background: none; color: rgb(255 255 255 / 60%); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; position: relative; }
+.envie-exception::after { content: ''; position: absolute; inset: -6px; }
+.envie :focus-visible { outline-color: #fff; }
+
+/* Vide : une invitation */
+.envie-vide { --e-fond: var(--surface); --e-texte: var(--texte); padding: 14px 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.envie-vide-titre { font-family: "Fredoka", ui-rounded, system-ui, sans-serif; font-weight: 600; font-size: 19px; }
+.envie-vide-texte { font-size: 14px; color: var(--texte-2); }
+
+/* Fiche et liste */
+.envie-mini { margin-top: 0; }
+.envie-mini .envie-titre { font-size: 30px; }
+.envie-tag-sf { color: #2f6bff; font-weight: 800; }
+.envies-liste { display: flex; flex-direction: column; gap: 14px; }
+.envies-ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.envies-ol li { display: flex; align-items: center; gap: 6px; }
+.envie-ligne { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: var(--rayon); background: var(--surface-2); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.envie-ligne .ic { width: 18px; height: 18px; color: var(--texte-3); flex: none; }
+.envie-ligne-emoji { font-size: 26px; flex: none; }
+.envie-ligne-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.envie-ligne-texte small { font-size: 13px; color: var(--texte-2); }
+.envie-mini-barre { display: block; height: 6px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.envie-mini-barre > span { display: block; height: 100%; background: linear-gradient(90deg, #3ef0ff, #ff4fd8); }
+.envie-ordre { display: flex; flex-direction: column; }
+.envie-ordre .btn-icone { min-height: 36px; font-size: 18px; font-weight: 800; }
+.envie-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.envies-regles p + p { margin-top: 6px; }
+
+/* Joyeux : contour d'encre et ombre pleine, comme les autres blocs */
+:root[data-style="joyeux"] .envie { border: 2.5px solid var(--encre); box-shadow: 0 5px 0 var(--encre); }
+:root[data-style="joyeux"] .envie-vide { box-shadow: var(--pop); }
+
+/* Flammes : la super flamme est bleue */
+.flamme-super, .hj-serie.super .hj-flamme { filter: hue-rotate(195deg) saturate(1.6) brightness(1.1); }
+.flammes-jours { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.flammes-jours li { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 12px; background: var(--surface-2); font-size: 20px; line-height: 1; }
+.flammes-jours li small { font-size: 11px; color: var(--texte-2); font-weight: 700; }
+.flammes-jours li.rien { opacity: .55; }
+.flammes-jours li.super span:first-child { filter: hue-rotate(195deg) saturate(1.6) brightness(1.1); }
+.flammes-jours li.super { background: color-mix(in srgb, #2f6bff 16%, var(--surface-2)); }
