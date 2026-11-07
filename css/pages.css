@@ -730,3 +730,21 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .express-montant { font-family: var(--police-chiffres); font-size: 14px; color: var(--texte-2); }
 @media (prefers-reduced-motion: reduce) { .express-bouton:active { transform: none; } }
 .voir-plus > summary::before { content: none !important; display: none !important; }
+
+/* Solde à droite de « Bonjour », coloré selon la lancée du mois */
+.accueil-entete { gap: 12px; }
+.accueil-entete > div { min-width: 0; }
+.pastille-solde { --pc: var(--vert); --pf: var(--vert-doux); flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; margin-bottom: 4px; padding: 7px 12px 7px 14px; border: 0; border-radius: 14px; background: var(--pf); color: var(--pc); font: inherit; cursor: pointer; box-shadow: inset 0 0 0 1.5px var(--pc); }
+.pastille-solde.orange { --pc: var(--orange); --pf: var(--orange-doux, var(--laiton-doux)); }
+.pastille-solde.rouge { --pc: var(--rouge, #e0574f); --pf: var(--rouge-doux, rgb(224 87 79 / 14%)); }
+.pastille-solde-nom { font-size: 12px; font-weight: 600; opacity: .85; }
+.pastille-solde-montant { font-family: var(--police-chiffres); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.verdict { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--rayon); background: var(--vert-doux); }
+.verdict-orange { background: var(--orange-doux, var(--laiton-doux)); }
+.verdict-rouge { background: var(--rouge-doux, rgb(224 87 79 / 14%)); }
+.verdict-titre { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; }
+.verdict-point { width: 10px; height: 10px; border-radius: 50%; background: var(--vert); }
+.verdict-orange .verdict-point { background: var(--orange); }
+.verdict-rouge .verdict-point { background: var(--rouge, #e0574f); }
+.verdict-raisons { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
+@media (max-width: 360px) { .accueil-entete .grand-titre { font-size: 26px; } .pastille-solde-montant { font-size: 16px; } }

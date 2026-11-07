@@ -6,6 +6,7 @@ import { bilanJour, calendrierSansDepense, serieSansDepense } from '../../js/san
 import { depensesFrequentes } from '../../js/express.js';
 import { chiffrer, dechiffrer, estChiffre } from '../../js/chiffrement.js';
 import { resteADepenser } from '../../js/calculs.js';
+import { verdictMois } from '../../js/verdict.js';
 
 const revenus = { mois: '2026-11', salaireCentimes: 150000, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' };
 const etat = (extra = {}) => { const e = etatBase({ revenusMensuels: [revenus], privations: [], ...extra }); e.profil.repasAuto = { actif: false }; e.meta = {}; return e; };
@@ -64,5 +65,20 @@ export default [
     let erreur = null;
     try { await dechiffrer(env, 'faux'); } catch (e) { erreur = e.message; }
     egal(erreur, 'Mot de passe incorrect');
+  } },
+  { nom: 'verdict du mois : vert (bonne lancée), orange (dépenses évitables), rouge (dépassement prévu)', fn: () => {
+    const jours = ['05', '06', '07', '08', '09', '10'];
+    const vert = etat({ transactions: jours.map((d) => tx({ date: `2026-11-${d}`, montant: 800, categorie: 'courses' })) });
+    vert.comptes[0].soldeInitialCentimes = 150000;
+    const v = verdictMois(vert, '2026-11-11');
+    egal(v.couleur, 'vert', v.raisons.join(' | '));
+    const orange = etat({ transactions: jours.map((d) => tx({ date: `2026-11-${d}`, montant: 800, categorie: 'livraison' })) });
+    orange.comptes[0].soldeInitialCentimes = 150000;
+    const o = verdictMois(orange, '2026-11-11');
+    egal(o.couleur, 'orange'); vrai(o.raisons.some((x) => /évitables/.test(x)));
+    const rouge = etat({ transactions: jours.map((d) => tx({ date: `2026-11-${d}`, montant: 9000, categorie: 'courses' })) });
+    rouge.comptes[0].soldeInitialCentimes = 150000;
+    const r = verdictMois(rouge, '2026-11-11');
+    egal(r.couleur, 'rouge'); vrai(r.raisons.some((x) => /dépassement|dépassé/.test(x)));
   } },
 ];

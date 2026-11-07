@@ -19,6 +19,7 @@ import { enregistrerVirementEpargne, virerArrondis, payerEcheancePret, payerEche
 import { ajouterAuCalendrier } from '../ics.js';
 import { plafondEffectif } from './budgets.js';
 import { blocCoffres } from './coffres.js';
+import { verdictMois } from '../verdict.js';
 import { previsionFinDeMois } from '../prevision.js';
 import { phrasePrevision, feuillePrevision } from './prevision.js';
 import { estAnnoncee, bilanJour } from '../sansdepense.js';
@@ -39,7 +40,8 @@ export function rendre(vue) {
 
   const jour = formatJourLong(auj);
   const entete = h('header', { class: 'accueil-entete' },
-    h('div', {}, h('p', { class: 'accueil-date' }, jour.charAt(0).toUpperCase() + jour.slice(1)), h('h1', { class: 'grand-titre' }, etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour')));
+    h('div', {}, h('p', { class: 'accueil-date' }, jour.charAt(0).toUpperCase() + jour.slice(1)), h('h1', { class: 'grand-titre' }, etat.profil.prenomAffichage ? `Bonjour ${etat.profil.prenomAffichage}` : 'Bonjour')),
+    pastilleSolde(auj));
 
   const ajout = h('button', { class: 'btn btn-principal btn-large ajout-depense', type: 'button', onclick: async () => { const { ouvrirSaisie } = await import('./saisie.js'); ouvrirSaisie(); } }, icone('plus'), h('span', {}, 'Ajouter une dépense'));
   // « Je me suis privé » juste sous l'ajout : un repas évité part à l'épargne en deux touches
@@ -62,6 +64,31 @@ export function rendre(vue) {
     h('summary', {}, h('span', {}, 'Voir plus'), h('small', {}, 'analyse du mois, prévision, rappels, raccourcis')),
     h('div', { class: 'voir-plus-contenu' }, ...[carteAnalyse(r, jauge, analyse), carteOutils(prev, auj), urgent ? null : ess, rubriques(r, auj, rappels, critique)].filter(Boolean)));
   vue.replaceChildren(...[entete, hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), urgent, ligneSauvegarde(auj), voirPlus].filter(Boolean));
+}
+
+/** Solde du compte, coloré selon la lancée du mois (vert, orange, rouge). Toucher : le détail. */
+function pastilleSolde(auj) {
+  if (!etat.comptes.length) return null;
+  const v = verdictMois(etat, auj);
+  return h('button', { type: 'button', class: `pastille-solde ${v.couleur}`, onclick: () => feuilleVerdict(auj),
+    'aria-label': `${v.compte?.nom || 'Compte'} : ${estMasque() ? 'montant masqué' : formatEuros(v.soldeCompteCentimes)}. ${v.titre}. Voir le détail` },
+    h('span', { class: 'pastille-solde-nom' }, v.compte?.nom || 'Compte'),
+    h('span', { class: 'pastille-solde-montant' }, estMasque() ? '•••,•• €' : formatEuros(v.soldeCompteCentimes)));
+}
+
+function feuilleVerdict(auj) {
+  const v = verdictMois(etat, auj);
+  ouvrirFeuille({
+    titre: 'Mon argent',
+    contenu: h('div', { class: 'feuille-sections' },
+      h('div', { class: `verdict verdict-${v.couleur}` },
+        h('p', { class: 'verdict-titre' }, h('span', { class: 'verdict-point', 'aria-hidden': 'true' }), v.titre),
+        h('ul', { class: 'verdict-raisons' }, v.raisons.map((x) => h('li', {}, x))),
+        h('p', { class: 'petit' }, 'Vert : pas de dépassement prévu, épargne du mois tenue, peu de dépenses évitables. Orange : ça passe, mais sans marge. Rouge : dépassement ou découvert en vue.')),
+      positionGlobale(auj),
+      h('h3', { class: 'feuille-sous-titre' }, 'Les 7 prochains jours'),
+      risqueDecouvert(auj)),
+  });
 }
 
 /** Sauvegarde oubliée (plus de 7 jours) : visible sur l'Accueil, un toucher pour sauvegarder. */

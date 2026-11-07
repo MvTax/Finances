@@ -261,6 +261,16 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## Solde coloré à côté de « Bonjour » (1.31)
+
+À droite de « Bonjour », le solde du compte courant (LCL), dans une pastille colorée selon la lancée du mois :
+
+- **vert** : pas de dépassement prévu, épargne du mois tenue, dépenses évitables (repas dehors, livraisons, VTC, plaisirs, achats en ligne, loisirs) sous 25 % des dépenses du quotidien (jugé à partir de 30 € dépensés depuis le salaire), au moins 2 jours de budget de marge prévus ;
+- **orange** : ça passe, mais épargne réduite, ou beaucoup de dépenses évitables, ou marge prévue faible, ou revenus pas encore saisis ;
+- **rouge** : budget du mois dépassé, dépassement prévu à ce rythme, compte à découvert ou découvert dans les 7 jours.
+
+Toucher la pastille ouvre « Mon argent » : le verdict et ses raisons, le solde de chaque compte et les 7 prochains jours. Les montants masqués restent masqués.
+
 ## Version 1.30 : plus simple, et quatre nouveautés
 
 - **Accueil en trois blocs** : la part du jour (avec la prévision et la journée sans dépense), l'ajout (dépense, « Je me suis privé »), les deux épargnes avec le reste à virer. Restent visibles seulement l'alerte de découvert et la sauvegarde oubliée ; le reste (analyse du mois, outils, rappels, raccourcis) est dans « Voir plus », qui reste ouvert quand la page se met à jour.
