@@ -31,7 +31,7 @@ export default [
     egal(v.parPoche.reduce((s, x) => s + x.montantCentimes, 0), v.semaineCentimes, 'rien ne se perd');
     const pret = v.parPoche.find((x) => x.pocheId === 'pret').montantCentimes;
     const secu = v.parPoche.find((x) => x.pocheId === 'secu').montantCentimes;
-    egal(pret - secu, 1060, 'efforts sur le prêt, épargne du mois en 50/50');
+    egal(pret - secu, 60 + (571 - 429), 'arrondis sur le prêt, épargne du mois en 50/50, reste de la journée 40/30 (571 / 429)');
     egal(v.totalCentimes, v.moisRestantCentimes + 1060);
   } },
   { nom: 'à virer : un virement tous les 3 jours ; une fois fait, plus rien jusqu’à la tranche suivante', fn: () => {
@@ -64,7 +64,7 @@ export default [
     const pret = v.parPoche.find((x) => x.pocheId === 'pret').montantCentimes;
     const secu = v.parPoche.find((x) => x.pocheId === 'secu').montantCentimes;
     egal(pret + secu, v.semaineCentimes);
-    vrai(Math.abs(pret - secu) <= 2, `partage 50/50 (${pret} / ${secu})`);
+    vrai(Math.abs(pret - secu - (571 - 429)) <= 2, `arrondis et épargne du mois 50/50, reste de la journée 40/30 (${pret} / ${secu})`);
   } },
   { nom: 'date du virement : celle de la tranche ; virement oublié → aujourd’hui, avec la part reportée', fn: () => {
     const e = etat();

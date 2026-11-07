@@ -6,7 +6,7 @@
 //  - les repas à la maison et les privations pas encore virés.
 // Le montant est aussi réparti par poche (prêt / sécurité), pour savoir quoi mettre où.
 
-import { fluxEnvies, retenueAvance } from './envies.js';
+import { fluxEnvies, retenueAvance, repartirReste } from './envies.js';
 import { resteADepenser, cagnotteArrondis } from './calculs.js';
 import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrondis } from './epargne.js';
 import { formatEuros } from './money.js';
@@ -68,8 +68,11 @@ export function aVirerEpargne(etat, dateIso) {
   const repartir = (c) => { for (const x of repartirVersement(c, etat.poches || [])) ajouter(x.pocheId, x.montantCentimes); };
   repartir(moisSemaine);
   const efforts = pocheDesEfforts(etat);
-  if (efforts) ajouter(efforts.id, arrondis + privations);
-  else { repartir(arrondis); repartir(privations); }
+  if (efforts) ajouter(efforts.id, arrondis); else repartir(arrondis);
+  // Reste de la journée (restes, repas à la maison, privations) : 40 % prêt / 30 % sécurité (envies.js, PARTS_RESTE)
+  const partsReste = repartirReste(privations, etat.poches || []);
+  if (partsReste) for (const x of partsReste) ajouter(x.pocheId, x.montantCentimes);
+  else if (efforts) ajouter(efforts.id, privations); else repartir(privations);
 
   // Date du virement : celle de la tranche ; passée et pas faite → aujourd'hui ; faite → le virement suivant
   const semaine = moisSemaine + arrondis + privations;

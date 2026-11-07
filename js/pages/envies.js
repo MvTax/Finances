@@ -6,7 +6,7 @@ import { ouvrirFeuille } from '../ui/sheet.js';
 import { carte, champ, champMontant, bouton } from '../ui/composants.js';
 import { toast } from '../ui/toast.js';
 import { etat, majProfil, nouvelId } from '../store.js';
-import { fluxEnvies, typeEnvie, TYPES_ENVIE, estimationDuJour, journeesPourFinir, PART_SUPER_FLAMME, PART_JOUR, RETENUE_AVANCE } from '../envies.js';
+import { fluxEnvies, typeEnvie, TYPES_ENVIE, estimationDuJour, journeesPourFinir, PARTS_RESTE, RETENUE_AVANCE } from '../envies.js';
 import { jaugeDuJour, periodeBudget, depensesVariables } from '../calculs.js';
 import { ajouterTransaction, nouvelleTransaction } from '../actions.js';
 import { compteRevolut, compteParDefaut } from '../revolut.js';
@@ -74,7 +74,7 @@ export function carteEnvie() {
   else if (e.complete && e.achat) etatLigne = h('p', { class: 'envie-statut debloque' }, '✓ Mérité jusqu’au bout');
   else etatLigne = h('p', { class: 'envie-soir' }, soir.superFlamme
     ? ['Ce soir si tu ne dépenses rien : ', h('strong', {}, `+${eur(soir.montantCentimes)}`)]
-    : ['Ce soir : ', h('strong', {}, `+${eur(soir.montantCentimes)}`), ` (20 % de ce qui te reste). Une journée sans dépense : +${eur(soir.siRienCentimes)}`]);
+    : ['Ce soir : ', h('strong', {}, `+${eur(soir.montantCentimes)}`), ' (30 % de ce qui te reste)']);
   return h('section', { class: `envie envie-${t.id}`, 'aria-labelledby': `envie-${e.id}` },
     decor(t.id),
     h('div', { class: 'envie-contenu' },
@@ -123,7 +123,7 @@ export function feuilleEnvies() {
 
 function regles() {
   return h('details', { class: 'details-discret envies-regles' }, h('summary', {}, 'Comment ça se remplit'),
-    h('p', { class: 'petit' }, `Seuls les restes du jour (ce que tu n’as pas dépensé de ta part du jour, compté à 5 h) remplissent tes envies : ${Math.round(PART_SUPER_FLAMME * 100)} % une journée sans aucune dépense, ${Math.round(PART_JOUR * 100)} % les autres jours. Le reste part à l’épargne comme avant. L’épargne du mois, les arrondis, les repas à la maison et les privations ne sont jamais touchés.`),
+    h('p', { class: 'petit' }, `Chaque matin à 5 h, ce qui reste de ta part de la veille (ce que tu avais le droit de dépenser moins ce que tu as dépensé) est partagé : ${PARTS_RESTE.pret} % épargne du prêt, ${PARTS_RESTE.securite} % épargne sécurité, ${PARTS_RESTE.envie} % ton envie. Exemple : 13 € de part, 3 € dépensés : 10 € partagés (4 €, 3 €, 3 €). Rien dépensé : les 13 € partagés. L’épargne du mois et les arrondis ne sont pas concernés.`),
     h('p', { class: 'petit' }, 'L’argent de l’envie reste sur ton compte courant (il n’est pas viré sur l’épargne) : c’est lui qui paiera l’achat. Une envie se remplit à la fois, dans l’ordre de la liste.'),
     h('p', { class: 'petit' }, `Acheter avant que la barre soit pleine (exception) : la différence est une avance, reprise sur tes prochains virements d’épargne (au plus ${Math.round(RETENUE_AVANCE * 100)} % des restes et privations à virer à chaque fois). La barre continue de se remplir et ce qu’elle reçoit rembourse ton épargne : à la fin, ton épargne a reçu la même chose que si tu avais attendu.`));
 }

@@ -13,6 +13,7 @@ import { aVirerEpargne, historiqueCagnotte, compteEpargne, pocheDesEfforts } fro
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatMois } from '../dates.js';
 import { formatEuros } from '../money.js';
 import { aide } from '../ui/aide.js';
+import { PARTS_RESTE } from '../envies.js';
 import { blocPaliers, feuilleMouvement, editerPoche } from './epargne.js';
 import { feuilleHistorique } from './coffres.js';
 
@@ -52,7 +53,7 @@ export function ficheEpargne(poche) {
       pret && prochainPret ? h('p', { class: 'petit' }, `Mensualités prélevées directement sur ton compte courant : ${formatEuros(prochainPret.montantCentimes)} à partir du ${formatDate(prochainPret.date)}. Cette épargne sert à rembourser en avance.`) : null,
       p.type === 'coussin' ? h('p', { class: 'petit' }, 'Uniquement pour les vrais imprévus (panne, santé, perte de revenu).') : null,
       h('h3', { class: 'sous-titre' }, 'Ce qui l’alimente'),
-      h('p', { class: 'petit' }, `${p.partRepartition ?? 50} % de l’épargne du mois${partage ? ', et la même part des arrondis, repas, privations et restes du jour' : pocheDesEfforts(etat)?.id === p.id ? ', plus tous les arrondis, repas, privations et restes du jour' : ''}.`),
+      h('p', { class: 'petit' }, `${p.partRepartition ?? 50} % de l’épargne du mois${partage ? ' et des arrondis' : pocheDesEfforts(etat)?.id === p.id ? ', plus tous les arrondis' : ''}, et ${p.type === 'remboursementAnticipe' ? PARTS_RESTE.pret : p.type === 'coussin' ? PARTS_RESTE.securite : 0} % du reste de chaque journée (ce que tu n’as pas dépensé de ta part du jour : ${PARTS_RESTE.pret} % prêt, ${PARTS_RESTE.securite} % sécurité, ${PARTS_RESTE.envie} % ton envie).`),
       h('button', { type: 'button', class: 'lien', onclick: () => feuilleHistorique() }, `D’où vient chaque ajout (${hst.lignes.filter((l) => !l.enCours && l.montantCentimes).length})`, icone('suivant')),
       h('h3', { class: 'sous-titre' }, 'Historique'),
       mouvements.length ? h('div', { class: 'liste-cles' }, mouvements.map((m) => h('div', { class: 'ligne-cle' },

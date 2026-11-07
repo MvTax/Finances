@@ -269,10 +269,12 @@ Elle garde la série, rapporte 40 XP et remplit l'envie en cours. Le détail des
 
 **Mes envies** (Réglages → Mes envies, ou la carte de l'Accueil) : un plaisir à mériter, par exemple un jeu à 80 €.
 - La carte montre l'argent de côté, ce qu'il reste à mettre, une barre en euros, et un décor selon le type (coucher de soleil néon pour un jeu vidéo).
-- Elle se remplit avec ce que chaque journée a mis de côté en ne dépensant pas (reste du jour, repas à la maison, « Je me suis privé ») :
-  **50 %** une journée sans aucune dépense, **20 %** les autres jours. Le reste part à l'épargne comme avant.
-  L'épargne du mois et les arrondis ne sont jamais touchés.
-- Exemple avec une part du jour de 13,46 € : une journée sans dépense rapporte 6,73 € à l'envie, donc 80 € ≈ 12 journées sans dépense.
+- **Reste de la journée** (1.37) : ce que tu avais le droit de dépenser moins ce que tu as dépensé, compté à 5 h du matin
+  (reste du jour, repas à la maison, « Je me suis privé »). Il est partagé : **40 % épargne du prêt (8000), 30 % épargne sécurité,
+  30 % l'envie en cours**. Exemple : 13 € de part, 3 € dépensés → 10 € : 4 € prêt, 3 € sécurité, 3 € envie. Rien dépensé : les 13 € partagés pareil.
+  Sans envie en cours, ses 30 % vont aux deux épargnes (même rapport 40/30).
+  L'épargne du mois et les arrondis ne sont pas concernés : ils gardent leur répartition (50/50 par défaut).
+- Exemple avec une part du jour de 13,46 € et aucune dépense : 4,03 € par jour pour l'envie, donc 80 € ≈ 20 journées sans dépense.
 - L'argent de l'envie reste sur le compte courant : il n'est pas viré sur l'épargne, c'est lui qui paie l'achat (l'achat ne touche pas au budget du jour).
 - Une envie se remplit à la fois, dans l'ordre de la liste ; le surplus passe à la suivante.
 - Achat bloqué tant que la barre n'est pas pleine. Petit bouton « exception » : l'achat est enregistré, la différence est une avance

@@ -1,6 +1,6 @@
 // actions.js — opérations métier déclenchées par l'interface (saisie, confirmation, virements, échéances, import).
 
-import { fluxEnvies, retenueAvance, repartirRetenue } from './envies.js';
+import { fluxEnvies, retenueAvance, repartirRetenue, repartirReste } from './envies.js';
 import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, nouvelId, reinitialiserJauge, ecrireMeta } from './store.js';
 import { cloturerJours } from './restes.js';
 import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, REGLES_DEFAUT, normaliserTexte } from './rules.js';
@@ -126,12 +126,12 @@ export async function confirmerRevenus(mois, { salaireCentimes, primeActiviteCen
 // ---------------------------------------------------------------------------
 
 /** Enregistre un virement d'épargne réel (bouton « C'est fait ») et le répartit dans les poches. */
-export async function enregistrerVirementEpargne({ montantCentimes, pocheId = null, date = aujourdhui(), type = 'virementLivret', libelle = "Virement vers l'épargne", virementPrevuId = null, lignesArrondis = [] }) {
+export async function enregistrerVirementEpargne({ montantCentimes, pocheId = null, repartition: repartitionImposee = null, date = aujourdhui(), type = 'virementLivret', libelle = "Virement vers l'épargne", virementPrevuId = null, lignesArrondis = [] }) {
   const compte = compteCourant();
   const tx = nouvelleTransaction({ sens: 'debit', montantCentimes, libelle, categorie: 'epargne', date, compteId: compte.id, source: 'confirmation' });
   tx.marchand = libelle; tx.libelle = libelle; tx.epargne = { estEpargne: true, type };
   const ops = [{ collection: 'transactions', valeur: tx }];
-  const repartition = pocheId ? [{ pocheId, montantCentimes }] : repartirVersement(montantCentimes, etat.poches);
+  const repartition = repartitionImposee || (pocheId ? [{ pocheId, montantCentimes }] : repartirVersement(montantCentimes, etat.poches));
   for (const a of repartition) {
     const p = etat.poches.find((x) => x.id === a.pocheId);
     if (!p) continue;
@@ -189,7 +189,9 @@ export async function virerPrivations(pocheId = null, auto = []) {
   // Même poche que les arrondis (réglable dans « Mon système d'épargne »)
   // Partagées entre les épargnes (réglage « partage ») : pocheId null → répartition comme l'épargne du mois
   const cible = pocheId || (etat.profil.arrondi?.pocheId === 'partage' ? null : etat.poches.find((p) => p.id === etat.profil.arrondi?.pocheId && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'remboursementAnticipe' && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null);
-  const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: cible, type: 'privation', libelle: 'Privations virées sur l’épargne' });
+  // Reste de la journée : 40 % prêt / 30 % sécurité (les 30 % de l'envie sont restés sur le compte)
+  const parts = repartirReste(total, etat.poches || []);
+  const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: parts ? null : cible, repartition: parts, type: 'privation', libelle: 'Reste de la journée viré sur l’épargne' });
   // Les repas automatiques virés sont enregistrés : leur jour est figé, une dépense ajoutée ensuite ne les change plus
   await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: tx.id, ...figer(p) } })));
   return tx;
