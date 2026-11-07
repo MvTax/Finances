@@ -261,6 +261,15 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## Version 1.32
+
+- **Virement en 4 fois par mois** : 6 jours après le salaire, puis tous les 7 jours (salaire le 5 → le 11, le 18, le 25 et le 1er ou le 2). Chaque virement : la part de l'épargne du mois (ce qui reste, divisé par les virements restants, arrondi à l'euro) + arrondis + repas, privations, restes du jour. La case affiche « virement 1 sur 4 » et la date ; un virement oublié passe en « à faire aujourd'hui » avec la part reportée. Le rappel au calendrier se répète chaque mois à ces dates.
+- **À traiter** : une ligne sur l'Accueil avec le nombre (badge) et la liste en un toucher : remboursements à des proches, revenus à confirmer, questions sur les relevés, dépenses sans catégorie (à ranger en une liste), sauvegarde de plus de 7 jours, vérification du solde de plus de 14 jours, saisies en attente de Gemini. Le virement vers l'épargne n'y est pas : il a sa case.
+- **Plusieurs dépenses en une phrase** : « Vélib' 3 €, menu 9,50 et pain 1,20 » (au clavier, par la dictée iOS ou au micro avec Gemini) → une seule vérification (libellé, montant, catégorie, case à décocher), puis tout est ajouté d'un coup, avec « Annuler ». Séparateurs : « , » suivi d'un espace, « ; », « et », « puis », « plus », « + ». Une date dite une fois (« hier ») vaut pour toutes.
+- **« ? » à côté des chiffres** : part du jour, « pour tenir jusqu'au salaire », « Mon épargne » (cases et reste à virer), total d'une épargne dans sa fiche. Un toucher : d'où vient le chiffre, avec ton calcul.
+- **Navigation** : trois onglets (Accueil, Dépenses, Épargne) et le bouton + ; les Réglages sont dans l'icône en haut de l'Accueil. Balayer vers la gauche ou la droite change de page (Réglages ← Accueil ↔ Dépenses ↔ Épargne), sauf depuis une zone qui défile ou un champ.
+- **Et si j'achète ?** (Voir plus, ou l'écran d'ajout) : un prix → reste aujourd'hui, part des jours suivants, épargne du mois, ce que l'épargne perd, couleur de la pastille, et « sans risque dès aujourd'hui » ou « à partir du salaire ». Un achat qui tient dans ce qui reste de la part du jour ne change pas les jours suivants (il réduit seulement le reste qui partait à l'épargne).
+
 ## Solde coloré à côté de « Bonjour » (1.31)
 
 À droite de « Bonjour », le solde du compte courant (LCL), dans une pastille colorée selon la lancée du mois :

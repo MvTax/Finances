@@ -52,7 +52,7 @@ p { margin: 0; }
 /* Barre d'onglets basse, + central mis en valeur */
 .barre-onglets {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
   height: calc(var(--barre-onglets) + env(safe-area-inset-bottom));
   padding: 0 max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
   background: color-mix(in srgb, var(--surface) 86%, transparent);

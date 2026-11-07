@@ -748,3 +748,61 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .verdict-rouge .verdict-point { background: var(--rouge, #e0574f); }
 .verdict-raisons { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
 @media (max-width: 360px) { .accueil-entete .grand-titre { font-size: 26px; } .pastille-solde-montant { font-size: 16px; } }
+
+/* À traiter */
+.ligne-a-traiter { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 12px 14px; border: 0; border-radius: var(--rayon); background: var(--surface); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.ligne-a-traiter > .ic { flex: none; width: 18px; height: 18px; color: var(--texte-3); }
+.a-traiter-badge { flex: none; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; display: grid; place-items: center; background: var(--accent); color: var(--accent-texte); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ligne-a-traiter.urgent .a-traiter-badge { background: var(--orange); color: #fff; }
+.a-traiter-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.a-traiter-texte small { font-size: 13px; color: var(--texte-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne-ranger { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--separateur); transition: opacity .3s; }
+.ligne-ranger.fait { opacity: .4; }
+.ligne-ranger-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ligne-ranger-texte strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne-ranger-texte small { color: var(--texte-3); font-size: 13px; }
+.ligne-ranger select { flex: none; width: 46%; }
+
+/* Plusieurs opérations en une phrase */
+.plusieurs-ligne { display: grid; grid-template-columns: auto 1fr 110px; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--separateur); }
+.plusieurs-ligne input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
+.plusieurs-champs { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.plusieurs-info { font-size: 13px; color: var(--texte-3); }
+.plusieurs-ligne.retiree { opacity: .45; }
+.plusieurs-ligne.retiree .input { text-decoration: line-through; }
+.plusieurs-ligne .champ-montant, .plusieurs-ligne input[inputmode=decimal] { font-size: 17px; }
+
+/* Et si j'achète ? */
+.simu-resultat { display: flex; flex-direction: column; gap: 10px; }
+.simu-verdict { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: var(--rayon); background: var(--vert-doux); }
+.simu-verdict.attendre { background: var(--orange-doux); }
+.simu-verdict-titre { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; }
+.simu-verdict-titre .ic { width: 18px; height: 18px; flex: none; }
+.simu-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--separateur); }
+.simu-titre { color: var(--texte-2); font-size: 15px; }
+.simu-valeurs { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.simu-valeurs .ic { width: 14px; height: 14px; color: var(--texte-3); }
+.simu-pastille { padding: 2px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; background: var(--vert-doux); color: var(--vert); }
+.simu-pastille.orange { background: var(--orange-doux); color: var(--orange); }
+.simu-pastille.rouge { background: var(--rouge-doux); color: var(--rouge); }
+
+/* Réglages : icône en haut de l'Accueil (plus d'onglet) */
+.accueil-entete { position: relative; }
+.bouton-reglages { position: absolute; top: -4px; right: 0; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; color: var(--texte-2); background: var(--surface); }
+.bouton-reglages .ic { width: 22px; height: 22px; }
+.bouton-reglages:active { background: var(--surface-2); }
+
+/* Balayer gauche / droite pour changer de page */
+@keyframes glisse-gauche { from { transform: translateX(28px); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes glisse-droite { from { transform: translateX(-28px); opacity: .4; } to { transform: none; opacity: 1; } }
+.vue.glisse-gauche { animation: glisse-gauche 220ms var(--sortie); }
+.vue.glisse-droite { animation: glisse-droite 220ms var(--sortie); }
+@media (prefers-reduced-motion: reduce) { .vue.glisse-gauche, .vue.glisse-droite { animation: none; } }
+.coffres-titre { margin: 0 0 -2px; display: flex; align-items: center; font-size: 15px; font-weight: 600; color: var(--texte-2); }
+.fiche-solde .aide-q { width: 24px; height: 24px; font-size: 14px; }
+.hero-libelle .aide-q, .hero-aide .aide-q { vertical-align: 2px; }
+.plusieurs-categorie { font-size: 14px; padding-top: 6px; padding-bottom: 6px; min-height: 36px; }
+/* Barre à trois onglets : le + reste au centre (Épargne occupe la moitié droite) */
+.barre-onglets { grid-template-columns: 1fr 1fr 76px 2fr; }
+.coffre-virer-date { flex-wrap: wrap; row-gap: 0; }
+.coffre-virer-numero { flex-basis: 100%; padding-left: 23px; font-size: 13px; font-weight: 500; color: var(--texte-2); }

@@ -4,14 +4,14 @@ import { h, icone, mt, annoncer, vibrer } from '../ui/dom.js';
 import { ouvrirFeuille } from '../ui/sheet.js';
 import { champ, champMontant, pastillesCategories, segment, bouton, interrupteur, selectionner } from '../ui/composants.js';
 import { toast, toastErreur } from '../ui/toast.js';
-import { etat } from '../store.js';
+import { etat, enregistrerLot } from '../store.js';
 import { formatEuros, arrondiEuroSuperieur, versChamp } from '../money.js';
 import { aujourdhui, estIso, ajouterJours, diffJours, formatDateCourte } from '../dates.js';
 import { categoriesDepense, categoriesEntree, categorie } from '../categories.js';
 import { nouvelleTransaction, ajouterTransaction, supprimerTransaction, categoriesFrequentes } from '../actions.js';
 import { tauxHoraire, equivalentTravail, periodeBudget } from '../calculs.js';
 import { coutAnnuelRecurrent } from '../detecteurs.js';
-import { analyserPhrase } from '../saisie.js';
+import { analyserPhrase, analyserPhrases } from '../saisie.js';
 import { iaDisponible } from '../gemini.js';
 import { analyserVoix, analyserTexteIA, analyserTicket, mettreEnFile } from '../ia.js';
 import { demarrerEnregistrement, voixDisponible, messageErreurMicro, blobEnBase64, DUREE_MAX_MS } from '../voice.js';
@@ -23,6 +23,59 @@ import { feuillePrivation } from './privation.js';
 import { depensesFrequentes } from '../express.js';
 import { estAnnoncee } from '../sansdepense.js';
 import { estDepenseQuotidienne } from '../calculs.js';
+
+/**
+ * Plusieurs opérations dites ou tapées en une phrase : une seule vérification, puis tout est ajouté d'un coup.
+ * Chaque ligne : libellé et montant modifiables, catégorie devinée, case pour la retirer.
+ */
+export function feuillePlusieurs(operations, source = 'phrase') {
+  const lignes = operations.map((o) => {
+    const t = nouvelleTransaction({ sens: o.sens || 'debit', montantCentimes: o.montantCentimes || 1, libelle: o.libelle || o.marchand || 'Dépense' });
+    return { ...o, garder: true, categorie: o.categorie && !['autres', 'autres-entrees'].includes(o.categorie) ? o.categorie : t.categorie };
+  });
+  const total = h('strong', {});
+  const valider = h('button', { type: 'button', class: 'btn btn-principal btn-large' });
+  const maj = () => {
+    const g = lignes.filter((l) => l.garder && l.montantCentimes > 0);
+    total.textContent = formatEuros(g.reduce((s2, l) => s2 + (l.sens === 'credit' ? -l.montantCentimes : l.montantCentimes), 0));
+    valider.textContent = g.length ? `Ajouter ${g.length} opération${g.length > 1 ? 's' : ''}` : 'Rien à ajouter';
+    valider.disabled = !g.length || null;
+  };
+  const rangs = lignes.map((l) => {
+    const rang = h('div', { class: 'plusieurs-ligne' });
+    const lib = h('input', { class: 'input', value: l.libelle || '', 'aria-label': 'Libellé', oninput: (e) => { l.libelle = e.target.value; } });
+    const m = champMontant({ valeur: l.montantCentimes, label: `Montant de ${l.libelle || 'l’opération'}`, onValeur: (c) => { l.montantCentimes = c || 0; maj(); } });
+    const garder = h('input', { type: 'checkbox', checked: true, 'aria-label': `Garder ${l.libelle}`, onchange: (e) => { l.garder = e.target.checked; rang.classList.toggle('retiree', !l.garder); maj(); } });
+    const choixCat = l.sens === 'credit' ? h('small', { class: 'plusieurs-info' }, 'Entrée')
+      : selectionner(categoriesDepense().map((c) => [c.id, c.nom]), l.categorie || 'autres', (v) => { l.categorie = v; }, { aria: `Catégorie de ${l.libelle}` });
+    choixCat.classList?.add('plusieurs-categorie');
+    rang.append(garder, h('div', { class: 'plusieurs-champs' }, lib, choixCat,
+      l.date !== aujourdhui() ? h('small', { class: 'plusieurs-info' }, formatDateCourte(l.date)) : null), m);
+    return rang;
+  });
+  valider.addEventListener('click', async () => {
+    valider.disabled = true;
+    const g = lignes.filter((l) => l.garder && l.montantCentimes > 0);
+    const txs = g.map((l) => {
+      const tx = nouvelleTransaction({ sens: l.sens || 'debit', montantCentimes: l.montantCentimes, libelle: (l.libelle || '').trim() || 'Dépense', categorie: l.categorie || null, date: l.date || aujourdhui(), source });
+      if (l.marchand) tx.marchand = l.marchand;
+      return tx;
+    });
+    await enregistrerLot(txs.map((valeur) => ({ collection: 'transactions', valeur })));
+    fp.fermer(); vibrer(15);
+    toast(`${txs.length} opération${txs.length > 1 ? 's ajoutées' : ' ajoutée'} : ${formatEuros(txs.reduce((s2, t) => s2 + t.montantCentimes, 0))}.`, { type: 'succes', action: { libelle: 'Annuler', fn: async () => { for (const t of txs) await supprimerTransaction(t); } }, duree: 6000 });
+  });
+  maj();
+  const fp = ouvrirFeuille({
+    titre: `${lignes.length} opérations`,
+    contenu: h('div', { class: 'formulaire plusieurs' },
+      h('p', { class: 'petit' }, 'Vérifie, corrige si besoin, décoche ce qui ne va pas, puis ajoute tout d’un coup.'),
+      ...rangs,
+      h('div', { class: 'ligne-cle forte' }, h('span', {}, 'Total'), total),
+      valider),
+  });
+  return fp;
+}
 
 /** Toast après un ajout : montant, arrondi, et la journée sans dépense rompue s'il y en avait une. */
 function toastAjout(tx, { annuler = true } = {}) {
@@ -62,6 +115,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
         try {
           const res = await analyserVoix(r.blob, r.mime);
           vibrer(15);
+          if (res.autres?.length) { f.fermer(); feuillePlusieurs([res, ...res.autres], 'voix'); return; }
           montrer('clavier', { ...res, source: 'voix', confirmation: true });
         } catch (err) {
           if (err.mettreEnFile) { await mettreEnFile('voix', { base64: await blobEnBase64(r.blob), mime: r.mime }); etatTexte.textContent = err.message; }
@@ -88,6 +142,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       h('div', { class: 'saisie-tuiles', role: 'group', 'aria-label': 'Autres façons d’ajouter' },
         tuile('tirelire', 'Je me suis privé', 'Le montant part à l’épargne', () => privation(), 'saisie-tuile-epargne'),
         tuile('calendrier', 'Dépense passée', 'Hier ou un autre jour', () => { enreg?.annuler(); enreg = null; montrer('clavier', { passee: true }); }),
+        tuile('panier', 'Et si j’achète ?', 'L’effet avant d’acheter', async () => { enreg?.annuler?.(); enreg = null; f.fermer(); const { feuilleSimulateurAchat } = await import('./simulateur-achat.js'); feuilleSimulateurAchat(); }),
         tuile('camera', 'Ticket', 'Photo du ticket de caisse', () => photoTicket()),
         tuile('importer', 'Capture d’écran', 'Appli bancaire, reçu…', () => depuisCapture())),
       ia.ok ? h('div', { class: 'voix-note' }, indicationEnvoiGemini('pour le micro seulement, l’audio (30 s max), la date du jour et les catégories. Rien n’est ajouté sans ta confirmation.')) : null);
@@ -178,8 +233,10 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
     rendreSeg();
 
     // Phrase rapide (compatible dictée du clavier iOS) : parseur local, Gemini en option
-    const phrase = h('input', { class: 'input', placeholder: '« 2 fois 3,20 café hier »', autocomplete: 'off', enterkeyhint: 'go', 'aria-label': 'Décris l’opération en une phrase' });
+    const phrase = h('input', { class: 'input', placeholder: '« Vélib’ 3 €, menu 9,50 et pain 1,20 »', autocomplete: 'off', enterkeyhint: 'go', 'aria-label': 'Décris l’opération en une phrase' });
     const analyserPhraseLocale = () => {
+      const plusieurs = analyserPhrases(phrase.value);
+      if (plusieurs.length > 1) { f.fermer(); feuillePlusieurs(plusieurs, 'phrase'); return; }
       const r = analyserPhrase(phrase.value);
       if (!r) return;
       appliquer(r);
@@ -197,7 +254,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
     const btnIA = ia.ok ? h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: async () => {
       if (!phrase.value.trim()) return;
       btnIA.disabled = true;
-      try { appliquer(await analyserTexteIA(phrase.value)); }
+      try { const res = await analyserTexteIA(phrase.value); if (res.autres?.length) { f.fermer(); feuillePlusieurs([res, ...res.autres], 'phrase'); return; } appliquer(res); }
       catch (e) { if (e.mettreEnFile) await mettreEnFile('texte', { texte: phrase.value }); toastErreur(e.message); analyserPhraseLocale(); }
       finally { btnIA.disabled = false; }
     } }, icone('ia'), 'Gemini') : null;
@@ -251,7 +308,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       champ('Libellé', libInput),
       h('div', { class: 'champ' }, h('span', { class: 'champ-libelle' }, 'Catégorie'), zoneCats),
       d.passee ? champ('Compte', compteSel) : h('div', { class: 'deux-colonnes' }, champ('Date', dateInput), champ('Compte', compteSel)),
-      h('details', { class: 'phrase-rapide' }, h('summary', {}, 'Saisie en une phrase'), h('div', { class: 'ligne-phrase' }, phrase, h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: analyserPhraseLocale }, 'Remplir'), btnIA), h('small', { class: 'aide' }, 'Tu peux utiliser le micro du clavier iOS : la phrase est analysée sur l’iPhone.')),
+      h('details', { class: 'phrase-rapide' }, h('summary', {}, 'Une ou plusieurs dépenses en une phrase'), h('div', { class: 'ligne-phrase' }, phrase, h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: analyserPhraseLocale }, 'Remplir'), btnIA), h('small', { class: 'aide' }, 'Tu peux utiliser le micro du clavier iOS : la phrase est analysée sur l’iPhone.')),
       erreur,
       h('div', { class: 'actions-saisie' },
         h('button', { type: 'submit', class: 'btn btn-principal btn-large' }, icone('ok'), h('span', {}, 'Ajouter')),

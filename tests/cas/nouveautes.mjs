@@ -7,6 +7,10 @@ import { depensesFrequentes } from '../../js/express.js';
 import { chiffrer, dechiffrer, estChiffre } from '../../js/chiffrement.js';
 import { resteADepenser } from '../../js/calculs.js';
 import { verdictMois } from '../../js/verdict.js';
+import { analyserPhrases, analyserPhrase } from '../../js/saisie.js';
+import { datesVirements, joursDuMoisVirements } from '../../js/virements.js';
+import { validerVoixMulti } from '../../js/ia.js';
+import { simulerAchat } from '../../js/simulation.js';
 
 const revenus = { mois: '2026-11', salaireCentimes: 150000, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' };
 const etat = (extra = {}) => { const e = etatBase({ revenusMensuels: [revenus], privations: [], ...extra }); e.profil.repasAuto = { actif: false }; e.meta = {}; return e; };
@@ -80,5 +84,31 @@ export default [
     rouge.comptes[0].soldeInitialCentimes = 150000;
     const r = verdictMois(rouge, '2026-11-11');
     egal(r.couleur, 'rouge'); vrai(r.raisons.some((x) => /dépassement|dépassé/.test(x)));
+  } },
+  { nom: 'plusieurs dépenses en une phrase : séparateurs, virgule des centimes, date commune, mots accentués', fn: () => {
+    const r = analyserPhrases("Vélib' 3 €, menu 9,50 et pain 1,20", '2026-11-07');
+    egal(r.map((o) => `${o.libelle}:${o.montantCentimes}`).join(' '), "Vélib':300 Menu:950 Pain:120");
+    const h = analyserPhrases('hier 2 fois 3,20 café et uber 12 euros', '2026-11-07');
+    egal(h.map((o) => `${o.montantCentimes}@${o.date}`).join(' '), '640@2026-11-06 1200@2026-11-06', '« hier » vaut pour les deux');
+    egal(analyserPhrases('4,89 Lidl', '2026-11-07').length, 1);
+    egal(analyserPhrase('cinéma 11,50', '2026-11-07').libelle, 'Cinéma', '« ma » n’est pas retiré de « cinéma »');
+    const v = validerVoixMulti({ sens: 'debit', montantCentimes: 300, libelle: 'Vélib', categorie: 'velo', date: '2026-11-07', confiance: 0.9, autres: [{ sens: 'debit', montantCentimes: 950, libelle: 'Menu', categorie: 'restauration-rapide', date: '2026-11-07', confiance: 0.8 }, { sens: 'debit', montantCentimes: -1 }] });
+    egal(v.autres.length, 1, 'opérations invalides écartées');
+  } },
+  { nom: 'virements : 4 par mois, 6 jours après le salaire puis tous les 7 jours ; rappels au calendrier', fn: () => {
+    egal(datesVirements({ debut: '2026-12-05', fin: '2027-01-04' }).join(' '), '2026-12-11 2026-12-18 2026-12-25 2027-01-01');
+    egal(joursDuMoisVirements(5).join(','), '1,11,18,25');
+    egal(joursDuMoisVirements(28).join(','), '3,10,17,24');
+  } },
+  { nom: '« Et si j’achète ? » : petit achat sans risque (pris sur le reste du jour), gros achat → après le salaire', fn: () => {
+    const e = etat({ transactions: ['05', '06', '07', '08', '09', '10'].map((d) => tx({ date: `2026-11-${d}`, montant: 800, categorie: 'courses' })) });
+    e.comptes[0].soldeInitialCentimes = 150000;
+    const petit = simulerAchat(e, '2026-11-11', { montantCentimes: 500 });
+    egal(petit.sansRisque, true, petit.raisons.join(' | ')); egal(petit.dateSansRisque, '2026-11-11');
+    egal(petit.apres.partSuivantsCentimes, petit.avant.partSuivantsCentimes, 'pris sur le reste du jour : les jours suivants ne bougent pas');
+    egal(petit.epargnePerdueCentimes, 500, 'le reste du jour qui partait à l’épargne');
+    const gros = simulerAchat(e, '2026-11-11', { montantCentimes: 30000 });
+    egal(gros.sansRisque, false); egal(gros.dateSansRisque, '2026-12-05', 'après le salaire');
+    vrai(gros.apres.partSuivantsCentimes < gros.avant.partSuivantsCentimes);
   } },
 ];

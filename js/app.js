@@ -28,7 +28,45 @@ const PAGES = {
   reglages: () => import('./pages/reglages.js'),
   onboarding: () => import('./pages/onboarding.js'),
 };
-const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'depenses', historique: 'depenses', statistiques: 'depenses', avenir: 'depenses', abonnements: 'accueil', epargne: 'epargne', reglages: 'reglages' };
+const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'depenses', historique: 'depenses', statistiques: 'depenses', avenir: 'depenses', abonnements: 'accueil', epargne: 'epargne', reglages: null };
+/** Ordre des pages pour le balayage gauche / droite (les Réglages se trouvent « avant » l'Accueil). */
+const ORDRE_BALAYAGE = ['reglages', 'accueil', 'depenses', 'epargne'];
+
+/**
+ * Balayer vers la gauche : page suivante ; vers la droite : page précédente.
+ * Un vrai geste horizontal seulement (assez long, rapide, peu vertical), jamais depuis une zone qui défile
+ * horizontalement (filtres, onglets internes, graphiques, champs) ni quand une feuille est ouverte.
+ */
+function installerBalayage() {
+  const vue = document.getElementById('vue');
+  let depart = null;
+  const ZONES_EXCLUES = 'input, textarea, select, [contenteditable], .histo-filtres, .onglets-internes, .express-liste, .graphique, .defilement-horizontal, .sd-calendrier, svg, canvas';
+  vue.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || document.querySelector('.feuille.visible') || e.target.closest(ZONES_EXCLUES)) { depart = null; return; }
+    const t = e.touches[0];
+    // Bord gauche de l'écran : laissé au système
+    if (t.clientX < 18) { depart = null; return; }
+    depart = { x: t.clientX, y: t.clientY, t: performance.now() };
+  }, { passive: true });
+  vue.addEventListener('touchend', (e) => {
+    if (!depart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - depart.x; const dy = t.clientY - depart.y; const dt = performance.now() - depart.t;
+    depart = null;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy) || dt > 700) return;
+    const r = routeActuelle();
+    const groupe = r.nom === 'reglages' ? 'reglages' : (ONGLET[r.nom] || 'accueil');
+    if (r.nom === 'reglages' && r.params?.length) return; // dans une section des réglages : pas de saut de page
+    const i = ORDRE_BALAYAGE.indexOf(groupe);
+    const cible = ORDRE_BALAYAGE[i + (dx < 0 ? 1 : -1)];
+    if (!cible) return;
+    vue.classList.remove('glisse-gauche', 'glisse-droite');
+    void vue.offsetWidth;
+    vue.classList.add(dx < 0 ? 'glisse-gauche' : 'glisse-droite');
+    aller(cible);
+  }, { passive: true });
+  vue.addEventListener('animationend', () => vue.classList.remove('glisse-gauche', 'glisse-droite'));
+}
 
 let pageCourante = null;
 let paramsCourants = [];
@@ -195,6 +233,7 @@ async function demarrer() {
   surChangement((raison) => { if (raison === 'parametres') definirMasquage(etat.parametres.masquageMontants); redessiner(); });
   document.getElementById('bouton-plus').addEventListener('click', () => ouvrirPlus());
   gererClavier();
+  installerBalayage();
   await rendreRoute();
   aideInstallation();
   annoncerRestes(restes);

@@ -35,6 +35,13 @@ export const SCHEMA_VOIX = {
   required: ['sens', 'montantCentimes', 'libelle', 'categorie', 'date', 'confiance'],
 };
 
+/** Voix et phrase : plusieurs opérations possibles (« Vélib' 3 €, menu 9,50 et pain 1,20 »). */
+export const PROMPT_VOIX_MULTI = `${PROMPT_VOIX}
+Si la phrase contient PLUSIEURS opérations, mets la première dans les champs principaux et chacune des suivantes, complète, dans "autres" (même format). Une date dite une fois (« hier ») vaut pour toutes. Sinon, "autres" est une liste vide.
+Exemple : « Vélib 3 euros, menu 9,50 et pain 1,20 » → {"sens":"debit","montantCentimes":300,"libelle":"Vélib'","marchand":"Vélib'","categorie":"velo","date":"<aujourd'hui>","sucre":false,"confiance":0.9,"autres":[{"sens":"debit","montantCentimes":950,"libelle":"Menu","marchand":"","categorie":"restauration-rapide","date":"<aujourd'hui>","sucre":false,"confiance":0.8},{"sens":"debit","montantCentimes":120,"libelle":"Pain","marchand":"","categorie":"courses","date":"<aujourd'hui>","sucre":false,"confiance":0.8}]}`;
+
+export const SCHEMA_VOIX_MULTI = { ...SCHEMA_VOIX, properties: { ...SCHEMA_VOIX.properties, autres: { type: 'array', items: SCHEMA_VOIX } } };
+
 export const PROMPT_TICKET = `Tu lis la photo d'un ticket de caisse français.
 ${regleCommune}
 Extrais : marchand, date, total payé, et chaque article (nom lisible, prixCentimes = prix total de la ligne, quantite, categorie parmi la liste fournie, sucre (sucreries, sodas, biscuits, viennoiseries), marque, typeMarque = "distributeur" (marque de l'enseigne : Lidl, Carrefour, Auchan, Leader Price, Marque Repère…), "nationale" (Coca-Cola, Nutella, Danone…) ou "inconnue").

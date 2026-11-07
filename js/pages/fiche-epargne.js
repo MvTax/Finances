@@ -12,6 +12,7 @@ import { echeancesEntre } from '../dettes.js';
 import { aVirerEpargne, historiqueCagnotte, compteEpargne, pocheDesEfforts } from '../virements.js';
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatMois } from '../dates.js';
 import { formatEuros } from '../money.js';
+import { aide } from '../ui/aide.js';
 import { blocPaliers, feuilleMouvement, editerPoche } from './epargne.js';
 import { feuilleHistorique } from './coffres.js';
 
@@ -36,8 +37,11 @@ export function ficheEpargne(poche) {
     contenu.replaceChildren(...[
       h('div', { class: 'fiche-tete' },
         h('p', { class: 'fiche-compte' }, compte ? `Sur ton ${compte}` : 'Compte non renseigné'),
-        h('p', { class: 'fiche-solde' }, mt(s)),
-        enAttente ? h('p', { class: 'fiche-attente' }, `dont ${formatEuros(enAttente)} à virer cette semaine · ${formatEuros(vire)} déjà virés`) : h('p', { class: 'fiche-attente' }, 'Tout est viré.')),
+        h('p', { class: 'fiche-solde' }, mt(s), aide(p.nom, () => ({
+          texte: 'Ce qui est déjà viré sur cette épargne (versements − retraits, depuis le solde de départ), plus sa part du prochain virement : elle est comptée dès qu’elle apparaît.',
+          lignes: [p.soldeInitialCentimes ? ['Solde de départ', p.soldeInitialCentimes] : null, ['Déjà viré (versements − retraits)', vire - (p.soldeInitialCentimes || 0)], ['+ part du prochain virement', enAttente], ['= total', s, 'forte'], p.cibleCentimes ? ['Objectif', p.cibleCentimes] : null],
+        }))),
+        enAttente ? h('p', { class: 'fiche-attente' }, `dont ${formatEuros(enAttente)} au prochain virement · ${formatEuros(vire)} déjà virés`) : h('p', { class: 'fiche-attente' }, 'Tout est viré.')),
       paliersPoche(p, s) ? blocPaliers(p, s) : p.cibleCentimes ? h('div', {},
         barre(s, p.cibleCentimes, { etat: 'laiton', label: `${p.nom} : ${formatEuros(s)} sur ${formatEuros(p.cibleCentimes)}` }),
         h('p', { class: 'petit' }, `${Math.min(100, Math.round((s / p.cibleCentimes) * 100))} % de ${formatEuros(p.cibleCentimes, { sansCentimes: true })}${att ? `, objectif atteint en ${formatMois(att)} au rythme du plan` : ''}.`)) : null,

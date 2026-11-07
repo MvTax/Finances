@@ -29,12 +29,20 @@ export function validerTransactionIA(o) {
   };
 }
 
+/** Une opération, plus les suivantes (« autres ») quand la phrase en contient plusieurs. */
+export function validerVoixMulti(o) {
+  const premiere = validerTransactionIA(o);
+  if (!premiere) return null;
+  premiere.autres = (Array.isArray(o.autres) ? o.autres : []).slice(0, 20).map(validerTransactionIA).filter(Boolean);
+  return premiere;
+}
+
 export async function analyserVoix(blob, mimeOrigine) {
   const base64 = await blobEnBase64(blob);
   let mime = mimePourGemini(mimeOrigine);
   for (let i = 0; i < 3; i++) {
     try {
-      return await genererJSON({ systeme: P.PROMPT_VOIX, schema: P.SCHEMA_VOIX, valider: validerTransactionIA, parts: [{ text: contexte() + ' Transcris puis structure cette dépense ou entrée dictée.' }, { inlineData: { mimeType: mime, data: base64 } }], reflexion: 'faible', timeoutMs: 60000 });
+      return await genererJSON({ systeme: P.PROMPT_VOIX_MULTI, schema: P.SCHEMA_VOIX_MULTI, valider: validerVoixMulti, parts: [{ text: contexte() + ' Transcris puis structure cette ou ces dépenses ou entrées dictées.' }, { inlineData: { mimeType: mime, data: base64 } }], reflexion: 'faible', timeoutMs: 60000 });
     } catch (e) {
       if (e.code === 'format' && MIME_REPLI[mime]) { mime = MIME_REPLI[mime]; continue; }
       if (e.code === 'format') throw new ErreurGemini(`Gemini refuse le format audio de cet appareil (${mimeOrigine}). Utilise la saisie au clavier.`, 'format');
@@ -45,7 +53,7 @@ export async function analyserVoix(blob, mimeOrigine) {
 }
 
 export async function analyserTexteIA(texte) {
-  return genererJSON({ systeme: P.PROMPT_VOIX, schema: P.SCHEMA_VOIX, valider: validerTransactionIA, parts: [{ text: `${contexte()}\nPhrase : « ${texte.slice(0, 500)} »` }], reflexion: 'faible' });
+  return genererJSON({ systeme: P.PROMPT_VOIX_MULTI, schema: P.SCHEMA_VOIX_MULTI, valider: validerVoixMulti, parts: [{ text: `${contexte()}\nPhrase : « ${texte.slice(0, 500)} »` }], reflexion: 'faible' });
 }
 
 export function validerTicket(o) {

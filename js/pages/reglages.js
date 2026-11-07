@@ -22,6 +22,7 @@ import { SCHEMA_VERSION } from '../migrations.js';
 import { coller, recevoir, envoyerAchatsTicket, envoyerListeCourses, messageFrigo } from '../bridge.js';
 import { choisirPhoto, compresserImage } from '../camera.js';
 import { rendreImport } from './import.js';
+import { joursDuMoisVirements } from '../virements.js';
 import { versionApp } from '../version.js';
 
 export const titre = 'Réglages';
@@ -65,6 +66,7 @@ function rendreAccueilReglages(vue) {
   const sect = (id, detail) => lien(SECTIONS[id].titre, detail, () => aller(`reglages/${id}`), SECTIONS[id].icone);
   const actifs = [p.arrondi?.actif ? 'arrondis' : null, p.repasAuto?.actif !== false ? 'repas à la maison' : null, p.restesDuJour?.actif !== false ? 'reste du jour' : null].filter(Boolean);
   vue.replaceChildren(...[
+    retour('accueil', 'Accueil'),
     h('h1', { class: 'titre-page' }, 'Réglages'),
     vide ? carte(null, h('div', { class: 'bloc-fichier' },
       h('p', { class: 'bloc-fichier-titre' }, 'Mon fichier budget-import-prive.json'),
@@ -126,8 +128,7 @@ function cartesSection(id) {
         'Ce qui reste de ta part du jour (après les repas à la maison) part à l’épargne le lendemain à 5 h, au lieu de s’ajouter aux jours suivants.'))),
     carte('Arrondis à l’euro supérieur', h('div', { class: 'formulaire' },
       interrupteur('Activer la cagnotte d’arrondis', p.arrondi?.actif, (v) => majProfil({ arrondi: { ...p.arrondi, actif: v, depuis: p.arrondi?.depuis || aujourdhui() } })),
-      champ('Fréquence du virement', segment([['hebdomadaire', 'Semaine'], ['quinzaine', '15 jours'], ['mensuelle', 'Mois']], p.arrondi?.frequence || 'hebdomadaire', (v) => majProfil({ arrondi: { ...p.arrondi, frequence: v } }), 'Fréquence')),
-      champ('Jour du virement', selectionner(JOURS_LONGS.map((j, i) => [String(i + 1), j]), String(p.arrondi?.jourVirement || 4), (v) => majProfil({ arrondi: { ...p.arrondi, jourVirement: Number(v) } })), 'Hebdomadaire par défaut : petits montants réguliers, moins de risque de découvert.'),
+      h('p', { class: 'petit' }, `Virés avec l’épargne du mois, 4 fois par mois : 6 jours après le salaire, puis tous les 7 jours (salaire le ${p.jourSalaireHabituel || 5} : le ${joursDuMoisVirements(p.jourSalaireHabituel || 5).join(', ')}).`),
       h('p', { class: 'petit' }, 'Tout ce qui sort du compte est arrondi à l’euro supérieur : courses, abonnements, loyer, prélèvements, échéances. Seuls les virements entre tes comptes et vers l’épargne ne le sont pas. L’arrondi part à l’épargne et sort de ton budget du jour.'),
       champ('Poche alimentée', selectionner([['partage', 'Les deux épargnes (même partage)'], ...etat.poches.filter((x) => x.actif !== false).map((x) => [x.id, x.nom])], p.arrondi?.pocheId || 'partage', (v) => majProfil({ arrondi: { ...p.arrondi, pocheId: v } }))))),
     h('details', { class: 'reglages-avance' }, h('summary', {}, 'Avancé : calcul de l’épargne du mois'),

@@ -1,5 +1,6 @@
-// virements.js — « À virer cette semaine » vers l'épargne : un seul virement par semaine, qui regroupe
-//  - la part de la semaine de l'épargne du mois (ce qui reste à mettre, réparti sur les semaines jusqu'au salaire),
+// virements.js — le virement vers l'épargne, 4 fois par mois : 6 jours après le salaire, puis tous les 7 jours
+// (salaire le 5 → virements le 11, le 18, le 25 et le 1er). Chaque virement regroupe
+//  - un quart de l'épargne du mois (ce qui reste à mettre, réparti sur les virements restants),
 //  - les arrondis en attente,
 //  - les repas à la maison et les privations pas encore virés.
 // Le montant est aussi réparti par poche (prêt / sécurité), pour savoir quoi mettre où.
@@ -9,7 +10,7 @@ import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrond
 import { formatEuros } from './money.js';
 import { jourBudgetaire, resteDuJourPasse } from './restes.js';
 import { bilanPrivations } from './privations.js';
-import { diffJours, debutSemaine, maxIso, ajouterJours, prochainJourSemaine } from './dates.js';
+import { ajouterJours } from './dates.js';
 
 /** Valeur du réglage « arrondis, repas et privations » qui les partage entre les épargnes (comme l'épargne du mois). */
 export const PARTAGE = 'partage';
@@ -35,14 +36,20 @@ export function aVirerEpargne(etat, dateIso) {
   const moisDeja = viree(per.debut, per.fin);
   const moisCible = Math.max(0, r.epargneCibleCentimes || 0);
   const moisRestant = Math.max(0, moisCible - moisDeja);
-  // Part de la semaine : calculée au début de la semaine (lundi, ou début de période), puis on retire ce qui a déjà été viré
-  // cette semaine. Ainsi, une fois le virement fait, le montant de la semaine tombe à 0 jusqu'à lundi.
-  const debutS = maxIso(debutSemaine(dateIso), per.debut);
-  const dejaAvant = viree(per.debut, ajouterJours(debutS, -1));
-  const semaines = Math.max(1, Math.ceil((diffJours(debutS, per.fin) + 1) / 7));
+  // 4 virements par mois. Chaque virement couvre une tranche : du lendemain du virement précédent (ou du salaire) à sa date.
+  // Sa part de l'épargne du mois est calculée au début de la tranche, puis on retire ce qui a déjà été viré pendant la tranche :
+  // une fois le virement fait, le montant tombe à 0 jusqu'à la tranche suivante.
+  const dates = datesVirements(per);
+  let k = dates.findIndex((d) => d >= dateIso);
+  const apresDernier = k < 0;
+  if (apresDernier) k = dates.length - 1;
+  const debutT = k === 0 ? per.debut : ajouterJours(dates[k - 1], 1);
+  const dejaAvant = viree(per.debut, ajouterJours(debutT, -1));
+  const restants = dates.length - k;
   const restantDebut = Math.max(0, moisCible - dejaAvant);
-  const partSemaine = Math.ceil(restantDebut / semaines / 100) * 100;
-  const moisSemaine = Math.max(0, Math.min(moisRestant, partSemaine - viree(debutS, per.fin)));
+  const partTranche = Math.ceil(restantDebut / restants / 100) * 100;
+  const moisSemaine = Math.max(0, Math.min(moisRestant, partTranche - viree(debutT, per.fin)));
+  const semaines = restants;
   const ar = etat.profil?.arrondi;
   const arrondis = ar?.actif ? cagnotteArrondis(etat, dateIso).total : 0;
   const auto = r.privationsAuto || [];
@@ -57,15 +64,19 @@ export function aVirerEpargne(etat, dateIso) {
   if (efforts) ajouter(efforts.id, arrondis + privations);
   else { repartir(arrondis); repartir(privations); }
 
-  // Date du virement : le jour réglé (jeudi par défaut) de cette semaine ; passé et pas fait → aujourd'hui ; fait → semaine prochaine
-  const jour = etat.profil?.arrondi?.jourVirement || 4;
-  const ceJour = prochainJourSemaine(debutSemaine(dateIso), jour, true);
+  // Date du virement : celle de la tranche ; passée et pas faite → aujourd'hui ; faite → le virement suivant
   const semaine = moisSemaine + arrondis + privations;
+  // Virement précédent oublié (rien viré pendant sa tranche) : à faire aujourd'hui, avec la part reportée
+  let ceJour = dates[k];
+  if (k > 0 && !apresDernier && moisCible > 0) {
+    const debutPrec = k - 1 === 0 ? per.debut : ajouterJours(dates[k - 2], 1);
+    if (viree(debutPrec, dates[k - 1]) === 0 && viree(per.debut, ajouterJours(debutPrec, -1)) < moisCible) ceJour = dates[k - 1];
+  }
   const enRetard = semaine > 0 && ceJour < dateIso;
-  const dateVirement = semaine > 0 ? (enRetard ? dateIso : ceJour) : prochainJourSemaine(dateIso, jour, false);
-
+  const suivant = dates[k + 1] || ajouterJours(ajouterJours(per.fin, 1), DECALAGE_PREMIER);
+  const dateVirement = semaine > 0 ? (enRetard ? dateIso : ceJour) : (ceJour >= dateIso && !apresDernier && viree(debutT, per.fin) === 0 && moisRestant > 0 ? ceJour : suivant);
   return {
-    semaineCentimes: semaine, dateVirement, datePrevue: ceJour, enRetard, jourVirement: jour,
+    semaineCentimes: semaine, dateVirement, datePrevue: ceJour, enRetard, numeroVirement: k + 1, numeroProchain: semaine > 0 ? k + 1 : (dates.indexOf(dateVirement) + 1 || 1), nbVirements: dates.length, datesVirements: dates,
     totalCentimes: moisRestant + arrondis + privations,
     moisCibleCentimes: moisCible, moisDejaCentimes: moisDeja, moisRestantCentimes: moisRestant, moisSemaineCentimes: moisSemaine,
     arrondisCentimes: arrondis, privationsCentimes: privations,
@@ -73,6 +84,25 @@ export function aVirerEpargne(etat, dateIso) {
     parPoche: [...parPoche.entries()].map(([pocheId, montantCentimes]) => ({ pocheId, montantCentimes })),
     privationsAuto: auto,
   };
+}
+
+/** Le premier virement tombe 6 jours après le salaire, puis tous les 7 jours : 4 virements par mois. */
+export const DECALAGE_PREMIER = 6;
+export const NB_VIREMENTS = 4;
+
+/** Dates des virements d'une période (salaire à salaire). */
+export function datesVirements(per) {
+  const dates = [];
+  for (let i = 0; i < NB_VIREMENTS; i++) {
+    const d = ajouterJours(per.debut, DECALAGE_PREMIER + 7 * i);
+    if (d <= per.fin) dates.push(d);
+  }
+  return dates.length ? dates : [per.fin];
+}
+
+/** Jours du mois des 4 virements pour un salaire le jour J (rappel au calendrier) : J+6, J+13, J+20 et J+27 (mois de 31 jours). */
+export function joursDuMoisVirements(jourSalaire = 5) {
+  return [6, 13, 20, 27].map((n) => ((jourSalaire + n - 1) % 31) + 1).sort((a, b) => a - b);
 }
 
 /** Compte où se trouve une épargne, en clair (« Revolut », « Livret A LCL »), ou null. */
@@ -108,13 +138,13 @@ export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
     const repas = p.auto || /repas à la maison/i.test(p.libelle || '');
     lignes.push({ date: p.date, source: repas ? 'repas' : 'privation', libelle: repas ? 'Repas à la maison' : p.libelle, detail: repas ? (p.libelle || 'pas de repas dehors noté') : 'Je me suis privé', montantCentimes: p.montantCentimes, vireLe: p.vireLe || null });
   }
-  // Épargne du mois : virements déjà faits, puis la part de cette semaine
+  // Épargne du mois : virements déjà faits, puis la part du prochain virement
   for (const t of etat.transactions || []) {
     if (t.date < per.debut || t.date > per.fin || !t.epargne?.estEpargne || t.sens !== 'debit' || (t.epargne.type || 'virementLivret') !== 'virementLivret') continue;
     lignes.push({ date: t.date, source: 'mois', libelle: 'Épargne du mois', detail: t.marchand || t.libelle || 'Virement vers l’épargne', montantCentimes: t.montantCentimes, vireLe: t.date });
   }
   const v = aVirerEpargne(etat, dateIso);
-  if (v.moisSemaineCentimes) lignes.push({ date: dateIso, source: 'mois', libelle: 'Épargne du mois', detail: `part de cette semaine (reste ${formatEuros(v.moisRestantCentimes)} ce mois-ci)`, montantCentimes: v.moisSemaineCentimes, vireLe: null });
+  if (v.moisSemaineCentimes) lignes.push({ date: dateIso, source: 'mois', libelle: 'Épargne du mois', detail: `part de ce virement (reste ${formatEuros(v.moisRestantCentimes)} ce mois-ci)`, montantCentimes: v.moisSemaineCentimes, vireLe: null });
   // Restes du jour : une ligne par jour, même à 0 €. La journée en cours (jusqu'à 5 h le lendemain) est estimée.
   if (etat.profil?.restesDuJour?.actif !== false) {
     const depuis = etat.meta?.restesJour?.depuis;

@@ -5,7 +5,7 @@ import { h, icone, mt } from '../ui/dom.js';
 import { ouvrirFeuille } from '../ui/sheet.js';
 import { champ, champMontant, bouton } from '../ui/composants.js';
 import { toast } from '../ui/toast.js';
-import { etat } from '../store.js';
+import { etat, ecrireMeta } from '../store.js';
 import { soldes } from '../calculs.js';
 import { declarerSolde } from '../actions.js';
 import { aujourdhui } from '../dates.js';
@@ -25,6 +25,7 @@ export function feuilleVerification() {
     const resultat = h('div', { class: 'verif-resultat', 'aria-live': 'polite' });
     const montrer = (banque) => {
       if (banque === null || banque === undefined) { resultat.replaceChildren(); return; }
+      if (etat.meta.derniereVerification !== auj) { etat.meta.derniereVerification = auj; ecrireMeta('derniereVerification', auj).catch(() => {}); }
       const e = ecartSolde(app, banque);
       const x = Math.abs(e.ecartCentimes);
       if (e.sens === 'ok') { resultat.replaceChildren(h('p', { class: 'vert-texte verif-ok' }, icone('ok'), ' D’accord avec ta banque, au centime.')); return; }

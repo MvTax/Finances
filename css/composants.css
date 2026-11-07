@@ -253,3 +253,10 @@ details[open] > summary::before { transform: rotate(90deg); }
 .envoi-gemini { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--rayon-petit); background: var(--accent-doux); color: var(--texte); font-size: 14px; }
 .envoi-gemini .ic { width: 20px; height: 20px; color: var(--accent); }
 .bloc-ia { display: flex; flex-direction: column; gap: 8px; }
+
+/* « ? » : d'où vient ce chiffre */
+.aide-q { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; margin-left: 6px; padding: 0; border: 1.5px solid currentColor; border-radius: 50%; background: transparent; color: var(--texte-3); font: inherit; font-size: 13px; font-weight: 700; line-height: 1; vertical-align: middle; cursor: pointer; opacity: .8; position: relative; }
+.aide-q::after { content: ''; position: absolute; inset: -11px; } /* zone tactile de 44 px */
+.aide-q.clair { color: rgb(255 255 255 / 75%); }
+.aide-contenu { display: flex; flex-direction: column; gap: 12px; }
+.aide-contenu > p { margin: 0; font-size: 16px; line-height: 1.45; }

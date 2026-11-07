@@ -34,15 +34,19 @@ export default [
     egal(pret - secu, 1060, 'efforts sur le prêt, épargne du mois en 50/50');
     egal(v.totalCentimes, v.moisRestantCentimes + 1060);
   } },
-  { nom: 'à virer : une fois le virement de la semaine fait, plus rien jusqu’à lundi, puis la part suivante', fn: () => {
+  { nom: 'à virer : 4 virements par mois ; une fois le virement fait, plus rien jusqu’à la tranche suivante', fn: () => {
     const e = etat();
     const v0 = aVirerEpargne(e, '2026-11-10');
+    egal(v0.datesVirements.join(' '), '2026-11-11 2026-11-18 2026-11-25 2026-12-02', 'salaire le 5 : le 11, le 18, le 25 et le 2');
+    egal(v0.numeroVirement, 1);
+    egal(v0.moisSemaineCentimes, Math.ceil(v0.moisCibleCentimes / 4 / 100) * 100, 'un quart de l’épargne du mois');
     e.transactions.push(tx({ date: '2026-11-10', montant: v0.moisSemaineCentimes, categorie: 'epargne', epargne: true, typeEpargne: 'virementLivret' }));
     const v1 = aVirerEpargne(e, '2026-11-11');
     egal(v1.moisSemaineCentimes, 0);
-    egal(v1.moisRestantCentimes, v0.moisRestantCentimes - v0.moisSemaineCentimes);
-    const v2 = aVirerEpargne(e, '2026-11-16');
-    vrai(v2.moisSemaineCentimes > 0, 'nouvelle semaine');
+    egal(v1.dateVirement, '2026-11-18', 'prochain virement');
+    egal(v1.numeroProchain, 2);
+    const v2 = aVirerEpargne(e, '2026-11-12');
+    vrai(v2.moisSemaineCentimes > 0, 'tranche 2'); egal(v2.dateVirement, '2026-11-18'); egal(v2.enRetard, false);
   } },
   { nom: 'à virer : rien quand l’épargne du mois est faite et que tout est viré', fn: () => {
     const e = etat();
@@ -61,17 +65,15 @@ export default [
     egal(pret + secu, v.semaineCentimes);
     vrai(Math.abs(pret - secu) <= 2, `partage 50/50 (${pret} / ${secu})`);
   } },
-  { nom: 'date du virement : jeudi de la semaine, aujourd’hui si en retard, semaine suivante si fait', fn: () => {
+  { nom: 'date du virement : celle de la tranche ; virement oublié → aujourd’hui, avec la part reportée', fn: () => {
     const e = etat();
-    const mardi = aVirerEpargne(e, '2026-11-10');
-    egal(mardi.dateVirement, '2026-11-12'); egal(mardi.enRetard, false);
-    const vendredi = aVirerEpargne(e, '2026-11-13');
-    egal(vendredi.dateVirement, '2026-11-13'); egal(vendredi.enRetard, true); egal(vendredi.datePrevue, '2026-11-12');
-    e.transactions.push(tx({ date: '2026-11-13', montant: vendredi.moisSemaineCentimes, categorie: 'epargne', epargne: true, typeEpargne: 'virementLivret' }));
-    const apres = aVirerEpargne(e, '2026-11-13');
-    egal(apres.semaineCentimes, 0); egal(apres.dateVirement, '2026-11-19');
-    e.profil.arrondi.jourVirement = 1;
-    egal(aVirerEpargne(etat(), '2026-11-10').dateVirement, '2026-11-12', 'jeudi par défaut');
+    const v = aVirerEpargne(e, '2026-11-08');
+    egal(v.dateVirement, '2026-11-11'); egal(v.enRetard, false);
+    const oublie = aVirerEpargne(e, '2026-11-13');
+    egal(oublie.enRetard, true); egal(oublie.dateVirement, '2026-11-13'); egal(oublie.datePrevue, '2026-11-11');
+    egal(oublie.moisSemaineCentimes, Math.ceil(oublie.moisCibleCentimes / 3 / 100) * 100, 'reste réparti sur les 3 virements restants');
+    const fin = aVirerEpargne(e, '2026-12-03');
+    egal(fin.enRetard, true, 'après le dernier virement, ce qui reste est à faire');
   } },
   { nom: 'arrondis : tout ce qui sort est arrondi (abonnement, charge fixe, échéance, proche), sauf virements internes et épargne', fn: () => {
     const e = etat({ transactions: [
