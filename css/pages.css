@@ -647,3 +647,86 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .remb-resultat strong { font-family: var(--police-chiffres); font-size: 22px; font-weight: 650; }
 .remb-palier { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .remb-palier small { color: var(--texte-3); font-size: 13px; }
+
+/* Fiche d'une épargne */
+.fiche-epargne { display: flex; flex-direction: column; gap: 14px; }
+.fiche-tete { display: flex; flex-direction: column; gap: 2px; }
+.fiche-compte { margin: 0; font-size: 14px; color: var(--texte-3); }
+.fiche-solde { margin: 0; font-family: var(--police-chiffres); font-size: 38px; font-weight: 650; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.fiche-attente { margin: 0; font-size: 14px; color: var(--laiton); }
+.fiche-epargne .sous-titre { margin: 6px 0 -4px; }
+.fiche-modifier { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; }
+.fiche-modifier .ic { width: 16px; height: 16px; }
+
+/* Accueil en trois blocs : « Voir plus » range le reste */
+.voir-plus { margin-top: 14px; }
+.voir-plus > summary { list-style: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px; border-radius: var(--rayon); background: var(--surface); cursor: pointer; text-align: center; }
+.voir-plus > summary::-webkit-details-marker { display: none; }
+.voir-plus > summary > span { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.voir-plus > summary > span::after { content: ''; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
+.voir-plus[open] > summary > span::after { transform: rotate(-135deg) translateY(-2px); }
+.voir-plus > summary small { font-size: 13px; color: var(--texte-3); }
+.voir-plus-contenu { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.ligne-sauvegarde { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: var(--rayon); background: var(--laiton-doux); font-size: 14px; }
+.ligne-sauvegarde > .ic { flex: none; width: 20px; height: 20px; color: var(--laiton); }
+.ligne-sauvegarde > span { flex: 1; }
+.ligne-lien.ligne-alerte .ligne-lien-texte small { color: var(--orange); }
+
+/* Hero : prévision et journée sans dépense */
+.hero-prevision { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 8px 10px; border: 0; border-radius: 12px; background: rgb(255 255 255 / 8%); color: var(--hero-texte); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.hero-prevision .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.hero-prevision.attention { background: rgb(232 170 80 / 18%); }
+.hero-prevision.alerte { background: rgb(230 110 70 / 26%); font-weight: 600; }
+.hero-puce { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; min-height: 36px; padding: 6px 12px; border: 1px solid rgb(255 255 255 / 30%); border-radius: var(--rayon-pastille); background: transparent; color: var(--hero-texte); font: inherit; font-size: 14px; cursor: pointer; }
+.hero-puce .ic { width: 15px; height: 15px; }
+.hero-puce.enCours { background: rgb(255 255 255 / 14%); border-color: transparent; font-weight: 600; }
+.hero-puce.rompue { border-color: rgb(232 170 80 / 60%); }
+
+/* Journées sans dépense */
+.sd { display: flex; flex-direction: column; gap: 14px; }
+.sd-aujourdhui { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--rayon); background: var(--surface-2); }
+.sd-aujourdhui.sd-enCours { background: var(--vert-doux); }
+.sd-aujourdhui.sd-rompue { background: var(--laiton-doux); }
+.sd-titre { margin: 0; font-weight: 650; font-size: 16px; }
+.sd-aujourdhui .btn { align-self: flex-start; }
+.sd-resume { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sd-resume > div { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: var(--rayon-petit); background: var(--surface-2); }
+.sd-resume small { font-size: 12px; color: var(--texte-2); }
+.sd-resume strong { font-family: var(--police-chiffres); font-size: 20px; font-weight: 650; }
+.sd-sur { font-size: 14px; color: var(--texte-3); font-weight: 400; }
+.sd-calendrier { display: flex; flex-direction: column; gap: 6px; }
+.sd-ligne { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.sd-entete span { text-align: center; font-size: 12px; color: var(--texte-3); }
+.sd-jour { aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--texte-2); }
+.sd-jour.sd-futur { color: var(--texte-3); opacity: .5; }
+.sd-jour.sd-tenue, .sd-pastille.sd-tenue { background: var(--vert); color: #fff; font-weight: 650; }
+.sd-jour.sd-rompue, .sd-pastille.sd-rompue { background: var(--orange); color: #fff; }
+.sd-jour.sd-enCours, .sd-pastille.sd-enCours { box-shadow: inset 0 0 0 2px var(--vert); color: var(--texte); font-weight: 650; }
+.sd-jour.sd-sansDepense, .sd-pastille.sd-sansDepense { background: var(--vert-doux); color: var(--texte); }
+.sd-jour.aujourdhui { outline: 2px solid var(--texte-3); outline-offset: 1px; }
+.sd-legende { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--texte-2); }
+.sd-legende span { display: inline-flex; align-items: center; gap: 6px; }
+.sd-pastille { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+.prevision-verdict { margin: 0; font-size: 20px; font-weight: 650; }
+
+/* Vérifier mon solde */
+.verif { display: flex; flex-direction: column; gap: 18px; }
+.verif-compte { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; border-bottom: 0.5px solid var(--separateur); }
+.verif-compte:last-child { border-bottom: 0; }
+.verif-resultat { display: flex; flex-direction: column; gap: 8px; }
+.verif-resultat:empty { display: none; }
+.verif-ecart { margin: 0; font-weight: 650; font-size: 16px; }
+.verif-ecart.manque { color: var(--orange); }
+.verif-ecart.surplus { color: var(--accent); }
+.verif-ok { margin: 0; display: flex; align-items: center; gap: 6px; font-weight: 600; }
+
+/* Ajout express */
+.express { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.express-titre { margin: 0; font-size: 14px; font-weight: 600; color: var(--texte-2); }
+.express-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.express-bouton { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 10px 12px; border: 0; border-radius: var(--rayon-petit); background: var(--surface-2); color: var(--texte); font: inherit; text-align: left; cursor: pointer; box-shadow: inset 3px 0 0 var(--c, var(--accent)); }
+.express-bouton:active { transform: scale(.97); }
+.express-nom { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.express-montant { font-family: var(--police-chiffres); font-size: 14px; color: var(--texte-2); }
+@media (prefers-reduced-motion: reduce) { .express-bouton:active { transform: none; } }
+.voir-plus > summary::before { content: none !important; display: none !important; }

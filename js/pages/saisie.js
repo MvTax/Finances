@@ -20,6 +20,18 @@ import { indicationEnvoiGemini } from './communs.js';
 import { estEligibleArrondi } from '../epargne.js';
 import { importerCapture } from './capture.js';
 import { feuillePrivation } from './privation.js';
+import { depensesFrequentes } from '../express.js';
+import { estAnnoncee } from '../sansdepense.js';
+import { estDepenseQuotidienne } from '../calculs.js';
+
+/** Toast après un ajout : montant, arrondi, et la journée sans dépense rompue s'il y en avait une. */
+function toastAjout(tx, { annuler = true } = {}) {
+  const auj = aujourdhui();
+  const arr = estEligibleArrondi(tx, etat.profil.arrondi) && etat.profil.arrondi?.actif ? arrondiEuroSuperieur(tx.montantCentimes) : 0;
+  const rompue = tx.sens === 'debit' && tx.date === auj && estAnnoncee(etat, auj) && estDepenseQuotidienne(tx);
+  toast(`${tx.sens === 'debit' ? 'Dépense' : 'Entrée'}${tx.date !== auj ? ` du ${formatDateCourte(tx.date)}` : ''} ajoutée : ${formatEuros(tx.montantCentimes)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}${rompue ? '. Ta journée sans dépense est rompue.' : ''}`,
+    annuler ? { action: { libelle: 'Annuler', fn: () => supprimerTransaction(tx) }, duree: 5000 } : {});
+}
 
 /** Ouvre la feuille de saisie. vueInitiale : 'voix' | 'clavier' | 'photo'. */
 export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
@@ -70,6 +82,7 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       h('span', { class: 'saisie-tuile-icone', 'aria-hidden': 'true' }, icone(ic)),
       h('span', { class: 'saisie-tuile-titre' }, titreT), h('small', {}, sousTitre));
     return h('div', { class: 'vue-voix' },
+      blocExpress(),
       h('div', { class: 'voix-centre' }, micro, etatTexte, annuler),
       h('button', { class: 'btn btn-secondaire btn-large voix-ecrire', type: 'button', onclick: () => { enreg?.annuler(); enreg = null; montrer('clavier'); } }, icone('clavier'), h('span', {}, 'Écrire plutôt')),
       h('div', { class: 'saisie-tuiles', role: 'group', 'aria-label': 'Autres façons d’ajouter' },
@@ -78,6 +91,26 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
         tuile('camera', 'Ticket', 'Photo du ticket de caisse', () => photoTicket()),
         tuile('importer', 'Capture d’écran', 'Appli bancaire, reçu…', () => depuisCapture())),
       ia.ok ? h('div', { class: 'voix-note' }, indicationEnvoiGemini('pour le micro seulement, l’audio (30 s max), la date du jour et les catégories. Rien n’est ajouté sans ta confirmation.')) : null);
+  }
+
+  // ------------------------------------------------------------------ Ajout express : un toucher = une dépense
+  function blocExpress() {
+    const liste = depensesFrequentes(etat, aujourdhui());
+    if (!liste.length) return null;
+    return h('div', { class: 'express' },
+      h('p', { class: 'express-titre' }, 'En un toucher'),
+      h('div', { class: 'express-liste', role: 'group', 'aria-label': 'Dépenses fréquentes, ajout immédiat' }, liste.map((x) => h('button', {
+        type: 'button', class: 'express-bouton', style: { '--c': categorie(x.categorie || 'autres').couleur },
+        'aria-label': `Ajouter ${x.marchand}, ${formatEuros(x.montantCentimes)}, aujourd’hui`,
+        onclick: async () => {
+          enreg?.annuler?.(); enreg = null;
+          const tx = nouvelleTransaction({ sens: 'debit', montantCentimes: x.montantCentimes, libelle: x.libelle || x.marchand, categorie: x.categorie, compteId: x.compteId, source: 'express' });
+          tx.marchand = x.marchand;
+          await ajouterTransaction(tx);
+          f.fermer('ajout'); vibrer(15); toastAjout(tx);
+        },
+      }, h('span', { class: 'express-nom' }, x.marchand), h('span', { class: 'express-montant' }, formatEuros(x.montantCentimes))))),
+      h('small', { class: 'aide' }, 'Tes dépenses les plus fréquentes : un toucher les ajoute aujourd’hui (Annuler pendant 5 s).'));
   }
 
   // Une ou plusieurs dépenses lues sur une capture (la feuille de saisie laisse la place à la revue)
@@ -201,13 +234,13 @@ export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
       await ajouterTransaction(tx);
       f.fermer('ajout');
       vibrer(15);
-      const arr = estEligibleArrondi(tx, etat.profil.arrondi) && etat.profil.arrondi?.actif ? arrondiEuroSuperieur(tx.montantCentimes) : 0;
-      toast(`${sens === 'debit' ? 'Dépense' : 'Entrée'}${date !== aujourdhui() ? ` du ${formatDateCourte(date)}` : ''} ajoutée : ${formatEuros(montant)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}`, { action: { libelle: 'Annuler', fn: () => supprimerTransaction(tx) }, duree: 5000 });
+      toastAjout(tx);
     };
 
     rendreCats(); maj(); majRecurrent();
     return h('form', { class: 'vue-clavier formulaire', onsubmit: (e) => { e.preventDefault(); ajouter(); } },
       d.confirmation ? h('p', { class: 'confirmation-ia' }, icone('ok'), ` Vérifie puis ajoute${d.confiance !== undefined && d.confiance < 0.7 ? ' (je ne suis pas sûr de tout)' : ''}.`) : null,
+      d.confirmation || d.passee || d.montantCentimes ? null : blocExpress(),
       segZone,
       blocPassee,
       d.confirmation || d.passee ? null : h('div', { class: 'liens-saisie' },

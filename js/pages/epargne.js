@@ -53,7 +53,7 @@ function vuePoches() {
   const planMois = proj[0]?.plan;
   // Comme en haut : chaque épargne compte déjà sa part de ce qui reste à virer
   const aVirer = aVirerEpargne(etat, aujourdhui());
-  const cartesPoches = etat.poches.filter((p) => p.actif !== false).sort((a, b) => (a.priorite || 9) - (b.priorite || 9)).map((p) => {
+  const cartesPoches = etat.poches.filter((p) => p.actif !== false && !['coussin', 'remboursementAnticipe'].includes(p.type)).sort((a, b) => (a.priorite || 9) - (b.priorite || 9)).map((p) => {
     const vire = soldePoche(p);
     const enAttente = aVirer.parPoche.find((x) => x.pocheId === p.id)?.montantCentimes || 0;
     const s = vire + enAttente;
@@ -78,15 +78,7 @@ function vuePoches() {
         p.type === 'remboursementAnticipe' ? bouton('Plus de détails', async () => { const { feuilleRemboursement } = await import('./remboursement.js'); feuilleRemboursement(p); }, { classe: 'btn-petit', icone: 'info' }) : null),
       h('details', { class: 'details-discret' }, h('summary', {}, 'Détails'), h('div', { class: 'details-contenu' }, notes, h('button', { class: 'lien', type: 'button', onclick: () => editerPoche(p) }, 'Modifier cette poche'))));
   });
-  // Arrondis
-  const ar = etat.profil.arrondi || {};
-  const cag = cagnotteArrondis(etat);
-  const prochaine = ar.actif ? prochainVirementArrondis(ar, aujourdhui(), ar.dernierVirement || null) : null;
-  const arrondis = carte('Arrondis à virer', h('div', {},
-    ar.actif ? h('div', { class: 'poche-tete' }, h('span', { class: 'petit' }, `Prochain virement le ${formatDate(prochaine)}`), h('span', { class: 'poche-solde' }, mt(cag.total))) : h('p', {}, 'Arrondis désactivés (Réglages → Arrondis).'),
-    ar.actif ? h('div', { class: 'groupe-boutons' }, bouton("C'est fait", async () => { if (!cag.total) { toast('Rien à virer pour l’instant.'); return; } await virerArrondis(); toast('Arrondis virés.', { type: 'succes' }); }, { classe: 'btn-principal btn-petit', disabled: !cag.total }),
-      bouton('Calendrier', () => ajouterAuCalendrier({ uid: 'arrondis@budget', titre: 'Virer les arrondis sur ton compte épargne', description: 'Ouvre Budget pour voir le montant.', date: prochaine, heure: '19:00', recurrence: { hebdomadaire: 'WEEKLY', quinzaine: 'BIWEEKLY', mensuelle: 'MONTHLY' }[ar.frequence || 'hebdomadaire'], nomFichier: 'virement-arrondis' }), { classe: 'btn-petit', icone: 'calendrier' })) : null,
-    ar.actif ? h('details', { class: 'details-discret' }, h('summary', {}, 'Comment ça marche'), h('p', { class: 'petit' }, `${cag.lignes.length} dépense${cag.lignes.length > 1 ? 's' : ''} arrondie${cag.lignes.length > 1 ? 's' : ''} à l'euro supérieur depuis le début du mois : toutes les sorties du compte, abonnements, loyer et prélèvements compris (un montant déjà rond, comme 5,00 €, met 0,50 € de côté), à virer ${({ hebdomadaire: 'chaque semaine', quinzaine: 'tous les 15 jours', mensuelle: 'chaque mois' })[ar.frequence || 'hebdomadaire']}. C'est distinct de l'arrondi System'Épargne de la banque : les deux comptent, une seule fois chacun.`)) : null), { id: 'arrondis' });
+  // Arrondis : virés avec le virement de la semaine (bloc en haut), détail dans l’historique de la cagnotte
   // Sources et objectif
   const possible = epargneCible(etat, per.mois, per);
   const sources = h('div', {},
@@ -104,7 +96,8 @@ function vuePoches() {
   const liens = carte(null, h('div', { class: 'liste-liens' },
     h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'plan'; aller('epargne/plan'); } }, icone('calendrier'), h('span', { class: 'ligne-lien-texte' }, 'Mon plan mois par mois', h('small', {}, 'combien mettre de côté chaque mois')), icone('suivant')),
     sansInterets() ? null : h('button', { class: 'ligne-lien', type: 'button', onclick: () => { ongletActif = 'simulateur'; aller('epargne/simulateur'); } }, icone('graphique'), h('span', { class: 'ligne-lien-texte' }, 'Simulateur Livret A / LEP', h('small', {}, 'ce que rapporte ton épargne')), icone('suivant'))));
-  return h('div', {}, blocCoffres({ surPoche: (p) => document.getElementById(`poche-${p.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }), carteSysteme(), h('div', { class: 'poches' }, cartesPoches), carteprivations(), arrondis, liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
+  // Prêt et Sécurité : leur fiche s'ouvre depuis leur case (pas de carte en double). Les autres poches gardent leur carte.
+  return h('div', {}, blocCoffres(), carteSysteme(), cartesPoches.length ? h('div', { class: 'poches' }, cartesPoches) : null, carteprivations(), liens, plus, bouton('Nouvelle poche', () => editerPoche(null), { icone: 'plus' }));
 }
 
 function ligne(l, c) { return h('div', { class: 'ligne-cle' }, h('span', {}, l), mt(c)); }
@@ -121,7 +114,7 @@ function historiqueMensuel() {
 }
 
 /** Barre à paliers colorés (Sécurité) : chaque palier franchi prend sa couleur, le prochain est annoncé. */
-function blocPaliers(p, s) {
+export function blocPaliers(p, s) {
   const pal = paliersPoche(p, s);
   const pct = Math.min(100, Math.round((s / p.cibleCentimes) * 100));
   return h('div', { class: `paliers ${pal.courant ? pal.courant.classe : 'palier-0'}` },
@@ -137,7 +130,7 @@ function blocPaliers(p, s) {
       : h('strong', { class: 'paliers-nom' }, 'Objectif atteint ✓ Ta sécurité est complète.')));
 }
 
-function feuilleMouvement(poche, sens) {
+export function feuilleMouvement(poche, sens) {
   let montant = null; let motif = '';
   const avert = sens === 'reprise' ? h('div', { class: 'anti-reprise' },
     h('p', {}, icone('alerte'), h('strong', {}, ' Avant de reprendre :')),
@@ -164,7 +157,7 @@ function feuilleMouvement(poche, sens) {
   });
 }
 
-function editerPoche(poche) {
+export function editerPoche(poche) {
   const p = poche ? { ...poche } : { id: nouvelId('poche'), nom: '', type: 'autre', cibleCentimes: null, priorite: 3, partRepartition: 0, soldeInitialCentimes: 0, mouvements: [], compteSupport: sansInterets() ? 'Compte épargne sans intérêts' : 'Livret A', tauxAnnuel: etat.parametres.tauxLivretA, actif: true };
   const f = ouvrirFeuille({
     titre: poche ? p.nom : 'Nouvelle poche', plein: true,

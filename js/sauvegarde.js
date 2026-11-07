@@ -5,7 +5,7 @@ import { SCHEMA_VERSION, migrerContenu, tousLesStores } from './migrations.js';
 
 export const FORMAT = 'budget-sauvegarde';
 const COLLECTIONS = Object.keys(tousLesStores()).filter((k) => !['meta', 'profil', 'parametres'].includes(k));
-const SECRETS = ['cleGemini', 'pinHash', 'pinSel', 'pinIterations'];
+const SECRETS = ['cleGemini', 'pinHash', 'pinSel', 'pinIterations', 'motDePasseSauvegarde'];
 
 export function construireExport(etat, { maintenant = new Date().toISOString(), version = '1.0.0' } = {}) {
   for (const r of etat.reglesCategorie || []) delete r._re;

@@ -56,7 +56,7 @@ export function blocCoffres(o = {}) {
   if (!cases.length) return null;
   const auj = aujourdhui();
   const v = aVirerEpargne(etat, auj);
-  const ouvrir = (p) => (o.surPoche ? o.surPoche(p) : aller('epargne'));
+  const ouvrir = async (p) => { if (o.surPoche) return o.surPoche(p); const { ficheEpargne } = await import('./fiche-epargne.js'); ficheEpargne(p); };
   const repartition = v.parPoche.filter((x) => x.montantCentimes > 0);
   const attente = (id) => v.parPoche.find((x) => x.pocheId === id)?.montantCentimes || 0;
   const salaire = formatDateCourte(ajouterJours(v.finPeriode, 1));

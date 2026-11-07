@@ -10,13 +10,16 @@ import { revenusDuMois } from '../calculs.js';
 import { confirmerRevenus } from '../actions.js';
 import { aujourdhui, formatMois } from '../dates.js';
 import { formatEuros } from '../money.js';
+import { chiffrer, dechiffrer, estChiffre } from '../chiffrement.js';
 
 /** Export JSON complet : feuille de partage iOS (fichier) avec repli téléchargement. */
 export async function exporterSauvegarde() {
   try {
     const donnees = construireExport(etat);
-    const texte = JSON.stringify(donnees);
-    const nom = nomFichierExport(aujourdhui());
+    // Chiffrée si un mot de passe des sauvegardes est réglé : illisible sans lui, même sur iCloud
+    const mdp = etat.parametres.motDePasseSauvegarde;
+    const texte = mdp ? JSON.stringify(await chiffrer(JSON.stringify(donnees), mdp)) : JSON.stringify(donnees);
+    const nom = mdp ? nomFichierExport(aujourdhui()).replace(/\.json$/, '-chiffree.json') : nomFichierExport(aujourdhui());
     const fichier = new File([texte], nom, { type: 'application/json' });
     let partage = false;
     if (navigator.canShare?.({ files: [fichier] })) {
@@ -29,12 +32,39 @@ export async function exporterSauvegarde() {
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     }
     await majParametres({ derniereSauvegarde: new Date().toISOString() });
-    toast(`Sauvegarde exportée : ${donnees.contenu.transactions.length.toLocaleString('fr-FR')} transactions.`, { type: 'succes' });
+    toast(`Sauvegarde${mdp ? ' chiffrée' : ''} exportée : ${donnees.contenu.transactions.length.toLocaleString('fr-FR')} transactions.`, { type: 'succes' });
     return true;
   } catch (e) {
     toastErreur(`Export impossible : ${e.message}`);
     return false;
   }
+}
+
+/**
+ * Lit un fichier JSON choisi par l'utilisateur ; s'il s'agit d'une sauvegarde chiffrée, essaie le mot de passe enregistré,
+ * puis le demande. @returns l'objet, ou null (annulé / illisible : un message a été affiché)
+ */
+export async function lireFichierJson(fichier) {
+  let objet;
+  try { objet = JSON.parse(await fichier.text()); } catch { toastErreur('Ce fichier n’est pas un JSON valide.'); return null; }
+  if (!estChiffre(objet)) return objet;
+  const essayer = async (mdp) => { try { return JSON.parse(await dechiffrer(objet, mdp)); } catch { return null; } };
+  if (etat.parametres.motDePasseSauvegarde) { const o = await essayer(etat.parametres.motDePasseSauvegarde); if (o) return o; }
+  return new Promise((resolve) => {
+    let mdp = ''; let fini = false;
+    const erreur = h('p', { class: 'erreur', role: 'alert', hidden: true });
+    const f = ouvrirFeuille({
+      titre: 'Sauvegarde chiffrée',
+      contenu: h('div', { class: 'formulaire' }, h('p', {}, 'Ce fichier est chiffré. Tape le mot de passe choisi au moment de la sauvegarde.'),
+        h('input', { class: 'input', type: 'password', autocomplete: 'current-password', 'aria-label': 'Mot de passe de la sauvegarde', oninput: (e) => { mdp = e.target.value; } }), erreur),
+      actions: [bouton('Annuler', () => f.fermer()), bouton('Ouvrir', async () => {
+        const o = await essayer(mdp);
+        if (!o) { erreur.hidden = false; erreur.textContent = 'Mot de passe incorrect.'; return; }
+        fini = true; f.fermer(); resolve(o);
+      }, { classe: 'btn-principal' })],
+      onFermer: () => { if (!fini) resolve(null); },
+    });
+  });
 }
 
 /** Feuille « Revenus du mois » : salaire exact et prime d'activité exacte, au centime. */

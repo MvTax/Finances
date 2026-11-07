@@ -19,9 +19,14 @@ import { enregistrerVirementEpargne, virerArrondis, payerEcheancePret, payerEche
 import { ajouterAuCalendrier } from '../ics.js';
 import { plafondEffectif } from './budgets.js';
 import { blocCoffres } from './coffres.js';
+import { previsionFinDeMois } from '../prevision.js';
+import { phrasePrevision, feuillePrevision } from './prevision.js';
+import { estAnnoncee, bilanJour } from '../sansdepense.js';
+import { feuilleSansDepense, annoncerSansDepense } from './sans-depense.js';
 
 export const titre = 'Accueil';
 let dernierReste = null;
+let voirPlusOuvert = false; // garde « Voir plus » ouvert quand la page se redessine
 
 export function rendre(vue) {
   const auj = aujourdhui();
@@ -48,11 +53,40 @@ export function rendre(vue) {
   }
   const rappels = bandeaux(r, auj);
   const analyse = raisonner(etat, auj);
-  vue.replaceChildren(...[entete, hero(r, jauge, analyse), ajout, prive, blocCoffres(), carteAnalyse(r, jauge, analyse), essentiel(auj, rappels), rubriques(r, auj, rappels, critique)].filter(Boolean));
+  const prev = previsionFinDeMois(etat, auj);
+  // Trois blocs : la part du jour, l'ajout, les épargnes. Seuls l'urgent (découvert) et la sauvegarde oubliée restent visibles ;
+  // tout le reste est rangé dans « Voir plus ».
+  const ess = essentiel(auj, rappels);
+  const urgent = ess && ess.querySelector('.ligne-essentiel-alerte') ? ess : null;
+  const voirPlus = h('details', { class: 'voir-plus', open: voirPlusOuvert || null, ontoggle: (e) => { voirPlusOuvert = e.target.open; } },
+    h('summary', {}, h('span', {}, 'Voir plus'), h('small', {}, 'analyse du mois, prévision, rappels, raccourcis')),
+    h('div', { class: 'voir-plus-contenu' }, ...[carteAnalyse(r, jauge, analyse), carteOutils(prev, auj), urgent ? null : ess, rubriques(r, auj, rappels, critique)].filter(Boolean)));
+  vue.replaceChildren(...[entete, hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), urgent, ligneSauvegarde(auj), voirPlus].filter(Boolean));
+}
+
+/** Sauvegarde oubliée (plus de 7 jours) : visible sur l'Accueil, un toucher pour sauvegarder. */
+function ligneSauvegarde(auj) {
+  const der = etat.parametres.derniereSauvegarde;
+  if (!etat.transactions.length || (der && diffJours(der.slice(0, 10), auj) < 7)) return null;
+  return h('div', { class: 'ligne-sauvegarde', role: 'status' },
+    icone('telecharger'),
+    h('span', {}, der ? `Dernière sauvegarde il y a ${diffJours(der.slice(0, 10), auj)} jours` : 'Aucune sauvegarde : tes données ne vivent que sur cet iPhone'),
+    h('button', { type: 'button', class: 'btn btn-petit btn-principal', onclick: () => exporterSauvegarde() }, 'Sauvegarder'));
+}
+
+/** Prévision de fin de mois, journées sans dépense et vérification du solde. */
+function carteOutils(prev, auj) {
+  const ph = phrasePrevision(prev);
+  const ligneOutil = (ic, titre, detail, onclick, classe = '') => h('button', { type: 'button', class: `ligne-lien ${classe}`, onclick }, icone(ic), h('span', { class: 'ligne-lien-texte' }, titre, h('small', {}, detail)), icone('suivant'));
+  const b = bilanJour(etat, auj, auj);
+  return carte(null, h('div', { class: 'liste-liens' },
+    ligneOutil('graphique', 'Prévision de fin de mois', ph || 'disponible 3 jours après le salaire', () => feuillePrevision(), prev.alerte ? 'ligne-alerte' : ''),
+    ligneOutil('etoile', 'Journées sans dépense', b.statut === 'enCours' ? 'aujourd’hui : en cours' : b.statut === 'rompue' ? 'aujourd’hui : rompue' : 'annoncer, calendrier, ce qu’elles rapportent', () => feuilleSansDepense()),
+    ligneOutil('banque', 'Vérifier mon solde', 'comparer avec LCL et Revolut', async () => { const { feuilleVerification } = await import('./verifier.js'); feuilleVerification(); })));
 }
 
 /** Le bloc sapin : ce que tu peux dépenser aujourd'hui, et le reste du mois. Rien d'autre. */
-function hero(r, j, analyse = null) {
+function hero(r, j, analyse = null, prev = null) {
   const moisDepasse = r.resteCentimes < 0;
   const dispo = j.restantAujourdhuiCentimes;
   const depasse = dispo < 0 && !moisDepasse;
@@ -70,7 +104,22 @@ function hero(r, j, analyse = null) {
     h('div', { class: 'hero-mois' },
       h('p', { class: 'hero-aide' }, 'Pour tenir jusqu’au salaire ', chiffre)),
     h('p', { class: 'hero-aide hero-periode' }, `Prochain salaire vers le ${formatDateCourte(r.periode.salaireAttenduLe || ajouterJours(r.periode.fin, 1))}, dans ${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}`),
+    prev && phrasePrevision(prev) ? h('button', { type: 'button', class: `hero-prevision ${prev.alerte ? 'alerte' : prev.previsionCentimes < 0 ? 'attention' : ''}`, onclick: () => feuillePrevision() }, prev.alerte ? icone('alerte') : icone('graphique'), h('span', {}, phrasePrevision(prev), prev.alerte ? `. Pour tenir : ${formatEuros(prev.partMaxCentimes)}/jour maximum.` : '')) : null,
+    puceSansDepense(j),
     analyse ? null : h('button', { type: 'button', class: 'hero-lien', onclick: () => feuilleCalcul(r, j) }, 'Pourquoi ce chiffre ?', icone('suivant')));
+}
+
+/** Journée sans dépense : annoncée → son état ; sinon, une proposition tant que rien n'est dépensé aujourd'hui. */
+function puceSansDepense(j) {
+  const auj = aujourdhui();
+  const b = bilanJour(etat, auj, auj);
+  if (estAnnoncee(etat, auj)) {
+    return h('button', { type: 'button', class: `hero-puce ${b.statut}`, onclick: () => feuilleSansDepense() },
+      icone(b.statut === 'rompue' ? 'alerte' : 'etoile'), b.statut === 'rompue' ? `Journée sans dépense rompue (${formatEuros(b.depensesCentimes)})` : 'Journée sans dépense : tenue pour l’instant');
+  }
+  if (b.depensesCentimes > 0 || j.parJourCentimes <= 0) return null;
+  return h('button', { type: 'button', class: 'hero-puce proposer', onclick: async () => { await annoncerSansDepense(auj, true); toast(`Journée sans dépense annoncée : si tu tiens, ${formatEuros(j.parJourCentimes)} partent à l’épargne demain à 5 h.`, { type: 'succes', duree: 5000 }); } },
+    icone('etoile'), 'Aujourd’hui, je ne dépense rien');
 }
 
 /** Le verdict du mois en une carte : la conclusion et sa raison principale. */
@@ -268,11 +317,7 @@ function bandeaux(r, auj) {
   // Questions en attente
   const q = etat.questions.filter((x) => x.statut === 'ouverte').length;
   if (q) res.push(({ type: 'info', icone: 'info', titre: `${q} question${q > 1 ? 's' : ''} sur tes relevés`, texte: 'Pré-remplies avec ma meilleure supposition : confirme ou corrige.', actions: [bouton('Répondre', () => aller('reglages/questions'), { classe: 'btn-petit' })] }));
-  // Sauvegarde hebdomadaire
-  const der = etat.parametres.derniereSauvegarde;
-  if (etat.transactions.length && (!der || diffJours(der.slice(0, 10), auj) >= 7)) {
-    res.push(({ type: 'info', icone: 'telecharger', titre: 'Sauvegarde de la semaine', texte: der ? `Dernière sauvegarde le ${formatDate(der.slice(0, 10))}.` : 'Aucune sauvegarde : tes données ne vivent que sur cet iPhone.', actions: [bouton('Sauvegarder', () => exporterSauvegarde(), { classe: 'btn-petit' })] }));
-  }
+  // Sauvegarde : ligne visible sur l'Accueil quand la dernière date de plus de 7 jours (ligneSauvegarde)
   return res;
 }
 

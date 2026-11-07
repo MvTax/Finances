@@ -19,7 +19,7 @@ import { formatDate, diffJours } from '../dates.js';
 import { formatEuros } from '../money.js';
 import { iaDisponible } from '../gemini.js';
 import { categoriserInconnus, analyserRelevePDF } from '../ia.js';
-import { indicationEnvoiGemini } from './communs.js';
+import { indicationEnvoiGemini, lireFichierJson } from './communs.js';
 
 export function rendreImport(vue) {
   const input = h('input', { type: 'file', accept: '.pdf,.csv,.json,application/pdf,text/csv,application/json', multiple: true, class: 'sr', id: 'fichiers-import', onchange: (e) => traiter([...e.target.files]) });
@@ -300,7 +300,8 @@ export async function mettreAJourDepuisFichier(objet, r, { apres } = {}) {
 /** Restauration : validation, aperçu, choix mettre à jour / fusionner / remplacer. */
 async function restaurer(fichier) {
   let objet;
-  try { objet = JSON.parse(await fichier.text()); } catch { toastErreur('Ce fichier n’est pas un JSON valide.'); return; }
+  objet = await lireFichierJson(fichier);
+  if (!objet) return;
   const r = lireSauvegarde(objet);
   if (!r.ok) { toastErreur(r.erreurs.join(' ')); return; }
   if (estFichierPrive(objet, r.contenu)) { await mettreAJourDepuisFichier(objet, r, { apres: () => aller('accueil') }); return; }

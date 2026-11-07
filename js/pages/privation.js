@@ -5,7 +5,7 @@ import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { bouton, champ, champMontant, carte } from '../ui/composants.js';
 import { toast } from '../ui/toast.js';
 import { etat, supprimerObjet } from '../store.js';
-import { ajouterPrivation, virerPrivations } from '../actions.js';
+import { ajouterPrivation } from '../actions.js';
 import { montantsHabituels, bilanPrivations } from '../privations.js';
 import { periodeBudget, resteADepenser, prixRepas } from '../calculs.js';
 import { aujourdhui, formatDateCourte } from '../dates.js';
@@ -62,10 +62,9 @@ export function carteprivations() {
   return carte('Je me suis privé', h('div', { class: 'carte-privations' },
     h('p', {}, b.nbMois ? `Ce mois-ci : ${formatEuros(b.moisCentimes)} mis de côté${b.nbAuto ? `, dont ${b.nbAuto} jour${b.nbAuto > 1 ? 's' : ''} de repas à la maison` : ''}.` : 'Quand tu renonces à manger dehors, à un VTC ou à un café, mets le montant de côté ici.'),
     reg?.actif ? h('p', { class: 'petit' }, `Automatique : chaque jour où tu ne notes pas de repas dehors, ${reg.repasParJour || 2} repas à ${formatEuros(prix)} (ton menu habituel) partent à l’épargne, sans dépasser ce qui reste de ta part du jour. Tu as mangé dehors sans le noter ? Ajoute la dépense : le montant s’ajuste.`) : null,
-    b.aVirerCentimes ? h('p', { class: 'privations-a-virer' }, icone('tirelire'), ' À virer sur ton compte épargne : ', h('strong', {}, mt(b.aVirerCentimes))) : null,
+    // Le virement se fait avec celui de la semaine (« Reste à virer vers l’épargne », en haut)
     h('div', { class: 'groupe-boutons' },
-      bouton('Je me suis privé', () => feuillePrivation(), { classe: 'btn-principal btn-petit', icone: 'plus' }),
-      b.aVirerCentimes ? bouton('C’est viré', async () => { await virerPrivations(null, auto); toast(`${formatEuros(b.aVirerCentimes)} versés sur ton épargne.`, { type: 'succes' }); }, { classe: 'btn-petit' }) : null),
+      bouton('Je me suis privé', () => feuillePrivation(), { classe: 'btn-principal btn-petit', icone: 'plus' })),
     b.totalCentimes ? h('p', { class: 'petit' }, `Depuis le début : ${formatEuros(b.totalCentimes)} mis de côté en te privant.`) : null,
     dernieres.length ? h('details', { class: 'details-discret' }, h('summary', {}, 'Détail'),
       h('div', { class: 'liste-cles' }, dernieres.map((p) => h('div', { class: 'ligne-cle' },

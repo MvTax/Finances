@@ -12,7 +12,7 @@ import { aujourdhui, formatDate, formatMois, ajouterJours, JOURS_LONGS } from '.
 import { formatEuros, versChamp } from '../money.js';
 import { CATEGORIES, categorie, nomCategorie, definirNomsCategories } from '../categories.js';
 import { libelleRegle } from '../rules.js';
-import { exporterSauvegarde, feuilleRevenus, indicationEnvoiGemini } from './communs.js';
+import { exporterSauvegarde, feuilleRevenus, indicationEnvoiGemini, lireFichierJson } from './communs.js';
 import { confirmerRevenus, declarerSolde, recategoriser } from '../actions.js';
 import { listerModeles, testerCle, choisirFlashStable, MODELE_DEFAUT, iaDisponible } from '../gemini.js';
 import { traiterFile, analyserFrigo } from '../ia.js';
@@ -29,7 +29,7 @@ export const titre = 'Réglages';
 // Sections des réglages : chacune s'ouvre sur sa propre page (#reglages/<section>).
 const SECTIONS = {
   revenus: { titre: 'Revenus et logement', icone: 'mallette' },
-  epargne: { titre: 'Épargne et arrondis', icone: 'tirelire' },
+  epargne: { titre: 'Épargne automatique', icone: 'tirelire' },
   operations: { titre: 'Opérations et catégories', icone: 'liste' },
   sauvegarde: { titre: 'Sauvegarde', icone: 'partage' },
   profil: { titre: 'Profil', icone: 'personnes' },
@@ -50,29 +50,37 @@ export function rendre(vue, params = []) {
   rendreAccueilReglages(vue);
 }
 
-/** Page d'entrée : le bouton d'import du fichier, puis une ligne par section. */
+/**
+ * Page d'entrée, en trois parties : Mon argent, Épargne automatique, L'app. Le reste est replié dans « Avancé ».
+ * Sans données, le gros bouton d'import du fichier passe en premier.
+ */
 function rendreAccueilReglages(vue) {
   const p = etat.profil; const pa = etat.parametres;
-  const mois = periodeBudget(aujourdhui(), p).mois;
-  const rev = revenusDuMois(etat, mois);
+  const per = periodeBudget(aujourdhui(), p);
+  const rev = revenusDuMois(etat, per.mois);
   const ia = iaDisponible();
   const nbQuestions = etat.questions.filter((q) => q.statut === 'ouverte').length;
   const der = etat.meta.derniereMiseAJour;
   const vide = !etat.transactions.length;
   const sect = (id, detail) => lien(SECTIONS[id].titre, detail, () => aller(`reglages/${id}`), SECTIONS[id].icone);
-  vue.replaceChildren(
+  const actifs = [p.arrondi?.actif ? 'arrondis' : null, p.repasAuto?.actif !== false ? 'repas à la maison' : null, p.restesDuJour?.actif !== false ? 'reste du jour' : null].filter(Boolean);
+  vue.replaceChildren(...[
     h('h1', { class: 'titre-page' }, 'Réglages'),
-    carte(null, h('div', { class: 'bloc-fichier' },
+    vide ? carte(null, h('div', { class: 'bloc-fichier' },
       h('p', { class: 'bloc-fichier-titre' }, 'Mon fichier budget-import-prive.json'),
-      h('p', { class: 'petit' }, vide ? 'Remplit l’app avec ton historique, tes dettes et ton plan.' : der ? `Dernière mise à jour le ${formatDate(der.le.slice(0, 10))}. Tes saisies dans l’app sont toujours gardées.` : 'Met l’app à jour avec la dernière version du fichier. Tes saisies dans l’app sont gardées.'),
-      bouton('Importer mon fichier', () => choisirFichierMiseAJour(), { classe: 'btn-principal btn-large', icone: 'telecharger' }))),
-    carte('Mes données', h('div', { class: 'liste-liens' },
+      h('p', { class: 'petit' }, 'Remplit l’app avec ton historique, tes dettes et ton plan.'),
+      bouton('Importer mon fichier', () => choisirFichierMiseAJour(), { classe: 'btn-principal btn-large', icone: 'telecharger' }))) : null,
+    carte('Mon argent', h('div', { class: 'liste-liens' },
       nbQuestions ? lien('Questions sur tes relevés', `${nbQuestions} en attente`, () => aller('reglages/questions'), 'info') : null,
       sect('revenus', `${formatEuros(rev.totalCentimes)} ce mois-ci`),
-      sect('epargne', `${formatEuros(epargneCible(etat, periodeBudget(aujourdhui(), p).mois, periodeBudget(aujourdhui(), p)))} possibles ce mois-ci`),
-      sect('operations', 'relevés, prélèvements, catégories'),
-      sect('sauvegarde', pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'))),
+      lien('Vérifier mon solde', 'comparer avec LCL et Revolut', async () => { const { feuilleVerification } = await import('./verifier.js'); feuilleVerification(); }, 'banque'),
+      sect('operations', 'relevés, prélèvements, catégories, comptes'),
+      vide ? null : lien('Mettre à jour depuis mon fichier', der ? `dernière le ${formatDate(der.le.slice(0, 10))}, tes saisies sont gardées` : 'budget-import-prive.json, tes saisies sont gardées', () => choisirFichierMiseAJour(), 'telecharger'))),
+    carte('Épargne automatique', h('div', { class: 'liste-liens' },
+      sect('epargne', actifs.length ? `${actifs.join(', ')} : actifs` : 'tout est désactivé'),
+      lien('Mes épargnes', 'prêt, sécurité, plan du mois', () => aller('epargne'), 'graphique'))),
     carte('L’app', h('div', { class: 'liste-liens' },
+      sect('sauvegarde', `${pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'}${pa.motDePasseSauvegarde ? ', chiffrée' : ''}`),
       sect('profil', p.prenomAffichage || 'prénom, jour de salaire'),
       sect('confidentialite', pa.pinHash ? 'code PIN actif' : 'sans code PIN'),
       lien('Forcer la mise à jour', `version ${versionApp}, tes données restent`, () => forcerMiseAJour(), 'boucle'))),
@@ -83,7 +91,7 @@ function rendreAccueilReglages(vue) {
         sect('pont', 'échanges avec l’app Repas'),
         sect('diagnostic', 'tester toute l’app et me l’envoyer'),
         sect('apropos', `version ${versionApp}`)))),
-  );
+  ].filter(Boolean));
 }
 
 /** Contenu de chaque section (mêmes réglages qu'avant, rangés par thème). */
@@ -110,15 +118,7 @@ function cartesSection(id) {
         champ('Aide au logement', champMontant({ valeur: p.aideLogementCentimes, onValeur: (v) => majProfil({ aideLogementCentimes: v }) }), 'Aide versée au bailleur, non comptabilisée dans vos revenus.')))),
   ];
   if (id === 'epargne') return [
-    carte('Comment l’épargne est calculée', h('div', { class: 'formulaire' },
-      h('p', { class: 'petit' }, `L’épargne passe après tes dépenses obligatoires : prélèvements, remboursements, et le nécessaire du quotidien (courses, transports, santé : le montant ci-dessous). Elle prend le maximum de ce qui reste, sans montant fixe. Seul le mois en cours compte : les mois passés servent aux statistiques. Ce mois-ci : ${formatEuros(epargneCible(etat, periodeBudget(aujourdhui(), p).mois, periodeBudget(aujourdhui(), p)))}.`),
-      champ('Quotidien obligatoire du mois', champMontant({ valeur: p.parametresPlan?.vieMinCentimes ?? 37500, onValeur: (v) => v !== null && majProfil({ parametresPlan: { ...p.parametresPlan, vieMinCentimes: v } }) }), 'Gardé pour vivre avant l’épargne. Plus il est haut, plus ton budget du jour est large et moins tu épargnes.'),
-      interrupteur('Épargne sans intérêts (0 %)', !!p.epargneSansInterets, (v) => majProfil({ epargneSansInterets: v }), 'Ton épargne reste sur un compte qui ne rapporte rien : pas de Livret A ni de LEP, pas de simulateur d’intérêts. Les montants mis de côté sont exactement ceux que tu verses.'),
-      p.epargneSansInterets ? null : h('div', { class: 'deux-colonnes' },
-        champ('Taux Livret A (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLivretA).replace('.', ','), onchange: (e) => majParametres({ tauxLivretA: Number(e.target.value.replace(',', '.')) || 0 }) })),
-        champ('Taux LEP (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLEP).replace('.', ','), onchange: (e) => majParametres({ tauxLEP: Number(e.target.value.replace(',', '.')) || 0 }) }))),
-      bouton('Enveloppes', () => aller('budgets'), { icone: 'balance' }))),
-    carte('Repas à la maison → épargne', h('div', { class: 'formulaire' },
+    carte('Repas et reste du jour → épargne', h('div', { class: 'formulaire' },
       interrupteur('Épargner automatiquement les repas pris à la maison', p.repasAuto?.actif !== false, (v) => majProfil({ repasAuto: { ...p.repasAuto, actif: v, depuis: v ? (p.repasAuto?.depuis || aujourdhui()) : p.repasAuto?.depuis } }),
         `Chaque jour sans repas dehors noté (fast-food, livraison, resto), le prix de ton menu habituel (${formatEuros(prixRepas(etat))}) part à l’épargne pour chaque repas, sans dépasser ce qui reste de ta part du jour.`),
       champ('Repas par jour', segment([['1', '1 repas'], ['2', '2 repas'], ['3', '3 repas']], String(p.repasAuto?.repasParJour || 2), (v) => majProfil({ repasAuto: { ...p.repasAuto, repasParJour: Number(v) } }), 'Repas par jour')),
@@ -130,6 +130,15 @@ function cartesSection(id) {
       champ('Jour du virement', selectionner(JOURS_LONGS.map((j, i) => [String(i + 1), j]), String(p.arrondi?.jourVirement || 4), (v) => majProfil({ arrondi: { ...p.arrondi, jourVirement: Number(v) } })), 'Hebdomadaire par défaut : petits montants réguliers, moins de risque de découvert.'),
       h('p', { class: 'petit' }, 'Tout ce qui sort du compte est arrondi à l’euro supérieur : courses, abonnements, loyer, prélèvements, échéances. Seuls les virements entre tes comptes et vers l’épargne ne le sont pas. L’arrondi part à l’épargne et sort de ton budget du jour.'),
       champ('Poche alimentée', selectionner([['partage', 'Les deux épargnes (même partage)'], ...etat.poches.filter((x) => x.actif !== false).map((x) => [x.id, x.nom])], p.arrondi?.pocheId || 'partage', (v) => majProfil({ arrondi: { ...p.arrondi, pocheId: v } }))))),
+    h('details', { class: 'reglages-avance' }, h('summary', {}, 'Avancé : calcul de l’épargne du mois'),
+      carte('Comment l’épargne est calculée', h('div', { class: 'formulaire' },
+      h('p', { class: 'petit' }, `L’épargne passe après tes dépenses obligatoires : prélèvements, remboursements, et le nécessaire du quotidien (courses, transports, santé : le montant ci-dessous). Elle prend le maximum de ce qui reste, sans montant fixe. Seul le mois en cours compte : les mois passés servent aux statistiques. Ce mois-ci : ${formatEuros(epargneCible(etat, periodeBudget(aujourdhui(), p).mois, periodeBudget(aujourdhui(), p)))}.`),
+      champ('Quotidien obligatoire du mois', champMontant({ valeur: p.parametresPlan?.vieMinCentimes ?? 37500, onValeur: (v) => v !== null && majProfil({ parametresPlan: { ...p.parametresPlan, vieMinCentimes: v } }) }), 'Gardé pour vivre avant l’épargne. Plus il est haut, plus ton budget du jour est large et moins tu épargnes.'),
+      interrupteur('Épargne sans intérêts (0 %)', !!p.epargneSansInterets, (v) => majProfil({ epargneSansInterets: v }), 'Ton épargne reste sur un compte qui ne rapporte rien : pas de Livret A ni de LEP, pas de simulateur d’intérêts. Les montants mis de côté sont exactement ceux que tu verses.'),
+      p.epargneSansInterets ? null : h('div', { class: 'deux-colonnes' },
+        champ('Taux Livret A (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLivretA).replace('.', ','), onchange: (e) => majParametres({ tauxLivretA: Number(e.target.value.replace(',', '.')) || 0 }) })),
+        champ('Taux LEP (%)', h('input', { class: 'input', inputmode: 'decimal', value: String(pa.tauxLEP).replace('.', ','), onchange: (e) => majParametres({ tauxLEP: Number(e.target.value.replace(',', '.')) || 0 }) }))),
+      bouton('Enveloppes', () => aller('budgets'), { icone: 'balance' })))),
   ];
   if (id === 'operations') return [
     carte(null, h('div', { class: 'liste-liens' },
@@ -150,9 +159,10 @@ function cartesSection(id) {
   if (id === 'sauvegarde') return [
     carte('Sauvegarde', h('div', {},
       h('p', {}, pa.derniereSauvegarde ? `Dernière sauvegarde : ${formatDate(pa.derniereSauvegarde.slice(0, 10))}.` : 'Aucune sauvegarde pour l’instant.'),
-      h('p', { class: 'petit' }, 'Fais-la chaque semaine : tes données ne vivent que sur cet iPhone (aucun serveur). Enregistre le fichier dans Fichiers ou iCloud Drive.'),
-      h('div', { class: 'groupe-boutons' }, bouton('Exporter (partager le fichier)', () => exporterSauvegarde(), { classe: 'btn-principal btn-petit', icone: 'partage' }), bouton('Restaurer', () => aller('reglages/import'), { classe: 'btn-petit', icone: 'importer' })),
+      h('p', { class: 'petit' }, 'Tes données ne vivent que sur cet iPhone (aucun serveur) et Safari peut les effacer s’il manque de place. Une fois par semaine, l’Accueil te le rappelle : un toucher, puis « Enregistrer dans Fichiers » → iCloud Drive.'),
+      h('div', { class: 'groupe-boutons' }, bouton(pa.motDePasseSauvegarde ? 'Sauvegarder (chiffrée)' : 'Sauvegarder', () => exporterSauvegarde(), { classe: 'btn-principal btn-petit', icone: 'partage' }), bouton('Restaurer', () => aller('reglages/import'), { classe: 'btn-petit', icone: 'importer' })),
       stockage())),
+    carte('Chiffrement des sauvegardes', reglageChiffrement()),
   ];
   if (id === 'profil') return [
     carte('Profil', h('div', { class: 'formulaire' },
@@ -211,13 +221,36 @@ export async function forcerMiseAJour() {
   }
 }
 
+/** Mot de passe des sauvegardes : le fichier envoyé sur iCloud est chiffré (AES-256), illisible sans lui. */
+function reglageChiffrement() {
+  const pa = etat.parametres;
+  let a = ''; let b = '';
+  const erreur = h('p', { class: 'erreur', role: 'alert', hidden: true });
+  if (pa.motDePasseSauvegarde) {
+    return h('div', { class: 'formulaire' },
+      h('p', {}, icone('cadenas'), ' Tes sauvegardes sont chiffrées.'),
+      h('p', { class: 'petit' }, 'Garde ce mot de passe ailleurs (gestionnaire de mots de passe, papier) : sans lui, une sauvegarde chiffrée ne peut pas être restaurée sur un autre iPhone.'),
+      bouton('Ne plus chiffrer', async () => { if (await confirmer({ titre: 'Ne plus chiffrer ?', message: 'Les prochaines sauvegardes seront lisibles par quiconque a le fichier.', ok: 'Ne plus chiffrer' })) { await majParametres({ motDePasseSauvegarde: '' }); toast('Sauvegardes non chiffrées.'); } }, { classe: 'btn-petit' }));
+  }
+  return h('div', { class: 'formulaire' },
+    h('p', { class: 'petit' }, 'Choisis un mot de passe : chaque sauvegarde sera chiffrée avant de quitter l’iPhone. Il est gardé sur cet iPhone pour sauvegarder en un toucher, jamais dans le fichier.'),
+    champ('Mot de passe (8 caractères au moins)', h('input', { class: 'input', type: 'password', autocomplete: 'new-password', oninput: (e) => { a = e.target.value; } })),
+    champ('Confirmer', h('input', { class: 'input', type: 'password', autocomplete: 'new-password', oninput: (e) => { b = e.target.value; } })),
+    erreur,
+    bouton('Chiffrer mes sauvegardes', async () => {
+      if (a.length < 8) { erreur.hidden = false; erreur.textContent = '8 caractères au moins.'; return; }
+      if (a !== b) { erreur.hidden = false; erreur.textContent = 'Les deux mots de passe diffèrent.'; return; }
+      await majParametres({ motDePasseSauvegarde: a }); toast('Sauvegardes chiffrées. Note ce mot de passe ailleurs.', { type: 'succes', duree: 5000 });
+    }, { classe: 'btn-principal btn-petit', icone: 'cadenas' }));
+}
+
 /** Choix du fichier privé (même nom, même emplacement) puis mise à jour sans perte. */
 function choisirFichierMiseAJour() {
   const input = h('input', { type: 'file', accept: '.json,application/json', class: 'sr', onchange: async (e) => {
     const fichier = e.target.files[0]; input.remove();
     if (!fichier) return;
-    let objet;
-    try { objet = JSON.parse(await fichier.text()); } catch { toastErreur('Ce fichier n’est pas un JSON valide.'); return; }
+    const objet = await lireFichierJson(fichier);
+    if (!objet) return;
     const { lireSauvegarde } = await import('../sauvegarde.js');
     const r = lireSauvegarde(objet);
     if (!r.ok) { toastErreur(r.erreurs.join(' ')); return; }

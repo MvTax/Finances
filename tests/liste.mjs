@@ -23,4 +23,5 @@ export const CAS = [
   ['paliers', () => import('./cas/paliers.mjs')],
   ['virements', () => import('./cas/virements.mjs')],
   ['restes', () => import('./cas/restes.mjs')],
+  ['nouveautes', () => import('./cas/nouveautes.mjs')],
 ];

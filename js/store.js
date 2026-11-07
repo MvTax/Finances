@@ -357,7 +357,7 @@ export async function ecrireMeta(cle, valeur, { avertir = false } = {}) {
 
 /** Remplace toutes les données par un contenu de sauvegarde (secrets locaux conservés). */
 export async function remplacerTout(contenu) {
-  const secrets = { cleGemini: etat.parametres.cleGemini, pinHash: etat.parametres.pinHash, pinSel: etat.parametres.pinSel, pinIterations: etat.parametres.pinIterations };
+  const secrets = { cleGemini: etat.parametres.cleGemini, pinHash: etat.parametres.pinHash, pinSel: etat.parametres.pinSel, pinIterations: etat.parametres.pinIterations, motDePasseSauvegarde: etat.parametres.motDePasseSauvegarde };
   await db.vider([...COLLECTIONS, 'profil', 'parametres']);
   const ops = [];
   for (const c of COLLECTIONS) {
