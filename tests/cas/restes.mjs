@@ -88,4 +88,18 @@ export default [
       egal(950 + repas + reste, part, `repas auto ${repasActif ? 'oui' : 'non'} : 9,50 + ${repas} + ${reste} = la part du jour (${part})`);
     }
   } },
+  { nom: 'historique : ligne « Reste du jour » pour la journée en cours (estimée, à 5 h), et à 0 € pour un jour clos sans reste', fn: () => {
+    const e = etat({ transactions: [tx({ date: '2026-11-07', montant: 20000 })] });
+    e.poches = [];
+    appliquer(e, cloturerJours(e, a('2026-11-08', 5, 1)));
+    const h = historiqueCagnotte(e, '2026-11-09', a('2026-11-09', 3, 10));
+    const r = h.lignes.filter((l) => l.source === 'reste');
+    egal(r.map((l) => `${l.date}:${l.montantCentimes}:${!!l.enCours}`).join(' '), r.map((l) => l.date === '2026-11-08' ? `${l.date}:${l.montantCentimes}:true` : `${l.date}:0:false`).join(' '));
+    vrai(r.some((l) => l.date === '2026-11-07' && l.montantCentimes === 0), 'le 7 : tout dépensé, ligne à 0 €');
+    const encours = r.find((l) => l.enCours);
+    egal(encours.date, '2026-11-08', 'à 3 h 10 le 9, la journée du 8 est encore ouverte');
+    vrai(/ce matin/.test(encours.detail));
+    vrai(encours.montantCentimes > 0);
+    egal(h.aVirerCentimes, h.lignes.filter((l) => !l.vireLe && !l.enCours).reduce((s, l) => s + l.montantCentimes, 0), 'l’estimation n’est pas comptée');
+  } },
 ];

@@ -136,7 +136,7 @@ export function feuilleHistorique() {
   const hst = historiqueCagnotte(etat, aujourdhui());
   let filtre = 'tout';
   const liste = h('div', { class: 'histo-liste' });
-  const parSource = (src) => hst.lignes.filter((l) => l.source === src).reduce((s, l) => s + l.montantCentimes, 0);
+  const parSource = (src) => hst.lignes.filter((l) => l.source === src && !l.enCours).reduce((s, l) => s + l.montantCentimes, 0);
   const dessiner = () => {
     const lignes = hst.lignes.filter((l) => filtre === 'tout' || l.source === filtre);
     let jour = null;
@@ -144,11 +144,11 @@ export function feuilleHistorique() {
     for (const l of lignes) {
       if (l.date !== jour) { jour = l.date; items.push(h('h3', { class: 'histo-jour' }, l.date === aujourdhui() ? 'Aujourd’hui' : formatJourLong(l.date))); }
       const src = SOURCES[l.source];
-      items.push(h('div', { class: `histo-ligne histo-${l.source}` },
+      items.push(h('div', { class: `histo-ligne histo-${l.source}${l.enCours ? ' en-cours' : ''}` },
         h('span', { class: 'histo-icone', 'aria-hidden': 'true' }, icone(src.icone)),
         h('span', { class: 'histo-texte' }, h('strong', {}, l.libelle), h('small', {}, l.libelle === src.nom ? l.detail : `${src.nom} · ${l.detail}`)),
-        h('span', { class: 'histo-droite' }, h('span', { class: 'histo-montant' }, '+', mt(l.montantCentimes)),
-          h('small', { class: l.vireLe ? 'histo-vire' : 'histo-attente' }, l.vireLe ? `viré le ${formatDateCourte(l.vireLe)}` : 'à virer'))));
+        h('span', { class: 'histo-droite' }, h('span', { class: `histo-montant ${l.montantCentimes ? '' : 'nul'}` }, l.enCours ? '≈ ' : '', l.montantCentimes ? '+' : '', mt(l.montantCentimes)),
+          h('small', { class: l.enCours ? 'histo-encours' : l.vireLe ? 'histo-vire' : l.montantCentimes ? 'histo-attente' : 'histo-vire' }, l.enCours ? 'à 5 h' : l.vireLe ? `viré le ${formatDateCourte(l.vireLe)}` : l.montantCentimes ? 'à virer' : 'rien à virer'))));
     }
     liste.replaceChildren(...(items.length ? items : [h('p', { class: 'petit' }, 'Rien pour l’instant.')]));
   };

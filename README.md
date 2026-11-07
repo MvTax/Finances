@@ -269,6 +269,7 @@ Ce qui reste de la part du jour part à l'épargne le lendemain à 5 h du matin.
 - Le reste sort du budget : la part des jours suivants ne grossit plus avec ce qui n'a pas été dépensé.
 - C'est fait à l'ouverture de l'app, à 5 h si elle est ouverte, et quand elle revient au premier plan (une PWA ne tourne pas en arrière-plan sur iPhone). Un message l'annonce, et l'Accueil affiche « Il te restait X € hier ».
 - Tant que le reste n'est pas viré, il est recalculé : une dépense oubliée, ajoutée après coup sur ce jour, le fait baisser.
+- Dans l'historique de la cagnotte, chaque jour a sa ligne « Reste du jour », même à 0 € (« rien à ajouter : la part du jour a été utilisée »). La journée en cours a une ligne « à 5 h » avec le montant estimé « si la journée s'arrêtait maintenant » ; cette estimation n'est pas comptée dans le total à virer.
 - Réglages → « Repas à la maison → épargne » → « Reste du jour → épargne » pour l'arrêter.
 
 ## Épargne sans intérêts

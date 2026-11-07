@@ -7,6 +7,7 @@
 import { resteADepenser, cagnotteArrondis } from './calculs.js';
 import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrondis } from './epargne.js';
 import { formatEuros } from './money.js';
+import { jourBudgetaire, resteDuJourPasse } from './restes.js';
 import { bilanPrivations } from './privations.js';
 import { diffJours, debutSemaine, maxIso, ajouterJours, prochainJourSemaine } from './dates.js';
 
@@ -85,7 +86,7 @@ export function compteEpargne(poche) {
  * Sources : arrondi d'une sortie du compte, repas à la maison, privation, épargne du mois.
  * @returns {{ lignes: Array<{ date, source, libelle, detail, montantCentimes, vireLe }>, aVirerCentimes, vireCentimes, periode }}
  */
-export function historiqueCagnotte(etat, dateIso) {
+export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
   const r = resteADepenser(etat, dateIso);
   const per = r.periode;
   const lignes = [];
@@ -114,7 +115,24 @@ export function historiqueCagnotte(etat, dateIso) {
   }
   const v = aVirerEpargne(etat, dateIso);
   if (v.moisSemaineCentimes) lignes.push({ date: dateIso, source: 'mois', libelle: 'Épargne du mois', detail: `part de cette semaine (reste ${formatEuros(v.moisRestantCentimes)} ce mois-ci)`, montantCentimes: v.moisSemaineCentimes, vireLe: null });
-  lignes.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.vireLe ? 1 : 0) - (b.vireLe ? 1 : 0)));
+  // Restes du jour : une ligne par jour, même à 0 €. La journée en cours (jusqu'à 5 h le lendemain) est estimée.
+  if (etat.profil?.restesDuJour?.actif !== false) {
+    const depuis = etat.meta?.restesJour?.depuis;
+    const ouvert = jourBudgetaire(instant);
+    const avecReste = new Set(lignes.filter((l) => l.source === 'reste').map((l) => l.date));
+    if (depuis) {
+      for (let d = depuis > per.debut ? depuis : per.debut; d < ouvert && d <= per.fin; d = ajouterJours(d, 1)) {
+        if (!avecReste.has(d)) lignes.push({ date: d, source: 'reste', libelle: 'Reste du jour', detail: 'rien à ajouter : la part du jour a été utilisée (dépenses, arrondis, privations, repas)', montantCentimes: 0, vireLe: null });
+      }
+    }
+    if (ouvert >= per.debut && ouvert <= per.fin && !avecReste.has(ouvert)) {
+      const estime = resteDuJourPasse(etat, ouvert);
+      const lendemain = ajouterJours(ouvert, 1);
+      const quand = lendemain === dateIso ? 'ce matin' : 'demain matin';
+      lignes.push({ date: ouvert, source: 'reste', libelle: 'Reste du jour', detail: `ajouté à 5 h ${quand}. Si la journée s’arrêtait maintenant : ${formatEuros(estime)}`, montantCentimes: estime, vireLe: null, enCours: true, aHeure: '5 h' });
+    }
+  }
+  lignes.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.enCours ? 1 : 0) - (a.enCours ? 1 : 0) || (a.vireLe ? 1 : 0) - (b.vireLe ? 1 : 0)));
   const somme = (l) => l.reduce((s, x) => s + x.montantCentimes, 0);
-  return { lignes, aVirerCentimes: somme(lignes.filter((x) => !x.vireLe)), vireCentimes: somme(lignes.filter((x) => x.vireLe)), periode: per };
+  return { lignes, aVirerCentimes: somme(lignes.filter((x) => !x.vireLe && !x.enCours)), vireCentimes: somme(lignes.filter((x) => x.vireLe)), periode: per };
 }
