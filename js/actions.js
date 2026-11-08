@@ -340,6 +340,19 @@ export async function recalculerTousAjustements() {
 }
 
 /** Déclare le solde réel d'un compte aujourd'hui (crée/ajuste la ligne d'ajustement). */
+/** Virement entre deux de tes comptes (ex. LCL → Revolut) : une sortie et une entrée liées, hors budget. */
+export async function enregistrerVirementInterne({ deId, versId, montantCentimes, date = aujourdhui() }) {
+  const de = etat.comptes.find((c) => c.id === deId);
+  const vers = etat.comptes.find((c) => c.id === versId);
+  if (!de || !vers || !(montantCentimes > 0)) return null;
+  const sortie = nouvelleTransaction({ sens: 'debit', montantCentimes, libelle: `Virement vers ${vers.nom}`, categorie: 'virements-internes', date, compteId: de.id, source: 'confirmation' });
+  const entree = nouvelleTransaction({ sens: 'credit', montantCentimes, libelle: `Virement depuis ${de.nom}`, categorie: 'virements-internes', date, compteId: vers.id, source: 'confirmation' });
+  sortie.virementInterne = { estInterne: true, transactionLieeId: entree.id };
+  entree.virementInterne = { estInterne: true, transactionLieeId: sortie.id };
+  await enregistrerLot([{ collection: 'transactions', valeur: sortie }, { collection: 'transactions', valeur: entree }]);
+  return [sortie, entree];
+}
+
 export async function declarerSolde(compteId, centimes, date = ajouterJours(aujourdhui(), -1)) {
   const c = etat.comptes.find((x) => x.id === compteId);
   if (!c) return;

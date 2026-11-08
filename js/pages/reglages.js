@@ -76,7 +76,7 @@ function rendreAccueilReglages(vue) {
     carte('Mon argent', h('div', { class: 'liste-liens' },
       nbQuestions ? lien('Questions sur tes relevés', `${nbQuestions} en attente`, () => aller('reglages/questions'), 'info') : null,
       sect('revenus', `${formatEuros(rev.totalCentimes)} ce mois-ci`),
-      lien('Vérifier mon solde', 'comparer avec LCL et Revolut', async () => { const { feuilleVerification } = await import('./verifier.js'); feuilleVerification(); }, 'banque'),
+      lien('Recalcul complet', 'tape tes soldes : tout est recalculé, chaque écart expliqué', async () => { const { feuilleRecalcul } = await import('./recalcul.js'); feuilleRecalcul(); }, 'boucle'),
       sect('operations', 'relevés, prélèvements, catégories, comptes'),
       vide ? null : lien('Mettre à jour depuis mon fichier', der ? `dernière le ${formatDate(der.le.slice(0, 10))}, tes saisies sont gardées` : 'budget-import-prive.json, tes saisies sont gardées', () => choisirFichierMiseAJour(), 'telecharger'))),
     carte('Épargne automatique', h('div', { class: 'liste-liens' },

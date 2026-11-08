@@ -120,7 +120,7 @@ function carteOutils(prev, auj) {
     ligneOutil('panier', 'Et si j’achète ?', 'l’effet d’un achat avant de le faire', async () => { const { feuilleSimulateurAchat } = await import('./simulateur-achat.js'); feuilleSimulateurAchat(); }),
     ligneOutil('graphique', 'Prévision de fin de mois', ph || 'disponible 3 jours après le salaire', () => feuillePrevision(), prev.alerte ? 'ligne-alerte' : ''),
     ligneOutil('etoile', 'Journées sans dépense', b.statut === 'enCours' ? 'aujourd’hui : en cours' : b.statut === 'rompue' ? 'aujourd’hui : rompue' : 'annoncer, calendrier, ce qu’elles rapportent', () => feuilleSansDepense()),
-    ligneOutil('banque', 'Vérifier mon solde', 'comparer avec LCL et Revolut', async () => { const { feuilleVerification } = await import('./verifier.js'); feuilleVerification(); })));
+    ligneOutil('banque', 'Vérifier mes soldes', 'recalcul complet : chaque écart expliqué', async () => { const { feuilleRecalcul } = await import('./recalcul.js'); feuilleRecalcul(); })));
 }
 
 /** Le bloc sapin : ce que tu peux dépenser aujourd'hui, et le reste du mois. Rien d'autre. */

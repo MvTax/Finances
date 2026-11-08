@@ -114,7 +114,7 @@ export function blocCoffres(o = {}) {
 }
 
 /** Feuille de confirmation : détail du virement de la semaine, part de l'épargne du mois modifiable. */
-function feuilleVirement(v) {
+export function feuilleVirement(v) {
   let mois = v.moisSemaineCentimes;
   const total = h('strong', {});
   const valider = h('button', { type: 'button', class: 'btn btn-principal btn-large' });

@@ -38,7 +38,7 @@ export function elementsATraiter(rappels, auj) {
   }
   const verif = etat.meta.derniereVerification;
   if (etat.transactions.length && (!verif || diffJours(verif, auj) >= JOURS_VERIFICATION)) {
-    res.push({ type: 'action', icone: 'banque', titre: 'Vérifier ton solde avec la banque', texte: verif ? `Dernière vérification le ${formatDate(verif)}. Ça repère les dépenses oubliées.` : 'Tape le solde affiché par LCL et Revolut : l’app te dit ce qui manque.', actions: [bouton('Vérifier', async () => { const { feuilleVerification } = await import('./verifier.js'); feuilleVerification(); }, { classe: 'btn-petit btn-principal' })] });
+    res.push({ type: 'action', icone: 'banque', titre: 'Vérifier ton solde avec la banque', texte: verif ? `Dernière vérification le ${formatDate(verif)}. Ça repère les dépenses oubliées.` : 'Tape le solde affiché par LCL et Revolut : l’app te dit ce qui manque.', actions: [bouton('Vérifier', async () => { const { feuilleRecalcul } = await import('./recalcul.js'); feuilleRecalcul(); }, { classe: 'btn-petit btn-principal' })] });
   }
   if (etat.fileAttenteIA?.length) res.push({ type: 'action', icone: 'envoi', titre: `${etat.fileAttenteIA.length} saisie${etat.fileAttenteIA.length > 1 ? 's' : ''} en attente d’analyse`, texte: 'Envoyées à Gemini dès que tu es en ligne.', actions: [bouton('Voir', () => aller('reglages/gemini'), { classe: 'btn-petit' })] });
   return res;

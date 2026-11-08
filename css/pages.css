@@ -846,3 +846,53 @@ html.mode-critique .barre-onglets .onglet-plus { background: var(--rouge); }
 .btn-copier .ic { width: 14px; height: 14px; }
 .virement-libelle-titre { font-size: 12px; color: var(--texte-3); margin-bottom: -2px; }
 .virement-libelle { font-size: 15px; font-weight: 600; color: var(--texte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.1px; }
+
+/* ---------- Recalcul complet ---------- */
+.recalcul { display: flex; flex-direction: column; }
+.recalcul-etape { display: flex; flex-direction: column; gap: 12px; }
+.recalcul-entree { animation: recalcul-entree 320ms cubic-bezier(.2, .8, .3, 1); }
+@keyframes recalcul-entree { from { opacity: 0; transform: translateX(28px); } }
+.recalcul-intro { font-size: 15px; color: var(--texte-2); }
+.recalcul-champ { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: var(--rayon-petit); background: var(--surface-2); }
+.recalcul-champ-titre { display: flex; flex-direction: column; font-weight: 700; }
+.recalcul-champ-titre small { font-size: 13px; font-weight: 600; color: var(--texte-2); }
+.recalcul-champ .input-montant { width: 9.5em; flex: none; text-align: right; }
+.recalcul-calcul { align-items: stretch; padding: 12px 0 20px; }
+.recalcul-calcul-titre { font-size: 20px; font-weight: 800; }
+.recalcul-progres { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.recalcul-progres li { display: flex; align-items: center; gap: 10px; color: var(--texte-3); transition: color 200ms; }
+.recalcul-progres li.fait { color: var(--texte); }
+.recalcul-coche { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--separateur); transition: background 200ms, border-color 200ms, transform 200ms; }
+.recalcul-progres li.fait .recalcul-coche { background: var(--vert); border-color: var(--vert); transform: scale(1.1); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E"); background-size: 14px; background-position: center; background-repeat: no-repeat; }
+.recalcul-bilan { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--rayon); }
+.recalcul-bilan.ok { background: var(--vert-doux); }
+.recalcul-bilan.ecart { background: var(--orange-doux); }
+.recalcul-bilan-icone { font-size: 30px; }
+.recalcul-bilan p { display: flex; flex-direction: column; gap: 2px; }
+.recalcul-bilan strong { font-size: 18px; }
+.recalcul-bilan small { font-size: 14px; color: var(--texte-2); }
+.recalcul-ligne { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--rayon); background: var(--surface); border: 1.5px solid var(--separateur); }
+.recalcul-ligne.ecart { border-color: var(--orange); }
+.recalcul-ligne-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.recalcul-ligne-tete h3 { font-size: 17px; font-weight: 800; }
+.recalcul-badge { padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.recalcul-badge.ok { background: var(--vert-doux); color: var(--vert); }
+.recalcul-badge.ecart { background: var(--orange-doux); color: var(--orange); }
+.recalcul-badge.non { background: var(--surface-2); color: var(--texte-3); }
+.recalcul-chiffres { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.recalcul-chiffres p { display: flex; flex-direction: column; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.recalcul-chiffres small { font-size: 12.5px; font-weight: 600; color: var(--texte-2); }
+.recalcul-pistes, .recalcul-croisees { display: flex; flex-direction: column; gap: 8px; }
+.piste { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--rayon-petit); background: var(--surface-2); border-left: 4px solid var(--separateur); }
+.piste-forte { border-left-color: var(--vert); }
+.piste-moyenne { border-left-color: var(--orange); }
+.piste-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.piste-force { flex: none; font-size: 12px; font-weight: 800; color: var(--texte-2); }
+.piste .btn { align-self: flex-start; }
+.recalcul-aligner { display: flex; flex-direction: column; gap: 2px; }
+.recalcul-aligner .btn { align-self: flex-start; padding-left: 0; }
+.recalcul-detail .liste-cles { margin-top: 8px; }
+.recalcul-cat-titre { margin-top: 10px; font-weight: 700; }
+:root[data-style="joyeux"] .recalcul-ligne { border: 2px solid var(--encre); box-shadow: var(--pop); }
+:root[data-style="joyeux"] .recalcul-ligne.ecart { border-color: var(--encre); background: color-mix(in srgb, var(--orange-doux) 55%, var(--surface)); }
+:root[data-style="joyeux"] .recalcul-bilan { border: 2px solid var(--encre); box-shadow: var(--pop); }

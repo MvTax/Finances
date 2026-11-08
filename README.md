@@ -261,6 +261,21 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## Recalcul complet (1.38)
+
+Réglages → Mon argent → **Recalcul complet** (aussi « Vérifier mes soldes » dans les outils de l'Accueil et la liste « À traiter »).
+1. Tu tapes ce que chaque banque affiche : LCL, Revolut, épargne sécurité, épargne prêt (un champ vide n'est pas vérifié).
+2. L'app refait tout le mois sous tes yeux, compte par compte : solde la veille du salaire, chaque famille de mouvements
+   (entrées, dépenses du quotidien, charges fixes et prélèvements, virements vers l'épargne, entre comptes, crédits, prêts entre proches,
+   ajustements), solde calculé, et le détail des dépenses par catégorie. Le calcul retombe toujours au centime sur le solde affiché.
+3. Pour chaque écart, des pistes classées (très probable, possible, à vérifier) avec un bouton pour corriger :
+   - il manque de l'argent : prélèvement prévu pas encore noté (ou deux qui font le compte), virement d'épargne fait sans
+     « J'ai fait le virement », dépense habituelle chez un marchand à ce prix-là, dépense typique d'une catégorie, frais bancaires, petites dépenses ;
+   - il y a plus d'argent : paiement noté pas encore débité (carte, 1 à 3 jours), doublon, virement d'épargne noté mais pas fait, entrée non notée ;
+   - un manque sur un compte et le même surplus sur un autre : virement entre comptes (noté en un toucher) ou virement d'épargne ;
+   - épargne : virement fait pas enregistré, épargne automatique Revolut, intérêts du livret, retrait non noté.
+   En dernier recours, « aligner » crée un ajustement sans toucher au budget du jour.
+
 ## Journée de budget de 5 h à 5 h (1.37.1)
 
 Une journée de budget va de 5 h du matin à 5 h le lendemain, comme le reste du jour : une dépense notée à 1 h du matin
