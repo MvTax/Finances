@@ -261,6 +261,12 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## Journée de budget de 5 h à 5 h (1.37.1)
+
+Une journée de budget va de 5 h du matin à 5 h le lendemain, comme le reste du jour : une dépense notée à 1 h du matin
+compte pour la veille, et l'Accueil affiche encore la veille jusqu'à 5 h. Les dépenses déjà notées entre minuit et 5 h
+(avec la date proposée) ont été recalées une fois sur la veille. Le « ? » du chiffre du jour liste ce qui compte aujourd'hui.
+
 ## Mes envies et super flammes (1.36)
 
 **Flammes 🔥** (style Joyeux) : un jour où tu notes une dépense à la main (ou un « Je me suis privé »). Ouvrir l'app ne suffit plus.

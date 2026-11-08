@@ -6,9 +6,9 @@
 // recalculée à chaque ouverture (une dépense oubliée, ajoutée après coup sur ce jour, la fait baisser).
 
 import { jaugeDuJour, resteADepenser, privationsAuto } from './calculs.js';
-import { ajouterJours, isoDepuisDate, aujourdhui } from './dates.js';
+import { ajouterJours, isoDepuisDate, aujourdhui, HEURE_DEBUT_JOUR } from './dates.js';
 
-export const HEURE_CLOTURE = 5;
+export const HEURE_CLOTURE = HEURE_DEBUT_JOUR;
 export const SOURCE_RESTE = 'resteJour';
 const MAX_JOURS = 62;
 

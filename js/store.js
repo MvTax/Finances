@@ -2,7 +2,7 @@
 
 import * as db from './db.js';
 import { datesDeSalaire, periodeBudget } from './calculs.js';
-import { aujourdhui } from './dates.js';
+import { aujourdhui, HEURE_DEBUT_JOUR } from './dates.js';
 import { tousLesStores, SCHEMA_VERSION } from './migrations.js';
 import { nouvelId } from './import/pipeline.js';
 
@@ -209,6 +209,32 @@ export function placerEpargnes() {
 }
 
 /**
+ * Une seule fois : les dépenses notées entre minuit et 5 h du matin appartiennent à la veille (la journée de budget
+ * commence à 5 h). Avant la 1.37.1, elles étaient datées du nouveau jour et comptaient dans sa part.
+ * Seules les saisies dont la date n'a pas été changée à la main (date = jour calendaire de la saisie) sont recalées.
+ */
+export function recalerSaisiesNuit() {
+  if (etat.meta.saisiesNuitRecalees) return [];
+  const m = maintenant();
+  etat.meta.saisiesNuitRecalees = m;
+  const ops = [{ store: 'meta', valeur: { cle: 'saisiesNuitRecalees', valeur: m } }];
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });
+  const manuelles = new Set(['saisie', 'manuel', 'texte', 'voix', 'phrase', 'photo', 'capture', 'express', 'clavier', 'ia']);
+  etat.transactions = etat.transactions.map((t) => {
+    if (!t.creeLe || !manuelles.has(t.source)) return t;
+    const p = Object.fromEntries(fmt.formatToParts(new Date(t.creeLe)).map((x) => [x.type, x.value]));
+    const jourCal = `${p.year}-${p.month}-${p.day}`;
+    if (Number(p.hour) >= HEURE_DEBUT_JOUR || t.date !== jourCal) return t;
+    const veille = new Date(`${jourCal}T12:00:00Z`); veille.setUTCDate(veille.getUTCDate() - 1);
+    const d = veille.toISOString().slice(0, 10);
+    const v = { ...t, date: d, dateComptable: t.dateComptable === t.date ? d : t.dateComptable, modifieLe: m };
+    ops.push({ store: 'transactions', valeur: v });
+    return v;
+  });
+  return ops;
+}
+
+/**
  * Une seule fois : la première envie, GTA 6 à 79,99 € (sortie le 19 novembre 2026), comptée depuis le salaire du mois.
  * Si une envie existe déjà, rien n'est ajouté ; supprimée ensuite, elle ne revient pas.
  */
@@ -244,6 +270,7 @@ export async function charger() {
   ops.push(...partagerEfforts());
   ops.push(...placerEpargnes());
   ops.push(...amorcerEnvies());
+  ops.push(...recalerSaisiesNuit());
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
   if (!profil) ops.push({ store: 'profil', valeur: etat.profil });
   if (!parametres) ops.push({ store: 'parametres', valeur: etat.parametres });

@@ -10,10 +10,13 @@ export function forcerAujourdhui(iso) { horlogeForcee = iso; }
 const FMT_ISO = new Intl.DateTimeFormat('fr-CA', { timeZone: FUSEAU, year: 'numeric', month: '2-digit', day: '2-digit' });
 const FMT_HEURE = new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, hour: '2-digit', minute: '2-digit', hour12: false });
 
-/** Date du jour à Paris, « AAAA-MM-JJ ». */
+/** Une journée de budget commence à 5 h du matin : entre minuit et 5 h, c'est encore la veille (soirée, sortie…). */
+export const HEURE_DEBUT_JOUR = 5;
+
+/** Date du jour à Paris, « AAAA-MM-JJ », au sens du budget : jusqu'à 5 h du matin, c'est encore la veille. */
 export function aujourdhui() {
   if (horlogeForcee) return horlogeForcee;
-  return isoDepuisDate(new Date());
+  return isoDepuisDate(new Date(Date.now() - HEURE_DEBUT_JOUR * 3600 * 1000));
 }
 
 export function isoDepuisDate(d) {

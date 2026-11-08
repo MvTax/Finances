@@ -1,5 +1,6 @@
 // accueil.js — l'écran qui se comprend en 2 secondes : reste à dépenser, jauge du jour, risque de découvert.
 
+import { arrondiTransaction } from '../epargne.js';
 import { h, icone, mt, animerMontant, estMasque } from '../ui/dom.js';
 import { carte, barre, bandeau, bouton, etatVide } from '../ui/composants.js';
 import { toast } from '../ui/toast.js';
@@ -155,8 +156,21 @@ function hero(r, j, analyse = null, prev = null) {
 function aideJour(r, j) {
   return aide('Ce que tu peux dépenser aujourd’hui', () => ({
     texte: `Ce qui te reste pour le mois au début de la journée, divisé par les ${j.joursRestants} jours jusqu’au salaire, moins ce que tu as déjà dépensé aujourd’hui. Ce qui n’est pas dépensé part à l’épargne demain à 5 h.`,
-    lignes: [['Reste du mois ce matin', j.instantane?.baseCentimes ?? r.resteCentimes], ['÷ jours jusqu’au salaire', String(j.joursRestants)], ['= ta part du jour', j.parJourCentimes, 'forte'], ['− dépensé aujourd’hui (arrondis et privations compris)', j.depensesDuJourCentimes], ['= reste aujourd’hui', j.restantAujourdhuiCentimes, 'forte']],
+    lignes: [['Reste du mois ce matin', j.instantane?.baseCentimes ?? r.resteCentimes], ['÷ jours jusqu’au salaire', String(j.joursRestants)], ['= ta part du jour', j.parJourCentimes, 'forte'], ['− dépensé aujourd’hui (arrondis et privations compris)', j.depensesDuJourCentimes], ...detailDuJour(), ['= reste aujourd’hui', j.restantAujourdhuiCentimes, 'forte']],
+    note: 'La journée va de 5 h du matin à 5 h le lendemain : une dépense notée à 1 h du matin compte pour la veille.',
   }), { clair: true });
+}
+
+/** Ce qui compte aujourd'hui dans la part du jour : chaque dépense, puis les arrondis et privations du jour. */
+function detailDuJour() {
+  const auj = aujourdhui();
+  const dep = etat.transactions.filter((t) => t.date === auj && t.sens === 'debit' && estDepenseQuotidienne(t) && contributionDepense(t) > 0);
+  const priv = (etat.privations || []).filter((p) => p.date === auj && p.source !== 'resteJour');
+  return [
+    ...dep.map((t) => [`   ${t.marchand || t.libelle || 'Dépense'}`, contributionDepense(t)]),
+    ...priv.map((p) => [`   Mis de côté : ${p.libelle || 'privation'}`, p.montantCentimes]),
+    (() => { const ar = etat.profil?.arrondi; if (!ar?.actif) return null; const a = etat.transactions.filter((t) => t.date === auj).reduce((x, t) => x + (arrondiTransaction(t, ar) || 0), 0); return a ? ['   Arrondis vers l’épargne', a] : null; })(),
+  ].filter(Boolean);
 }
 
 /** Journée sans dépense : annoncée → son état ; sinon, une proposition tant que rien n'est dépensé aujourd'hui. */
