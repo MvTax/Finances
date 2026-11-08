@@ -86,6 +86,13 @@ export function feuilleRecalcul() {
           h('small', {}, ecarts.length ? `${verifiees.length - ecarts.length} compte${verifiees.length - ecarts.length > 1 ? 's' : ''} juste${verifiees.length - ecarts.length > 1 ? 's' : ''} sur ${verifiees.length}. Les pistes sont classées de la plus probable à la moins probable.` : `${verifiees.length} compte${verifiees.length > 1 ? 's' : ''} vérifié${verifiees.length > 1 ? 's' : ''} : Budget et ta banque sont d’accord.`))),
       r.croisees.length ? h('section', { class: 'recalcul-croisees' }, h('h3', { class: 'feuille-sous-titre' }, 'Le plus probable'), r.croisees.map((p) => piste(p))) : null,
       ...r.lignes.map((l) => carteLigne(l, r)),
+      r.arrondis ? h('section', { class: 'recalcul-ligne' },
+        h('div', { class: 'recalcul-ligne-tete' }, h('h3', {}, 'Arrondis de tes dépenses'), h('span', { class: 'recalcul-badge ok' }, 'recalculés')),
+        h('p', { class: 'petit' }, `Recalculés dépense par dépense à l’instant : ${r.arrondis.nbPeriode} dépense${r.arrondis.nbPeriode > 1 ? 's' : ''} arrondie${r.arrondis.nbPeriode > 1 ? 's' : ''} depuis le salaire. Un montant rond donne 0,50 €.`),
+        h('div', { class: 'liste-cles' },
+          ligneCle('Arrondis du mois', r.arrondis.periodeCentimes, '', false),
+          ligneCle('Déjà virés sur l’épargne', Math.max(0, r.arrondis.periodeCentimes - r.arrondis.enAttenteCentimes), '', false),
+          ligneCle(`En attente du prochain virement (${r.arrondis.nbEnAttente})`, r.arrondis.enAttenteCentimes, 'forte', false))) : null,
       h('div', { class: 'groupe-boutons' },
         bouton('Modifier les soldes', () => { etape = 'saisie'; changer(ecranSaisie()); }, { classe: 'btn-petit', icone: 'crayon' }),
         bouton('Recalculer', () => lancer(), { classe: 'btn-petit', icone: 'boucle' })),
@@ -167,7 +174,14 @@ export function feuilleRecalcul() {
         d.retraitsCentimes ? ligneCle('Retraits', -d.retraitsCentimes) : null,
         ligneCle('= Déjà sur ton épargne', d.appCentimes, 'forte', false),
         l.banqueCentimes !== null ? ligneCle('Ta banque', l.banqueCentimes, '', false) : null),
-      d.enAttenteCentimes ? h('p', { class: 'petit' }, `Pas encore compté ici : ${formatEuros(d.enAttenteCentimes)} au prochain virement (le ${formatDateCourte(d.dateVirement)}). Sur l’Accueil, la case de cette épargne les inclut déjà.`) : null);
+      d.enAttenteCentimes ? h('div', {},
+        h('p', { class: 'petit recalcul-cat-titre' }, `Au prochain virement (le ${formatDateCourte(d.dateVirement)}), pas encore à la banque :`),
+        h('div', { class: 'liste-cles' },
+          d.attente.mois ? ligneCle('Part de l’épargne du mois', d.attente.mois, '', false) : null,
+          d.attente.arrondis ? ligneCle('Arrondis de tes dépenses', d.attente.arrondis, '', false) : null,
+          d.attente.reste ? ligneCle('Reste de la journée', d.attente.reste, '', false) : null,
+          ligneCle('= En attente', d.enAttenteCentimes, 'forte', false)),
+        h('p', { class: 'petit' }, 'Sur l’Accueil, la case de cette épargne les inclut déjà.')) : null);
   };
 
   changer(ecranSaisie());

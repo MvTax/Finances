@@ -64,12 +64,21 @@ export function aVirerEpargne(etat, dateIso) {
 
   // Répartition par épargne, montant par montant (exactement comme ils seront enregistrés au virement)
   const parPoche = new Map();
-  const ajouter = (id, c) => { if (id && c > 0) parPoche.set(id, (parPoche.get(id) || 0) + c); };
+  const detailPoche = new Map();
+  let source = 'mois';
+  const ajouter = (id, c) => {
+    if (!id || !(c > 0)) return;
+    parPoche.set(id, (parPoche.get(id) || 0) + c);
+    const d = detailPoche.get(id) || { mois: 0, arrondis: 0, reste: 0 };
+    d[source] += c; detailPoche.set(id, d);
+  };
   const repartir = (c) => { for (const x of repartirVersement(c, etat.poches || [])) ajouter(x.pocheId, x.montantCentimes); };
   repartir(moisSemaine);
+  source = 'arrondis';
   const efforts = pocheDesEfforts(etat);
   if (efforts) ajouter(efforts.id, arrondis); else repartir(arrondis);
   // Reste de la journée (restes, repas à la maison, privations) : 40 % prêt / 30 % sécurité (envies.js, PARTS_RESTE)
+  source = 'reste';
   const partsReste = repartirReste(privations, etat.poches || []);
   if (partsReste) for (const x of partsReste) ajouter(x.pocheId, x.montantCentimes);
   else if (efforts) ajouter(efforts.id, privations); else repartir(privations);
@@ -94,7 +103,7 @@ export function aVirerEpargne(etat, dateIso) {
     arrondisCentimes: arrondis, privationsCentimes: privations,
     enviesCentimes: enviesGarde, retenueAvanceCentimes: retenue, avanceRestanteCentimes: flux.avanceRestanteCentimes,
     semainesRestantes: semaines, finPeriode: per.fin,
-    parPoche: [...parPoche.entries()].map(([pocheId, montantCentimes]) => ({ pocheId, montantCentimes })),
+    parPoche: [...parPoche.entries()].map(([pocheId, montantCentimes]) => ({ pocheId, montantCentimes, detail: detailPoche.get(pocheId) })),
     privationsAuto: auto,
   };
 }

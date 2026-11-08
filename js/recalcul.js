@@ -3,9 +3,9 @@
 // prélèvement pas encore noté, dépense habituelle oubliée, virement d'épargne pas enregistré, virement entre comptes,
 // paiement pas encore débité, doublon, entrée non notée…
 
-import { soldes, periodeBudget, chargesFixesPeriode, estDepenseQuotidienne } from './calculs.js';
+import { soldes, periodeBudget, chargesFixesPeriode, estDepenseQuotidienne, arrondisPeriode, cagnotteArrondis } from './calculs.js';
 import { natureTransaction, contributionDepense, categorie } from './categories.js';
-import { soldePoche } from './epargne.js';
+import { soldePoche, arrondiTransaction } from './epargne.js';
 import { aVirerEpargne } from './virements.js';
 import { fluxEnvies } from './envies.js';
 import { depensesFrequentes } from './express.js';
@@ -78,6 +78,7 @@ export function detailEpargne(etat, poche, dateIso) {
     retraitsCentimes: somme((m) => m.sens === 'reprise'),
     versementsMoisCentimes: somme((m) => m.sens !== 'reprise' && m.date >= per.debut && m.date <= dateIso),
     enAttenteCentimes: v.parPoche.find((x) => x.pocheId === poche.id)?.montantCentimes || 0,
+    attente: v.parPoche.find((x) => x.pocheId === poche.id)?.detail || { mois: 0, arrondis: 0, reste: 0 },
     dateVirement: v.dateVirement,
   };
 }
@@ -223,5 +224,9 @@ export function recalculComplet(etat, dateIso, saisies = {}) {
   const flux = fluxEnvies(etat);
   const envieGarde = flux.envies.filter((e) => !e.achat).reduce((s, e) => s + e.cumulCentimes, 0);
   const v = aVirerEpargne(etat, dateIso);
-  return { periode: per, lignes, croisees, envieGardeCentimes: envieGarde, enAttenteCentimes: v.semaineCentimes, totalEcartCentimes: lignes.reduce((s, l) => s + Math.abs(l.ecartCentimes || 0), 0) };
+  // Arrondis : recalculés dépense par dépense à chaque fois (rien n'est figé tant qu'ils ne sont pas virés)
+  const ar = etat.profil?.arrondi;
+  const enAttenteAr = ar?.actif ? cagnotteArrondis(etat, dateIso) : { total: 0, lignes: [] };
+  const arrondis = ar?.actif ? { periodeCentimes: arrondisPeriode(etat, per), enAttenteCentimes: enAttenteAr.total, nbEnAttente: enAttenteAr.lignes.length, nbPeriode: (etat.transactions || []).filter((t) => t.date >= per.debut && t.date <= dateIso && arrondiTransaction(t, ar) > 0).length } : null;
+  return { periode: per, lignes, croisees, arrondis, envieGardeCentimes: envieGarde, enAttenteCentimes: v.semaineCentimes, totalEcartCentimes: lignes.reduce((s, l) => s + Math.abs(l.ecartCentimes || 0), 0) };
 }
