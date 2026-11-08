@@ -1,7 +1,7 @@
 // restes.js — ce qui reste de la part du jour part à l'épargne, à 5 h du matin le lendemain.
 // Exemple : le 7, il reste 1,23 € de la part du jour ; à 5 h le 8, 1,23 € s'ajoutent à la cagnotte.
-// La journée budgétaire se termine à 5 h : une dépense notée à 1 h du matin le 8 est datée du 8 (comme sur le relevé),
-// mais le 7 n'est clos qu'à 5 h. Chaque reste est une ligne « privation » (source « resteJour ») : elle sort du budget,
+// La journée budgétaire se termine à 5 h : depuis la 1.37.1, une dépense notée à 1 h du matin le 8 est datée du 7
+// (aujourdhui() suit la journée de budget), et le 7 n'est clos qu'à 5 h. Chaque reste est une ligne « privation » (source « resteJour ») : elle sort du budget,
 // part dans le virement de la semaine et dans l'historique de la cagnotte. Tant qu'elle n'est pas virée, elle est
 // recalculée à chaque ouverture (une dépense oubliée, ajoutée après coup sur ce jour, la fait baisser).
 
