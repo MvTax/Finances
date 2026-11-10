@@ -13,7 +13,7 @@ import { aVirerEpargne, historiqueCagnotte, compteEpargne, pocheDesEfforts } fro
 import { aujourdhui, ajouterJours, formatDate, formatDateCourte, formatMois } from '../dates.js';
 import { formatEuros } from '../money.js';
 import { aide } from '../ui/aide.js';
-import { PARTS_RESTE } from '../envies.js';
+import { partsReste } from '../envies.js';
 import { blocPaliers, feuilleMouvement, editerPoche } from './epargne.js';
 import { feuilleHistorique } from './coffres.js';
 
@@ -32,6 +32,7 @@ export function ficheEpargne(poche) {
     const att = p.cibleCentimes ? atteintes(etat, planDesMois(etat, moisCourant(etat), 60))[p.id] : null;
     const prochainPret = pret ? echeancesEntre(etat, auj, ajouterJours(auj, 800)).find((x) => x.creditId === p.creditId && x.montantCentimes > 2000) : null;
     const partage = !pocheDesEfforts(etat);
+    const PARTS_RESTE = partsReste(etat);
     // Historique de cette épargne : virements et reprises enregistrés, puis ce qui l'attend cette semaine
     const mouvements = [...(p.mouvements || [])].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 40);
     const hst = historiqueCagnotte(etat, auj);

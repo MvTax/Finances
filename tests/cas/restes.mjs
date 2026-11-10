@@ -72,8 +72,8 @@ export default [
     const e = etat();
     e.poches = [];
     appliquer(e, cloturerJours(e, a('2026-11-08', 6)));
-    const h = historiqueCagnotte(e, '2026-11-08');
-    const l = h.lignes.find((x) => x.source === 'reste');
+    const h = historiqueCagnotte(e, '2026-11-08', a('2026-11-08', 6)); // instant fixé : le test ne dépend pas de l'horloge
+    const l = h.lignes.find((x) => x.source === 'reste' && !x.enCours);
     vrai(l && l.montantCentimes === e.privations[0].montantCentimes);
   } },
   { nom: 'restes du jour : rien dépensé + « je me suis privé » d’un menu → toute la part du jour finit à l’épargne', fn: () => {

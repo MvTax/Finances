@@ -9,7 +9,7 @@ import { SCHEMA_VERSION, STORES_V1, STORES_V2, STORES_V3, STORES_V4 } from './mi
 import { versionApp } from './version.js';
 import { journal, masquerSecrets } from './journal.js';
 import { CATEGORIES, FAMILLES, contributionDepense } from './categories.js';
-import { aujourdhui, estIso, ajouterJours } from './dates.js';
+import { aujourdhui, estIso, ajouterJours, HEURE_DEBUT_JOUR } from './dates.js';
 import { formatEuros } from './money.js';
 import { resteADepenser, jaugeDuJour, soldes, projectionDecouvert, epargneDuMois, depensesVariables, depensesParCategorie, periodeBudget, reliquat, prelevementsHorsCharges } from './calculs.js';
 import { planDesMois, scenariosPret } from './plan.js';
@@ -88,9 +88,12 @@ export async function lancerDiagnostic(o = {}) {
     return { statut: standalone ? 'ok' : 'avert', detail: `${standalone ? 'App installée (écran d’accueil)' : 'Ouverte dans le navigateur, pas installée : le stockage peut être effacé par iOS'} ; ${d.fenetre} @${d.densite}x ; ${d.fuseau} ; ${d.enLigne ? 'en ligne' : 'HORS LIGNE'}`, donnees: d };
   });
   test('Date du jour', () => {
-    const local = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    // La journée du budget va de 5 h à 5 h : avant 5 h, « aujourd'hui » est encore la veille.
+    const paris = (d) => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const calendrier = paris(new Date());
+    const attendu = paris(new Date(Date.now() - HEURE_DEBUT_JOUR * 3600 * 1000));
     const a = aujourdhui();
-    return { statut: a === local ? 'ok' : 'echec', detail: `aujourdhui() = ${a}, date de Paris = ${local}`, donnees: { aujourdhui: a, paris: local, iso: new Date().toISOString() } };
+    return { statut: a === attendu ? 'ok' : 'echec', detail: `journée du budget = ${a}${attendu !== calendrier ? ` (avant ${HEURE_DEBUT_JOUR} h : encore la veille du ${calendrier})` : ''}`, donnees: { aujourdhui: a, attendu, paris: calendrier, iso: new Date().toISOString() } };
   });
   test('Fonctions du navigateur', async () => {
     const f = {

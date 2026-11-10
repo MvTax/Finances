@@ -23,18 +23,26 @@ import { aujourdhui } from './dates.js';
 export const PARTS_RESTE = { pret: 40, securite: 30, envie: 30 };
 export const PART_ENVIE = PARTS_RESTE.envie / 100;
 
+/** Le partage réglé (profil.partsReste, modifiable dans v100 → Stratégie → Répartition), sinon 40/30/30. Total toujours 100. */
+export function partsReste(etat) {
+  const p = etat?.profil?.partsReste;
+  const ok = p && [p.pret, p.securite, p.envie].every((x) => Number.isInteger(x) && x >= 0 && x <= 100) && p.pret + p.securite + p.envie === 100;
+  return ok ? { pret: p.pret, securite: p.securite, envie: p.envie } : PARTS_RESTE;
+}
+
 /**
  * Partage de la part « épargne » du reste de la journée entre le prêt et la sécurité (40/30, soit 4/7 et 3/7).
  * Si l'une des deux épargnes manque, tout va à l'autre ; sans aucune des deux, null (répartition habituelle).
  */
-export function repartirReste(montantCentimes, poches = []) {
+export function repartirReste(montantCentimes, poches = [], parts = PARTS_RESTE) {
   const actives = poches.filter((p) => p.actif !== false);
   const pret = actives.find((p) => p.type === 'remboursementAnticipe');
   const secu = actives.find((p) => p.type === 'coussin');
   if (!(montantCentimes > 0)) return [];
   if (!pret && !secu) return null;
   if (!pret || !secu) return [{ pocheId: (pret || secu).id, montantCentimes }];
-  const partPret = Math.round((montantCentimes * PARTS_RESTE.pret) / (PARTS_RESTE.pret + PARTS_RESTE.securite));
+  if (parts.pret + parts.securite <= 0) return [{ pocheId: pret.id, montantCentimes }];
+  const partPret = Math.round((montantCentimes * parts.pret) / (parts.pret + parts.securite));
   return [{ pocheId: pret.id, montantCentimes: partPret }, { pocheId: secu.id, montantCentimes: montantCentimes - partPret }].filter((x) => x.montantCentimes > 0);
 }
 export const RETENUE_AVANCE = 0.5;
@@ -95,7 +103,7 @@ export function fluxEnvies(etat, { auto = null, aujourdhuiIso = aujourdhui() } =
     if (!libres.length) continue;
     const sf = date < aujourdhuiIso && estSuperFlamme(etat, date);
     const base = libres.reduce((t, p) => t + p.montantCentimes, 0);
-    let dispo = Math.floor(base * PART_ENVIE);
+    let dispo = Math.floor((base * partsReste(etat).envie) / 100);
     // La part du jour est prise ligne par ligne (le reste du jour d'abord), pour pouvoir la figer au virement
     const lignes = libres.map((p) => ({ p, libre: p.montantCentimes }));
     while (dispo > 0) {
@@ -138,13 +146,13 @@ export function retenueAvance(flux, privationsNettesCentimes) {
 }
 
 /** Ce qu'aujourd'hui peut rapporter à l'envie ce soir (estimation) : si rien n'est dépensé, ou avec ce qui reste. */
-export function estimationDuJour(restantCentimes, depenseAujourdhui, partCentimes) {
-  return { superFlamme: !depenseAujourdhui, montantCentimes: Math.floor(Math.max(0, restantCentimes) * PART_ENVIE), siRienCentimes: Math.floor(Math.max(0, partCentimes) * PART_ENVIE) };
+export function estimationDuJour(restantCentimes, depenseAujourdhui, partCentimes, partEnvie = PART_ENVIE) {
+  return { superFlamme: !depenseAujourdhui, montantCentimes: Math.floor(Math.max(0, restantCentimes) * partEnvie), siRienCentimes: Math.floor(Math.max(0, partCentimes) * partEnvie) };
 }
 
 /** Combien de journées sans dépense il faut encore (à part du jour constante). */
-export function journeesPourFinir(resteCentimes, partCentimes) {
-  const parJour = Math.floor(partCentimes * PART_ENVIE);
+export function journeesPourFinir(resteCentimes, partCentimes, partEnvie = PART_ENVIE) {
+  const parJour = Math.floor(partCentimes * partEnvie);
   return parJour > 0 ? Math.ceil(resteCentimes / parJour) : null;
 }
 

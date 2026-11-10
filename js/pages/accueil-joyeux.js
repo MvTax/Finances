@@ -1,6 +1,7 @@
 // accueil-joyeux.js — l'Accueil du style Joyeux : Sou la pièce et son humeur, le reste du jour en très grand,
 // la série 🔥, le niveau, et les quêtes du jour. Les chiffres sont les mêmes que l'Accueil Classique.
 
+import { basculer } from '../v100/bascule.js';
 import { h, icone, mt, estMasque } from '../ui/dom.js';
 import { ouvrirFeuille } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
@@ -134,5 +135,16 @@ export function banniereJoyeux() {
         setTimeout(() => confettis({ nombre: 50, origine: { x: innerWidth / 2, y: innerHeight * 0.3 } }), 150);
       } }, 'Essayer'),
       h('button', { type: 'button', class: 'btn-icone', 'aria-label': 'Plus tard', onclick: async () => { await ecrireMeta('banniereJoyeux', 'ferme'); el.remove(); toast('Tu le trouveras dans Réglages, Confidentialité et apparence.'); } }, icone('fermer'))));
+  return el;
+}
+
+/** App d'origine : une fois, la proposition d'ouvrir v100 (le Cockpit). */
+export function banniereV100() {
+  if (etat.meta.banniereV100) return null;
+  const el = h('section', { class: 'banniere-joyeux banniere-v100', 'aria-label': 'Nouveau : v100, le Cockpit' },
+    h('p', {}, h('strong', {}, 'Nouveau : v100, le Cockpit'), h('small', {}, 'Une nouvelle app : tableau de bord, score, plan du prêt, projection 12 mois. Mêmes données, et tu reviens ici quand tu veux.')),
+    h('div', { class: 'banniere-joyeux-boutons' },
+      h('button', { type: 'button', class: 'btn btn-principal btn-petit', onclick: async () => { await ecrireMeta('banniereV100', 'ouverte'); basculer('v100'); } }, 'Ouvrir'),
+      h('button', { type: 'button', class: 'btn-icone', 'aria-label': 'Plus tard', onclick: async () => { await ecrireMeta('banniereV100', 'fermee'); el.remove(); toast('Tu la trouveras dans Réglages : « Ouvrir v100, le Cockpit ».'); } }, icone('fermer'))));
   return el;
 }

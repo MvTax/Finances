@@ -8,7 +8,7 @@ PWA statique (HTML, CSS, JavaScript en modules ES, sans build ni framework), ser
 index.html               coquille de l'app (barre d'onglets, conteneurs de pages, sprite d'icônes)
 manifest.webmanifest     start_url "./", scope "./", id, icônes 192/512/maskable
 sw.js                    cache versionné de la coquille (cache-first), pdf.js mis en cache à la demande
-css/                     variables.css (thèmes clair/sombre), base.css, composants.css, pages.css
+css/                     variables.css (thèmes clair/sombre), base.css, composants.css, pages.css ; cockpit.css (v100, toutes les règles sous :root[data-app="v100"])
 js/
   app.js                 démarrage : base, PIN, onboarding, routeur, bandeaux, SW, retour au premier plan
   router.js              navigation par hash (#accueil, #depenses, #epargne, #reglages, #historique…)
@@ -32,6 +32,9 @@ js/
   ui/                    sheet.js (feuille modale), toast.js, composants.js, icones.js
   pages/                 accueil, depenses, budgets, epargne, historique, reglages, onboarding, saisie, import
   v2/                    interfaces documentées des fonctionnalités V2 (aucune interface utilisateur)
+  aiguillage.js          script classique chargé en premier : choisit l'app (origine ou v100) avant le premier affichage
+  v100/                  l'app « Cockpit » : bascule.js, ui/ (graphes SVG, blocs), pages/ (cockpit, strategie, s-*),
+                         strategie/ (moteurs purs : pret, projection, rythmes, enveloppes, tresorerie, score, repartition, brief)
 vendor/pdfjs/            pdf.js « legacy » (ES module) embarqué, chargé uniquement pour l'import PDF
 icons/                   PNG 180, 192, 512, maskable 512 + SVG source
 tools/                   icones.html (régénère les PNG), verif-confidentialite.mjs, verif-statique.mjs

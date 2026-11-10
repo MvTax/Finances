@@ -2,7 +2,7 @@
 // pdf.js (vendor/pdfjs) et Tesseract (vendor/tesseract) sont mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.38.1';
+const VERSION = '1.39.0';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
 // Tesseract (lecture des captures, ~5 Mo) : gardé d'une version de l'app à l'autre, change seulement avec la bibliothèque
@@ -17,6 +17,10 @@ const COQUILLE = [
   './css/pages.css',
   './css/joyeux.css',
   './css/envies.css',
+  './css/cockpit.css',
+  './fonts/saira.woff2',
+  './fonts/saira-italique.woff2',
+  './js/aiguillage.js',
   './fonts/fredoka.woff2',
   './fonts/nunito.woff2',
   './css/variables.css',
@@ -66,6 +70,25 @@ const COQUILLE = [
   './js/jeu.js',
   './js/envies.js',
   './js/recalcul.js',
+  './js/v100/bascule.js',
+  './js/v100/pages/cockpit.js',
+  './js/v100/pages/s-categories.js',
+  './js/v100/pages/s-coach.js',
+  './js/v100/pages/s-pret.js',
+  './js/v100/pages/s-projection.js',
+  './js/v100/pages/s-repartition.js',
+  './js/v100/pages/s-tresorerie.js',
+  './js/v100/pages/strategie.js',
+  './js/v100/strategie/brief.js',
+  './js/v100/strategie/enveloppes.js',
+  './js/v100/strategie/pret.js',
+  './js/v100/strategie/projection.js',
+  './js/v100/strategie/repartition.js',
+  './js/v100/strategie/rythmes.js',
+  './js/v100/strategie/score.js',
+  './js/v100/strategie/tresorerie.js',
+  './js/v100/ui/blocs.js',
+  './js/v100/ui/graphes.js',
   './js/pages/recalcul.js',
   './js/pages/envies.js',
   './js/ui/fete.js',

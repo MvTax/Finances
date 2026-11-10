@@ -6,7 +6,7 @@
 //  - les repas à la maison et les privations pas encore virés.
 // Le montant est aussi réparti par poche (prêt / sécurité), pour savoir quoi mettre où.
 
-import { fluxEnvies, retenueAvance, repartirReste } from './envies.js';
+import { fluxEnvies, retenueAvance, repartirReste, partsReste } from './envies.js';
 import { resteADepenser, cagnotteArrondis } from './calculs.js';
 import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrondis } from './epargne.js';
 import { formatEuros } from './money.js';
@@ -79,8 +79,8 @@ export function aVirerEpargne(etat, dateIso) {
   if (efforts) ajouter(efforts.id, arrondis); else repartir(arrondis);
   // Reste de la journée (restes, repas à la maison, privations) : 40 % prêt / 30 % sécurité (envies.js, PARTS_RESTE)
   source = 'reste';
-  const partsReste = repartirReste(privations, etat.poches || []);
-  if (partsReste) for (const x of partsReste) ajouter(x.pocheId, x.montantCentimes);
+  const partsDuReste = repartirReste(privations, etat.poches || [], partsReste(etat));
+  if (partsDuReste) for (const x of partsDuReste) ajouter(x.pocheId, x.montantCentimes);
   else if (efforts) ajouter(efforts.id, privations); else repartir(privations);
 
   // Date du virement : celle de la tranche ; passée et pas faite → aujourd'hui ; faite → le virement suivant

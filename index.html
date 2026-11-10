@@ -14,6 +14,7 @@
   <meta name="format-detection" content="telephone=no">
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <script src="./js/aiguillage.js"></script>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icone.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
@@ -23,6 +24,7 @@
   <link rel="stylesheet" href="./css/pages.css">
   <link rel="stylesheet" href="./css/joyeux.css">
   <link rel="stylesheet" href="./css/envies.css">
+  <link rel="stylesheet" href="./css/cockpit.css">
   <script type="module" src="./js/app.js"></script>
 </head>
 <body>
@@ -36,6 +38,7 @@
       <a class="onglet" data-onglet="accueil" href="#accueil"><svg class="ic" aria-hidden="true"><use href="#i-accueil"/></svg><span>Accueil</span></a>
       <a class="onglet" data-onglet="depenses" href="#depenses"><svg class="ic" aria-hidden="true"><use href="#i-liste"/></svg><span>Dépenses</span></a>
       <button id="bouton-plus" class="onglet-plus" type="button" aria-label="Ajouter une dépense ou une entrée"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
+      <a class="onglet onglet-v100" data-onglet="strategie" href="#strategie"><svg class="ic" aria-hidden="true"><use href="#i-graphique"/></svg><span>Stratégie</span></a>
       <a class="onglet" data-onglet="epargne" href="#epargne"><svg class="ic" aria-hidden="true"><use href="#i-tirelire"/></svg><span>Épargne</span></a>
     </nav>
   </div>

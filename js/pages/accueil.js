@@ -28,7 +28,7 @@ import { phrasePrevision, feuillePrevision } from './prevision.js';
 import { estAnnoncee, bilanJour } from '../sansdepense.js';
 import { feuilleSansDepense, annoncerSansDepense } from './sans-depense.js';
 import { estJoyeux } from '../ui/fete.js';
-import { heroJoyeux, boutonsJoyeux, carteQuetes, banniereJoyeux } from './accueil-joyeux.js';
+import { heroJoyeux, boutonsJoyeux, carteQuetes, banniereJoyeux, banniereV100 } from './accueil-joyeux.js';
 import { carteEnvie } from './envies.js';
 
 export const titre = 'Accueil';
@@ -80,10 +80,10 @@ export function rendre(vue) {
   if (estJoyeux()) {
     // Joyeux : Sou et le reste du jour, les deux gros boutons, les quêtes, puis les épargnes (mêmes chiffres)
     const prevNode = prev && phrasePrevision(prev) ? h('button', { type: 'button', class: `hero-prevision ${prev.alerte ? 'alerte' : prev.previsionCentimes < 0 ? 'attention' : ''}`, onclick: () => feuillePrevision() }, prev.alerte ? icone('alerte') : icone('graphique'), h('span', {}, phrasePrevision(prev), prev.alerte ? `. Pour tenir : ${formatEuros(prev.partMaxCentimes)}/jour maximum.` : '')) : null;
-    vue.replaceChildren(...[entete, heroJoyeux(r, jauge, { extras: [prevNode, puceSansDepense(jauge)], aideNode: aideJour(r, jauge) }), boutonsJoyeux(), carteEnvie(), carteQuetes(), blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
+    vue.replaceChildren(...[entete, banniereV100(), heroJoyeux(r, jauge, { extras: [prevNode, puceSansDepense(jauge)], aideNode: aideJour(r, jauge) }), boutonsJoyeux(), carteEnvie(), carteQuetes(), blocCoffres(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
     return;
   }
-  vue.replaceChildren(...[entete, banniereJoyeux(), hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), carteEnvie(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
+  vue.replaceChildren(...[entete, banniereV100(), banniereJoyeux(), hero(r, jauge, analyse, prev), ajout, prive, blocCoffres(), carteEnvie(), urgent, ligneATraiter(aTraiter), voirPlus].filter(Boolean));
 }
 
 /** Solde du compte, coloré selon la lancée du mois (vert, orange, rouge). Toucher : le détail. */
@@ -96,7 +96,7 @@ function pastilleSolde(auj) {
     h('span', { class: 'pastille-solde-montant' }, estMasque() ? '•••,•• €' : formatEuros(v.soldeCompteCentimes)));
 }
 
-function feuilleVerdict(auj) {
+export function feuilleVerdict(auj) {
   const v = verdictMois(etat, auj);
   ouvrirFeuille({
     titre: 'Mon argent',
@@ -153,7 +153,7 @@ function hero(r, j, analyse = null, prev = null) {
 }
 
 /** Le « ? » du chiffre du jour : comment il est calculé. */
-function aideJour(r, j) {
+export function aideJour(r, j) {
   return aide('Ce que tu peux dépenser aujourd’hui', () => ({
     texte: `Ce qui te reste pour le mois au début de la journée, divisé par les ${j.joursRestants} jours jusqu’au salaire, moins ce que tu as déjà dépensé aujourd’hui. Ce qui n’est pas dépensé part à l’épargne demain à 5 h.`,
     lignes: [['Reste du mois ce matin', j.instantane?.baseCentimes ?? r.resteCentimes], ['÷ jours jusqu’au salaire', String(j.joursRestants)], ['= ta part du jour', j.parJourCentimes, 'forte'], ['− dépensé aujourd’hui (arrondis et privations compris)', j.depensesDuJourCentimes], ...detailDuJour(), ['= reste aujourd’hui', j.restantAujourdhuiCentimes, 'forte']],
@@ -174,7 +174,7 @@ function detailDuJour() {
 }
 
 /** Journée sans dépense : annoncée → son état ; sinon, une proposition tant que rien n'est dépensé aujourd'hui. */
-function puceSansDepense(j) {
+export function puceSansDepense(j) {
   const auj = aujourdhui();
   const b = bilanJour(etat, auj, auj);
   if (estAnnoncee(etat, auj)) {
@@ -206,7 +206,7 @@ function blocRaison(p, allerVers) {
 }
 
 /** Le mois expliqué : le raisonnement d'abord, puis le calcul ligne par ligne pour vérifier. */
-function feuilleCalcul(r, j, a = raisonner(etat, aujourdhui())) {
+export function feuilleCalcul(r, j, a = raisonner(etat, aujourdhui())) {
   let f;
   const aller2 = (route) => () => { f.fermer(); aller(route); };
   const ligne = (signe, titre, montant, detail, action) => h('div', { class: 'calcul-ligne' },
@@ -307,7 +307,7 @@ function rubriques(r, auj, rappels, critique) {
       tuile('graphique', 'Statistiques', 'Mois passés et conseils', () => aller('statistiques'))));
 }
 
-function bandeaux(r, auj) {
+export function bandeaux(r, auj) {
   const res = [];
   const mois = r.periode.mois;
   // Reste du mois : versé sur l'épargne après le salaire ; aperçu dans les 3 jours qui le précèdent

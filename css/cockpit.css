@@ -1,0 +1,386 @@
+/* cockpit.css — l'habillage de v100 : un tableau de bord de nuit. Bleu nuit profond, éclairage d'instruments bleu glacier,
+   un grand cadran gradué pour le reste du jour, des voyants comme sur un tableau de bord (vert, ambre, rouge),
+   Saira (une police de tableaux de bord, à largeur variable : serrée pour les grands chiffres, normale pour le texte).
+   Tout est rangé sous :root[data-app="v100"] : l'app d'origine (styles Classique et Joyeux) n'est pas touchée.
+   Mise en page : une colonne, le cadran d'abord, puis les voyants, puis les actions ; les détails vivent dans Stratégie. */
+
+@font-face { font-family: "Saira"; src: url("../fonts/saira.woff2") format("woff2"); font-weight: 100 900; font-stretch: 50% 125%; font-style: normal; font-display: swap; }
+@font-face { font-family: "Saira"; src: url("../fonts/saira-italique.woff2") format("woff2"); font-weight: 100 900; font-stretch: 50% 125%; font-style: italic; font-display: swap; }
+
+/* L'onglet Stratégie n'existe que dans v100 */
+.onglet-v100 { display: none; }
+
+:root[data-app="v100"] {
+  --police: "Saira", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --police-chiffres: "Saira", ui-rounded, -apple-system, system-ui, sans-serif;
+  --police-titres: "Saira", -apple-system, system-ui, sans-serif;
+  --rayon: 18px;
+  --rayon-petit: 12px;
+  --fond: #070b16;
+  --surface: #0e1424;
+  --surface-2: #151d33;
+  --surface-3: #212b49;
+  --texte: #eef3ff;
+  --texte-2: #aab6d3;
+  --texte-3: #7f8cb0;
+  --separateur: rgb(150 175 255 / 13%);
+  --trait: 1px solid rgb(150 175 255 / 13%);
+  --accent: #5cd0ff;
+  --accent-fort: #2bb3f0;
+  --accent-doux: rgb(92 208 255 / 13%);
+  --accent-texte: #04121c;
+  --laiton: #ffd166;
+  --laiton-doux: rgb(255 209 102 / 14%);
+  --vert: #2fcf8b;
+  --vert-doux: rgb(47 207 139 / 14%);
+  --orange: #fab219;
+  --orange-doux: rgb(250 178 25 / 14%);
+  --rouge: #ff5d6c;
+  --rouge-doux: rgb(255 93 108 / 15%);
+  --bleu: #5cd0ff;
+  --hero-fond: #0e1424;
+  --hero-texte: #eef3ff;
+  --hero-texte-2: #aab6d3;
+  --voile: rgb(2 4 10 / 68%);
+  --ombre-forte: 0 18px 50px rgb(0 0 0 / 55%);
+  /* Séries des graphiques (validées daltonisme sur la surface sombre) ; les couleurs d'état restent réservées aux états */
+  --serie-1: #3987e5;
+  --serie-2: #d55181;
+  --serie-3: #c98500;
+  --serie-4: #9085e9;
+  color-scheme: dark;
+}
+
+/* ---------- Base ---------- */
+:root[data-app="v100"] body { background: var(--fond); color: var(--texte); font-family: var(--police); font-weight: 450; font-stretch: 100%; letter-spacing: .1px; }
+:root[data-app="v100"] .vue { background:
+  radial-gradient(120% 60% at 50% -10%, rgb(43 179 240 / 9%), transparent 60%),
+  var(--fond); }
+:root[data-app="v100"] strong, :root[data-app="v100"] b { font-weight: 650; }
+:root[data-app="v100"] .grand-titre, :root[data-app="v100"] .titre-page { font-family: var(--police-titres); font-weight: 650; font-stretch: 84%; letter-spacing: .2px; }
+:root[data-app="v100"] .carte-titre, :root[data-app="v100"] .feuille-titre, :root[data-app="v100"] .sous-titre, :root[data-app="v100"] .coffres-titre, :root[data-app="v100"] .feuille-sous-titre { font-family: var(--police-titres); font-weight: 650; font-stretch: 86%; letter-spacing: .3px; }
+:root[data-app="v100"] .mt, :root[data-app="v100"] .chiffre-principal, :root[data-app="v100"] .stat-valeur, :root[data-app="v100"] .ligne-tx-montant, :root[data-app="v100"] .fiche-solde, :root[data-app="v100"] .input-montant, :root[data-app="v100"] .coffre-solde, :root[data-app="v100"] .coffre-virer-montant, :root[data-app="v100"] .pastille-solde-montant { font-family: var(--police-chiffres); font-stretch: 82%; font-variant-numeric: tabular-nums; letter-spacing: .2px; }
+:root[data-app="v100"] .petit { color: var(--texte-2); }
+:root[data-app="v100"] :focus-visible { outline-color: var(--accent); }
+
+/* Blocs : surface sombre, liseré fin, léger reflet en haut (comme un instrument encastré) */
+:root[data-app="v100"] .carte-corps, :root[data-app="v100"] .ligne-a-traiter, :root[data-app="v100"] .tuile, :root[data-app="v100"] .coffre, :root[data-app="v100"] .coffre-virer, :root[data-app="v100"] .recalcul-ligne, :root[data-app="v100"] .quetes, :root[data-app="v100"] .liste-groupee, :root[data-app="v100"] .bandeau {
+  background: var(--surface); border: var(--trait); border-radius: var(--rayon); box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+:root[data-app="v100"] .voir-plus > summary { background: transparent; border: 1px dashed rgb(150 175 255 / 26%); border-radius: var(--rayon); color: var(--texte-2); }
+
+/* Boutons */
+:root[data-app="v100"] .btn { font-family: var(--police-titres); font-weight: 600; font-stretch: 90%; letter-spacing: .3px; border-radius: 14px; border: 1px solid transparent; }
+:root[data-app="v100"] .btn-principal { background: linear-gradient(180deg, #7fe0ff, var(--accent) 55%, var(--accent-fort)); color: var(--accent-texte); box-shadow: 0 0 0 1px rgb(92 208 255 / 35%), 0 8px 22px rgb(43 179 240 / 22%); }
+:root[data-app="v100"] .btn-secondaire, :root[data-app="v100"] .btn:not(.btn-principal):not(.btn-danger):not(.btn-danger-texte):not(.btn-icone) { background: var(--surface-2); color: var(--texte); border-color: rgb(150 175 255 / 18%); }
+:root[data-app="v100"] .btn-danger { background: var(--rouge); color: #1c0509; }
+:root[data-app="v100"] .btn-danger-texte { background: none; color: var(--rouge); border-color: transparent; }
+:root[data-app="v100"] .btn:active { transform: translateY(1px) scale(.985); }
+:root[data-app="v100"] .lien { color: var(--accent); font-weight: 600; }
+
+/* Champs */
+:root[data-app="v100"] .input, :root[data-app="v100"] select.input, :root[data-app="v100"] textarea.input { background: var(--surface-2); color: var(--texte); border: 1px solid rgb(150 175 255 / 16%); border-radius: 12px; }
+:root[data-app="v100"] .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-doux); }
+:root[data-app="v100"] .barre-recherche { background: var(--surface-2); border: 1px solid rgb(150 175 255 / 16%); }
+:root[data-app="v100"] .barre-recherche:focus-within { border-color: var(--accent); }
+:root[data-app="v100"] .barre-recherche .input-recherche { border: 0; background: transparent; }
+:root[data-app="v100"] .segment, :root[data-app="v100"] .onglets-internes { background: var(--surface-2); border: var(--trait); border-radius: 14px; padding: 3px; }
+:root[data-app="v100"] .segment-option, :root[data-app="v100"] .onglet-interne { border-radius: 11px; font-weight: 600; color: var(--texte-2); }
+:root[data-app="v100"] .segment-option.actif, :root[data-app="v100"] .onglet-interne.actif { background: var(--accent); color: var(--accent-texte); box-shadow: none; }
+
+/* Barre d'onglets : cinq positions, le + au centre */
+:root[data-app="v100"] .barre-onglets { grid-template-columns: 1fr 1fr 72px 1fr 1fr; background: rgb(9 13 26 / 92%); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-top: var(--trait); }
+:root[data-app="v100"] .onglet-v100 { display: flex; }
+:root[data-app="v100"] .onglet { color: var(--texte-3); font-weight: 600; font-stretch: 88%; font-size: 11.5px; letter-spacing: .3px; position: relative; }
+:root[data-app="v100"] .onglet.actif { color: var(--accent); }
+:root[data-app="v100"] .onglet.actif::before { content: ''; position: absolute; top: 0; left: 50%; width: 26px; height: 2.5px; margin-left: -13px; border-radius: 0 0 3px 3px; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+:root[data-app="v100"] .onglet-plus { width: 58px; height: 58px; margin-top: -20px; background: linear-gradient(180deg, #7fe0ff, var(--accent) 55%, var(--accent-fort)); color: var(--accent-texte); border: 0; box-shadow: 0 0 0 5px var(--fond), 0 0 0 6px rgb(92 208 255 / 30%), 0 10px 26px rgb(43 179 240 / 35%); }
+:root[data-app="v100"] .onglet-plus .ic { stroke-width: 2.8; }
+
+/* Feuilles, toasts */
+:root[data-app="v100"] .feuille { background: var(--surface); border: var(--trait); border-bottom: 0; border-radius: 24px 24px 0 0; box-shadow: 0 -20px 60px rgb(0 0 0 / 55%); }
+:root[data-app="v100"] .feuille-poignee { background: var(--surface-3); }
+:root[data-app="v100"] .feuille-actions { border-top: var(--trait); background: var(--surface); }
+:root[data-app="v100"] .toast { background: var(--surface-2); color: var(--texte); border: 1px solid rgb(150 175 255 / 22%); border-radius: 14px; box-shadow: var(--ombre-forte); font-weight: 550; }
+:root[data-app="v100"] .toast-succes { border-color: rgb(47 207 139 / 55%); }
+:root[data-app="v100"] .toast-erreur { border-color: rgb(255 93 108 / 60%); }
+:root[data-app="v100"] .toast-action { color: var(--accent); }
+:root[data-app="v100"] .bulle-xp { background: var(--surface-2); color: var(--laiton); border: 1px solid rgb(255 209 102 / 55%); box-shadow: 0 0 24px rgb(255 209 102 / 22%); font-family: var(--police-titres); font-stretch: 84%; font-weight: 650; }
+:root[data-app="v100"] .confettis i { border: 0; }
+
+/* Épargnes et envie (blocs repris de l'app d'origine) */
+:root[data-app="v100"] .coffre { box-shadow: inset 0 3px 0 var(--pc), inset 0 1px 0 rgb(255 255 255 / 4%); }
+:root[data-app="v100"] .coffre-barre { background: var(--surface-3); }
+:root[data-app="v100"] .coffre-virer { background: linear-gradient(180deg, rgb(255 209 102 / 9%), transparent), var(--surface); border-color: rgb(255 209 102 / 26%); }
+:root[data-app="v100"] .btn-copier { background: var(--surface-2); color: var(--texte); border: var(--trait); }
+:root[data-app="v100"] .libelle-virement, :root[data-app="v100"] .virement-libelle { background: var(--surface-2); }
+:root[data-app="v100"] .envie { border: var(--trait); border-radius: 22px; }
+:root[data-app="v100"] .envie-titre { font-family: var(--police-titres); font-style: italic; font-weight: 800; font-stretch: 78%; letter-spacing: 1px; transform: none; }
+:root[data-app="v100"] .envie-chiffres strong, :root[data-app="v100"] .envie-barre-pct { font-family: var(--police-chiffres); font-stretch: 82%; }
+:root[data-app="v100"] .envie-vide { background: var(--surface); }
+:root[data-app="v100"] .envie-vide-titre { font-family: var(--police-titres); font-stretch: 86%; font-weight: 650; }
+:root[data-app="v100"] .pastille-solde { border: var(--trait); }
+:root[data-app="v100"] .ligne-cle.forte { border-color: rgb(150 175 255 / 22%); }
+:root[data-app="v100"] .piste { background: var(--surface-2); }
+:root[data-app="v100"] .recalcul-champ { background: var(--surface-2); }
+:root[data-app="v100"] .jeu-niveau { background: var(--accent-doux); }
+:root[data-app="v100"] .jeu-niveau-nom { font-family: var(--police-titres); font-stretch: 86%; }
+:root[data-app="v100"] .flammes-jours li { background: var(--surface-2); }
+
+/* ---------- Accueil : le Cockpit ---------- */
+:root[data-app="v100"] .ck { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+:root[data-app="v100"] .ck > * { min-width: 0; }
+:root[data-app="v100"] .ck-entete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+:root[data-app="v100"] .ck-date { font-size: 13.5px; font-weight: 550; color: var(--texte-3); font-stretch: 90%; letter-spacing: .6px; }
+:root[data-app="v100"] .ck-entete .btn-icone { color: var(--texte-2); }
+:root[data-app="v100"] .ck-salut { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: -6px; }
+:root[data-app="v100"] .ck-salut h1 { font-size: 30px; line-height: 1.05; }
+:root[data-app="v100"] .ck-solde { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; padding: 7px 12px; border-radius: 14px; border: var(--trait); background: var(--surface); color: var(--texte); font: inherit; cursor: pointer; }
+:root[data-app="v100"] .ck-solde small { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--texte-3); letter-spacing: .5px; }
+:root[data-app="v100"] .ck-solde small i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--vert)); box-shadow: 0 0 8px var(--c, var(--vert)); }
+:root[data-app="v100"] .ck-solde.orange { --c: var(--orange); } :root[data-app="v100"] .ck-solde.rouge { --c: var(--rouge); }
+:root[data-app="v100"] .ck-solde strong { font-family: var(--police-chiffres); font-stretch: 80%; font-weight: 650; font-size: 19px; font-variant-numeric: tabular-nums; }
+
+/* Le tableau : cadran principal + trois instruments */
+:root[data-app="v100"] .ck-tableau { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 12px 12px; border-radius: 26px; border: var(--trait);
+  background: radial-gradient(90% 70% at 50% 38%, rgb(43 179 240 / 12%), transparent 70%), linear-gradient(180deg, #111a30, var(--surface));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%), 0 20px 50px rgb(0 0 0 / 35%); }
+:root[data-app="v100"] .ck-tableau.critique { background: radial-gradient(90% 70% at 50% 38%, rgb(255 93 108 / 13%), transparent 70%), linear-gradient(180deg, #1d1424, var(--surface)); }
+:root[data-app="v100"] .ck-tableau.attention { background: radial-gradient(90% 70% at 50% 38%, rgb(250 178 25 / 11%), transparent 70%), linear-gradient(180deg, #1a1826, var(--surface)); }
+:root[data-app="v100"] .ck-cadran { position: relative; width: min(100%, 330px); margin: 0 auto; }
+:root[data-app="v100"] .ck-cadran .cadran { display: block; width: 100%; height: auto; }
+:root[data-app="v100"] .ck-cadran-centre { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding-top: 8%; text-align: center; pointer-events: none; }
+:root[data-app="v100"] .ck-cadran-centre > * { pointer-events: auto; }
+:root[data-app="v100"] .ck-libelle { display: flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; font-stretch: 90%; letter-spacing: 1.2px; color: var(--texte-2); }
+:root[data-app="v100"] .ck-montant { font-family: var(--police-chiffres); font-weight: 600; font-stretch: 72%; font-size: clamp(42px, 13.6vw, 56px); line-height: 1; letter-spacing: .5px; font-variant-numeric: tabular-nums; text-shadow: 0 0 28px rgb(92 208 255 / 30%); }
+:root[data-app="v100"] .ck-tableau.critique .ck-montant { color: #ffc2c8; text-shadow: 0 0 28px rgb(255 93 108 / 35%); }
+:root[data-app="v100"] .ck-sous { font-size: 13.5px; color: var(--texte-2); }
+:root[data-app="v100"] .ck-sous .mt { color: var(--texte); font-weight: 600; }
+:root[data-app="v100"] .ck-instruments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: -6px; }
+:root[data-app="v100"] .ck-instrument { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 8px 4px 7px; border-radius: 16px; border: var(--trait); background: rgb(7 11 22 / 55%); color: var(--texte); font: inherit; text-align: center; cursor: pointer; }
+:root[data-app="v100"] .ck-instrument:active { transform: scale(.97); }
+:root[data-app="v100"] .ck-instrument-jauge { position: relative; flex: none; width: 46px; height: 46px; display: grid; place-items: center; }
+:root[data-app="v100"] .ck-instrument-jauge .anneau { position: absolute; inset: 0; width: 100%; height: 100%; }
+:root[data-app="v100"] .ck-instrument-jauge span { position: relative; font-family: var(--police-chiffres); font-stretch: 75%; font-weight: 650; font-size: 13px; line-height: 1; }
+:root[data-app="v100"] .ck-instrument-texte { min-width: 0; max-width: 100%; display: flex; flex-direction: column-reverse; align-items: center; gap: 1px; }
+:root[data-app="v100"] .ck-instrument-texte small { font-size: 11px; font-weight: 600; letter-spacing: .6px; color: var(--texte-3); white-space: nowrap; }
+:root[data-app="v100"] .ck-instrument-texte strong { font-family: var(--police-chiffres); font-stretch: 75%; font-weight: 650; font-size: 15px; line-height: 1.1; white-space: nowrap; }
+:root[data-app="v100"] .ck-puces { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+:root[data-app="v100"] .ck-tableau .hero-prevision, :root[data-app="v100"] .ck-tableau .hero-puce { margin: 0; border-radius: 12px; background: rgb(7 11 22 / 55%); border: var(--trait); color: var(--texte-2); font-size: 13.5px; }
+:root[data-app="v100"] .ck-tableau .hero-puce.proposer { border-style: dashed; color: var(--texte); }
+
+/* Voyants */
+:root[data-app="v100"] .ck-voyants { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+:root[data-app="v100"] .voyant { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 2px 6px; border: 0; border-radius: 14px; background: none; color: var(--texte-2); font: inherit; cursor: pointer; min-width: 0; }
+:root[data-app="v100"] .voyant-lampe { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 35%, transparent), inset 0 0 10px color-mix(in srgb, var(--c) 18%, transparent); }
+:root[data-app="v100"] .voyant-lampe .ic { width: 20px; height: 20px; }
+:root[data-app="v100"] .voyant-nom { font-size: 11px; font-weight: 600; font-stretch: 78%; letter-spacing: .3px; white-space: nowrap; }
+:root[data-app="v100"] .voyant-ok { --c: var(--vert); }
+:root[data-app="v100"] .voyant-attention { --c: var(--orange); }
+:root[data-app="v100"] .voyant-critique { --c: var(--rouge); }
+:root[data-app="v100"] .voyant-critique .voyant-lampe { animation: voyant-alerte 1.6s ease-in-out infinite; }
+:root[data-app="v100"] .voyant-eteint { --c: #46527a; }
+:root[data-app="v100"] .voyant-eteint .voyant-lampe { box-shadow: none; background: none; }
+@keyframes voyant-alerte { 50% { box-shadow: 0 0 24px color-mix(in srgb, var(--c) 70%, transparent), inset 0 0 12px color-mix(in srgb, var(--c) 35%, transparent); } }
+
+/* Actions */
+:root[data-app="v100"] .ck-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+:root[data-app="v100"] .ck-action { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 60px; padding: 10px 12px; border-radius: 18px; border: var(--trait); font: inherit; font-family: var(--police-titres); font-stretch: 80%; font-weight: 650; font-size: 16.5px; line-height: 1.15; text-align: left; cursor: pointer; color: var(--texte); background: var(--surface); }
+:root[data-app="v100"] .ck-action:active { transform: translateY(1px) scale(.985); }
+:root[data-app="v100"] .ck-action-depense { background: linear-gradient(180deg, #7fe0ff, var(--accent) 55%, var(--accent-fort)); color: var(--accent-texte); border-color: transparent; box-shadow: 0 10px 26px rgb(43 179 240 / 22%); }
+:root[data-app="v100"] .ck-action .ic { width: 22px; height: 22px; flex: none; stroke-width: 2.6; }
+:root[data-app="v100"] .ck-action small { display: block; font-family: var(--police); font-stretch: 100%; font-size: 11.5px; font-weight: 550; opacity: .8; letter-spacing: .2px; }
+
+/* Panneaux génériques (accueil et Stratégie) */
+:root[data-app="v100"] .panneau { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--rayon); border: var(--trait); background: var(--surface); box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%); }
+:root[data-app="v100"] .panneau-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+:root[data-app="v100"] .panneau-titre { font-family: var(--police-titres); font-stretch: 86%; font-weight: 650; font-size: 18px; letter-spacing: .3px; }
+:root[data-app="v100"] .panneau-lien { flex: none; display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+:root[data-app="v100"] .panneau-lien .ic { width: 16px; height: 16px; }
+:root[data-app="v100"] p.note { font-size: 13.5px; line-height: 1.45; color: var(--texte-2); }
+
+:root[data-app="v100"] .priorites { display: flex; flex-direction: column; gap: 8px; }
+:root[data-app="v100"] .priorite { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 14px; border: var(--trait); background: var(--surface-2); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+:root[data-app="v100"] .priorite-point { width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+:root[data-app="v100"] .priorite-critique { --c: var(--rouge); } :root[data-app="v100"] .priorite-attention { --c: var(--orange); } :root[data-app="v100"] .priorite-bien { --c: var(--vert); } :root[data-app="v100"] .priorite-info { --c: var(--texte-3); }
+:root[data-app="v100"] .priorite strong { display: block; font-weight: 650; }
+:root[data-app="v100"] .priorite small { display: block; margin-top: 2px; font-size: 13.5px; line-height: 1.35; color: var(--texte-2); }
+:root[data-app="v100"] .priorite .ic { width: 16px; height: 16px; margin-top: 4px; color: var(--texte-3); }
+:root[data-app="v100"] .priorite-etat { font-size: 11px; font-weight: 650; letter-spacing: .5px; color: var(--c); }
+
+:root[data-app="v100"] .ck-trajets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+:root[data-app="v100"] .ck-trajet { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 8px; border-radius: 14px; border: var(--trait); background: var(--surface-2); min-width: 0; }
+:root[data-app="v100"] .ck-trajet small { font-size: 11.5px; font-weight: 600; letter-spacing: .5px; color: var(--texte-3); }
+:root[data-app="v100"] .ck-trajet strong { font-family: var(--police-chiffres); font-stretch: 80%; font-weight: 650; font-size: 20px; }
+:root[data-app="v100"] .ck-trajet em { font-style: normal; font-size: 12.5px; color: var(--texte-2); }
+:root[data-app="v100"] .ck-trajet .etincelle { width: 100%; height: 34px; margin-top: 4px; }
+
+:root[data-app="v100"] .jalons { display: flex; flex-direction: column; gap: 0; list-style: none; margin: 0; padding: 0; }
+:root[data-app="v100"] .jalon { position: relative; display: grid; grid-template-columns: 62px 1fr; gap: 8px; font-size: 15px; padding: 7px 0 7px 18px; }
+:root[data-app="v100"] .jalon::before { content: ''; position: absolute; left: 4px; top: 13px; width: 9px; height: 9px; border-radius: 50%; background: var(--c, var(--accent)); box-shadow: 0 0 8px var(--c, var(--accent)); }
+:root[data-app="v100"] .jalon::after { content: ''; position: absolute; left: 8px; top: 24px; bottom: -10px; width: 1px; background: var(--separateur); }
+:root[data-app="v100"] .jalon:last-child::after { display: none; }
+:root[data-app="v100"] .jalon-mois { font-size: 13px; font-weight: 600; color: var(--texte-2); letter-spacing: .3px; }
+:root[data-app="v100"] .jalon-titre { font-weight: 600; }
+:root[data-app="v100"] .jalon-titre small { display: block; font-weight: 450; font-size: 13px; color: var(--texte-2); }
+:root[data-app="v100"] .jalon-coussin { --c: var(--vert); } :root[data-app="v100"] .jalon-pretSolde { --c: var(--laiton); } :root[data-app="v100"] .jalon-survie { --c: var(--rouge); } :root[data-app="v100"] .jalon-envie { --c: var(--serie-2); } :root[data-app="v100"] .jalon-pretDemarre { --c: var(--orange); }
+
+/* ---------- Stratégie ---------- */
+:root[data-app="v100"] .st { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+:root[data-app="v100"] .st > *, :root[data-app="v100"] .panneau > * { min-width: 0; }
+:root[data-app="v100"] .st-retour { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+:root[data-app="v100"] .st-retour .ic { width: 18px; height: 18px; transform: rotate(180deg); }
+:root[data-app="v100"] .st-titre { font-family: var(--police-titres); font-stretch: 84%; font-weight: 650; font-size: 30px; line-height: 1.05; }
+:root[data-app="v100"] .st-intro { font-size: 15px; color: var(--texte-2); max-width: 60ch; }
+
+:root[data-app="v100"] .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+:root[data-app="v100"] .kpis.trois { grid-template-columns: repeat(3, 1fr); }
+:root[data-app="v100"] .kpi { display: flex; flex-direction: column; gap: 1px; padding: 10px 12px; border-radius: 14px; border: var(--trait); background: var(--surface-2); min-width: 0; }
+:root[data-app="v100"] .kpi small { font-size: 11.5px; font-weight: 600; letter-spacing: .5px; color: var(--texte-3); }
+:root[data-app="v100"] .kpi strong { font-family: var(--police-chiffres); font-stretch: 78%; font-weight: 650; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root[data-app="v100"] .kpi em { font-style: normal; font-size: 12.5px; color: var(--texte-2); }
+:root[data-app="v100"] .kpi.vert strong { color: var(--vert); } :root[data-app="v100"] .kpi.rouge strong { color: var(--rouge); } :root[data-app="v100"] .kpi.or strong { color: var(--laiton); }
+
+:root[data-app="v100"] .score-tete { display: flex; align-items: center; gap: 14px; }
+:root[data-app="v100"] .score-anneau { position: relative; flex: none; width: 92px; height: 92px; display: grid; place-items: center; }
+:root[data-app="v100"] .score-anneau .anneau { position: absolute; inset: 0; width: 100%; height: 100%; }
+:root[data-app="v100"] .score-anneau strong { position: relative; font-family: var(--police-chiffres); font-stretch: 74%; font-weight: 650; font-size: 34px; line-height: 1; }
+:root[data-app="v100"] .score-anneau small { position: absolute; bottom: 18px; font-size: 10px; color: var(--texte-3); letter-spacing: .5px; }
+:root[data-app="v100"] .score-niveau { font-family: var(--police-titres); font-stretch: 86%; font-weight: 650; font-size: 20px; }
+:root[data-app="v100"] .s-axes { display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v100"] .s-axe { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; width: 100%; padding: 0; border: 0; background: none; color: var(--texte); font: inherit; text-align: left; }
+:root[data-app="v100"] .s-axe-nom { font-weight: 600; }
+:root[data-app="v100"] .s-axe-points { font-family: var(--police-chiffres); font-stretch: 80%; font-weight: 650; font-variant-numeric: tabular-nums; }
+:root[data-app="v100"] .s-axe-points small { color: var(--texte-3); font-weight: 500; }
+:root[data-app="v100"] .s-axe .barre-repere { grid-column: 1 / -1; }
+:root[data-app="v100"] .s-axe-texte { grid-column: 1 / -1; font-size: 13.5px; line-height: 1.35; color: var(--texte-2); }
+:root[data-app="v100"] .s-axe-texte b { color: var(--texte); font-weight: 600; }
+
+:root[data-app="v100"] .barre-repere { position: relative; height: 8px; border-radius: 5px; background: var(--surface-3); overflow: visible; --c: var(--accent); }
+:root[data-app="v100"] .barre-repere-plein { display: block; height: 100%; min-width: 4px; border-radius: 5px; background: var(--c); }
+:root[data-app="v100"] .barre-repere-trait { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--texte); box-shadow: 0 0 0 2px var(--surface); }
+:root[data-app="v100"] .barre-ok { --c: var(--accent); } :root[data-app="v100"] .barre-bien { --c: var(--vert); } :root[data-app="v100"] .barre-attention { --c: var(--orange); } :root[data-app="v100"] .barre-critique { --c: var(--rouge); } :root[data-app="v100"] .barre-neutre { --c: var(--texte-3); }
+
+:root[data-app="v100"] .outils { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+:root[data-app="v100"] .outil { display: flex; flex-direction: column; gap: 4px; min-height: 96px; padding: 12px; border-radius: 16px; border: var(--trait); background: var(--surface); color: var(--texte); font: inherit; text-align: left; cursor: pointer; box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%); }
+:root[data-app="v100"] .outil:active { transform: scale(.98); }
+:root[data-app="v100"] .outil .ic { width: 22px; height: 22px; color: var(--accent); }
+:root[data-app="v100"] .outil strong { font-family: var(--police-titres); font-stretch: 88%; font-weight: 650; font-size: 16px; }
+:root[data-app="v100"] .outil small { font-size: 12.5px; line-height: 1.3; color: var(--texte-2); }
+
+:root[data-app="v100"] .plans { display: flex; flex-direction: column; gap: 8px; }
+:root[data-app="v100"] .plan { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; border: var(--trait); background: var(--surface-2); }
+:root[data-app="v100"] .plan.meilleur { border-color: rgb(47 207 139 / 55%); }
+:root[data-app="v100"] .plan-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+:root[data-app="v100"] .plan-tete strong { font-weight: 650; }
+:root[data-app="v100"] .plan-badge { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; background: var(--vert-doux); color: var(--vert); }
+:root[data-app="v100"] .plan-chiffres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+:root[data-app="v100"] .plan-chiffres p { display: flex; flex-direction: column; min-width: 0; }
+:root[data-app="v100"] .plan-chiffres small { font-size: 11px; font-weight: 600; letter-spacing: .4px; color: var(--texte-3); }
+:root[data-app="v100"] .plan-chiffres b { font-family: var(--police-chiffres); font-stretch: 80%; font-weight: 650; font-size: 16px; white-space: nowrap; }
+:root[data-app="v100"] .plan-chiffres em { font-style: normal; font-size: 12px; color: var(--texte-2); }
+:root[data-app="v100"] .plan-chiffres b.gain { color: var(--vert); }
+
+:root[data-app="v100"] .reglette { display: flex; flex-direction: column; gap: 4px; }
+:root[data-app="v100"] .reglette-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+:root[data-app="v100"] .reglette-tete label { font-weight: 600; min-width: 0; }
+:root[data-app="v100"] .reglette-tete output { font-family: var(--police-chiffres); font-stretch: 80%; font-weight: 650; font-size: 17px; color: var(--accent); flex: none; white-space: nowrap; }
+:root[data-app="v100"] .reglette input[type="range"] { width: 100%; height: 32px; margin: 0; background: none; accent-color: var(--accent); }
+:root[data-app="v100"] .reglette small { font-size: 12.5px; color: var(--texte-2); }
+
+:root[data-app="v100"] .puces-choix { display: flex; flex-wrap: wrap; gap: 6px; }
+:root[data-app="v100"] .puce-choix { min-height: 36px; padding: 6px 12px; border-radius: 999px; border: var(--trait); background: var(--surface-2); color: var(--texte-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+:root[data-app="v100"] .puce-choix.actif { background: var(--accent); color: var(--accent-texte); border-color: transparent; }
+
+:root[data-app="v100"] .ecarts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+:root[data-app="v100"] .ecart { padding: 10px 12px; border-radius: 14px; border: var(--trait); background: var(--surface-2); display: flex; flex-direction: column; }
+:root[data-app="v100"] .ecart small { font-size: 11.5px; font-weight: 600; letter-spacing: .4px; color: var(--texte-3); }
+:root[data-app="v100"] .ecart strong { font-family: var(--police-chiffres); font-stretch: 80%; font-weight: 650; font-size: 18px; }
+:root[data-app="v100"] .ecart.mieux strong { color: var(--vert); } :root[data-app="v100"] .ecart.pire strong { color: var(--rouge); }
+
+:root[data-app="v100"] .tableau-mois { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+:root[data-app="v100"] .tableau-mois th, :root[data-app="v100"] .tableau-mois td { padding: 7px 4px; text-align: right; white-space: nowrap; border-bottom: var(--trait); }
+:root[data-app="v100"] .tableau-mois th:first-child, :root[data-app="v100"] .tableau-mois td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+:root[data-app="v100"] .tableau-mois thead th { font-size: 11.5px; font-weight: 600; letter-spacing: .4px; color: var(--texte-3); }
+:root[data-app="v100"] .tableau-mois tr.survie td { color: var(--rouge); }
+:root[data-app="v100"] .defilement-horizontal { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+:root[data-app="v100"] .env-liste { display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v100"] .env-ligne { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px; border-radius: 14px; border: var(--trait); background: var(--surface-2); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+:root[data-app="v100"] .env-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+:root[data-app="v100"] .env-tete strong { font-weight: 650; }
+:root[data-app="v100"] .env-tete span { font-family: var(--police-chiffres); font-stretch: 80%; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root[data-app="v100"] .env-tete span small { color: var(--texte-3); font-weight: 500; }
+:root[data-app="v100"] .env-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--texte-2); }
+:root[data-app="v100"] .etat-puce { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); }
+:root[data-app="v100"] .etat-ok { --c: var(--accent); } :root[data-app="v100"] .etat-calme { --c: var(--vert); } :root[data-app="v100"] .etat-chaud { --c: var(--orange); } :root[data-app="v100"] .etat-depasse { --c: var(--rouge); }
+
+:root[data-app="v100"] .partages { display: flex; flex-direction: column; gap: 8px; }
+:root[data-app="v100"] .partage { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; border: var(--trait); background: var(--surface-2); }
+:root[data-app="v100"] .partage.conseille { border-color: rgb(47 207 139 / 55%); }
+:root[data-app="v100"] .partage.choisi { border-color: var(--accent); }
+:root[data-app="v100"] .partage-bande { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }
+:root[data-app="v100"] .partage-bande span { display: block; height: 100%; }
+:root[data-app="v100"] .partage-bande .p-pret { background: var(--serie-1); } :root[data-app="v100"] .partage-bande .p-secu { background: var(--serie-4); } :root[data-app="v100"] .partage-bande .p-envie { background: var(--serie-2); }
+:root[data-app="v100"] .partage-legende { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--texte-2); }
+
+:root[data-app="v100"] .eco { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 14px; border: var(--trait); background: var(--surface-2); }
+:root[data-app="v100"] .eco-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+:root[data-app="v100"] .eco-tete b { font-family: var(--police-chiffres); font-stretch: 80%; color: var(--vert); white-space: nowrap; }
+:root[data-app="v100"] .eco small { font-size: 13.5px; line-height: 1.35; color: var(--texte-2); }
+:root[data-app="v100"] .eco-action { align-self: flex-start; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; background: var(--accent-doux); color: var(--accent); }
+
+:root[data-app="v100"] .evenements { display: flex; flex-direction: column; }
+:root[data-app="v100"] .evenement { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; padding: 8px 0; border-bottom: var(--trait); font-size: 14.5px; }
+:root[data-app="v100"] .evenement:last-child { border-bottom: 0; }
+:root[data-app="v100"] .evenement span:first-child { color: var(--texte-3); font-weight: 600; font-size: 13px; }
+
+/* ---------- Instruments et graphiques ---------- */
+:root[data-app="v100"] .cadran-piste { fill: none; stroke: var(--surface-3); stroke-width: 13; stroke-linecap: round; }
+:root[data-app="v100"] .cadran-arc { fill: none; stroke-width: 13; stroke-linecap: round; filter: drop-shadow(0 0 8px rgb(92 208 255 / 45%)); }
+:root[data-app="v100"] .cadran-stop-1 { stop-color: var(--accent-fort); } :root[data-app="v100"] .cadran-stop-2 { stop-color: #9be8ff; }
+:root[data-app="v100"] .cadran-attention .cadran-stop-1 { stop-color: #e89a0c; } :root[data-app="v100"] .cadran-attention .cadran-stop-2 { stop-color: #ffd98a; }
+:root[data-app="v100"] .cadran-critique .cadran-stop-1 { stop-color: #f0495a; } :root[data-app="v100"] .cadran-critique .cadran-stop-2 { stop-color: #ff9aa3; }
+:root[data-app="v100"] .cadran-attention .cadran-arc { filter: drop-shadow(0 0 8px rgb(250 178 25 / 45%)); }
+:root[data-app="v100"] .cadran-critique .cadran-arc { filter: drop-shadow(0 0 8px rgb(255 93 108 / 45%)); }
+:root[data-app="v100"] .cadran-grad { stroke: rgb(170 190 255 / 22%); stroke-width: 1.4; stroke-linecap: round; }
+:root[data-app="v100"] .cadran-grad.moyen { stroke-width: 1.8; } :root[data-app="v100"] .cadran-grad.grand { stroke-width: 2.6; stroke: rgb(170 190 255 / 40%); }
+:root[data-app="v100"] .cadran-grad.allume { stroke: rgb(155 232 255 / 85%); }
+:root[data-app="v100"] .cadran-attention .cadran-grad.allume { stroke: rgb(255 217 138 / 85%); } :root[data-app="v100"] .cadran-critique .cadran-grad.allume { stroke: rgb(255 154 163 / 85%); }
+:root[data-app="v100"] .cadran-curseur { fill: #fff; filter: drop-shadow(0 0 6px rgb(255 255 255 / 70%)); }
+:root[data-app="v100"] .cadran-curseur-coeur { fill: var(--accent-fort); }
+:root[data-app="v100"] .cadran-critique .cadran-curseur-coeur { fill: var(--rouge); } :root[data-app="v100"] .cadran-attention .cadran-curseur-coeur { fill: var(--orange); }
+:root[data-app="v100"] .anneau-piste { fill: none; stroke: var(--surface-3); stroke-width: 6; }
+:root[data-app="v100"] .anneau-arc { fill: none; stroke: var(--c, var(--accent)); stroke-width: 6; stroke-linecap: round; }
+:root[data-app="v100"] .anneau-ok { --c: var(--accent); } :root[data-app="v100"] .anneau-bien { --c: var(--vert); } :root[data-app="v100"] .anneau-attention { --c: var(--orange); } :root[data-app="v100"] .anneau-critique { --c: var(--rouge); } :root[data-app="v100"] .anneau-or { --c: var(--laiton); }
+
+:root[data-app="v100"] .serie-1 { --c: var(--serie-1); } :root[data-app="v100"] .serie-2 { --c: var(--serie-2); } :root[data-app="v100"] .serie-3 { --c: var(--serie-3); } :root[data-app="v100"] .serie-4 { --c: var(--serie-4); }
+:root[data-app="v100"] .etincelle-trait { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+:root[data-app="v100"] .etincelle-aire { fill: var(--c); opacity: .14; stroke: none; }
+:root[data-app="v100"] .etincelle-point { fill: var(--c); stroke: var(--surface-2); stroke-width: 2; }
+:root[data-app="v100"] .graphe { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+:root[data-app="v100"] .graphe-titre { font-weight: 600; font-size: 14.5px; }
+:root[data-app="v100"] .graphe-legende { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--texte-2); }
+:root[data-app="v100"] .graphe-legende b { color: var(--texte); font-weight: 600; font-variant-numeric: tabular-nums; }
+:root[data-app="v100"] .pastille-serie { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; background: var(--c); vertical-align: baseline; }
+:root[data-app="v100"] .graphe-zone { position: relative; }
+:root[data-app="v100"] .graphe-svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+:root[data-app="v100"] .graphe-grille { stroke: rgb(150 175 255 / 11%); stroke-width: 1; }
+:root[data-app="v100"] .graphe-grille.zero { stroke: rgb(150 175 255 / 28%); }
+:root[data-app="v100"] .graphe-axe { fill: var(--texte-3); font-size: 10px; font-family: var(--police); font-variant-numeric: tabular-nums; }
+:root[data-app="v100"] .graphe-trait { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-app="v100"] .graphe-aire { fill: var(--c); opacity: .12; stroke: none; }
+:root[data-app="v100"] .graphe-point { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
+:root[data-app="v100"] .graphe-reticule { stroke: rgb(238 243 255 / 45%); stroke-width: 1; stroke-dasharray: 3 3; }
+:root[data-app="v100"] .graphe-repere { stroke: rgb(250 178 25 / 55%); stroke-width: 1; stroke-dasharray: 2 3; }
+:root[data-app="v100"] .graphe-repere-texte { fill: var(--orange); font-size: 9.5px; font-family: var(--police); font-weight: 600; }
+:root[data-app="v100"] .graphe-bulle { position: absolute; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 2px; min-width: 120px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgb(150 175 255 / 28%); background: rgb(21 29 51 / 96%); font-size: 12.5px; pointer-events: none; box-shadow: 0 10px 30px rgb(0 0 0 / 45%); }
+:root[data-app="v100"] .graphe-bulle[hidden] { display: none; }
+:root[data-app="v100"] .graphe-bulle-ligne { display: flex; align-items: center; color: var(--texte-2); white-space: nowrap; }
+:root[data-app="v100"] .graphe-bulle-ligne b { margin-left: auto; padding-left: 10px; color: var(--texte); font-variant-numeric: tabular-nums; }
+:root[data-app="v100"] .graphe-table summary { font-size: 13px; color: var(--accent); font-weight: 600; cursor: pointer; }
+:root[data-app="v100"] .graphe-table table { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+:root[data-app="v100"] .graphe-table th, :root[data-app="v100"] .graphe-table td { padding: 4px 8px; text-align: right; white-space: nowrap; border-bottom: var(--trait); }
+:root[data-app="v100"] .graphe-table th:first-child { text-align: left; }
+
+@media (prefers-reduced-motion: reduce) { :root[data-app="v100"] .voyant-critique .voyant-lampe { animation: none; } }

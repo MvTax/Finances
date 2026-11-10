@@ -1,5 +1,6 @@
 // reglages.js — Profil & Finances, sécurité, Gemini, sauvegarde, comptes, règles, questions, pont.
 
+import { estV100, basculer } from '../v100/bascule.js';
 import { cartesReglagesEnvies } from './envies.js';
 import { h, icone, mt, definirMasquage } from '../ui/dom.js';
 import { carte, bouton, champ, champMontant, interrupteur, selectionner, segment, etatVide, pastillesCategories } from '../ui/composants.js';
@@ -84,9 +85,12 @@ function rendreAccueilReglages(vue) {
       sect('envies', (() => { const l = (p.envies?.liste || []); return l.length ? l.map((e) => e.nom).join(', ') : 'un jeu, des baskets… mis de côté jour après jour'; })()),
       lien('Mes épargnes', 'prêt, sécurité, plan du mois', () => aller('epargne'), 'graphique'))),
     carte('L’app', h('div', { class: 'liste-liens' },
+      estV100()
+        ? lien('Revenir à l’app d’origine', 'tu es dans v100 (Cockpit) ; mêmes données des deux côtés', () => basculer('origine'), 'retour')
+        : lien('Ouvrir v100, le Cockpit', 'nouvelle app : tableau de bord, stratégie, projections ; mêmes données', () => basculer('v100'), 'eclair'),
       sect('sauvegarde', `${pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'}${pa.motDePasseSauvegarde ? ', chiffrée' : ''}`),
       sect('profil', p.prenomAffichage || 'prénom, jour de salaire'),
-      sect('confidentialite', `${pa.pinHash ? 'code PIN actif' : 'sans code PIN'}, style ${pa.style === 'joyeux' ? 'Joyeux' : 'Classique'}`),
+      sect('confidentialite', `${pa.pinHash ? 'code PIN actif' : 'sans code PIN'}, ${estV100() ? 'habillage Cockpit' : `style ${pa.style === 'joyeux' ? 'Joyeux' : 'Classique'}`}`),
       lien('Forcer la mise à jour', `version ${versionApp}, tes données restent`, () => forcerMiseAJour(), 'boucle'))),
     h('details', { class: 'reglages-avance' },
       h('summary', {}, 'Avancé'),
@@ -180,6 +184,9 @@ function cartesSection(id) {
       interrupteur('Mode 100 % local', pa.mode100Local, (v) => majParametres({ mode100Local: v }), 'Tout fonctionne par règles ; aucune requête réseau hors mise à jour de l’app.'),
       interrupteur('Masquer les montants', pa.masquageMontants, (v) => { definirMasquage(v); majParametres({ masquageMontants: v }); }),
       h('div', { class: 'ligne-reglage' }, h('span', { class: 'ligne-reglage-libelle' }, 'Code PIN', h('small', {}, PIN_EST_UN_VERROU)), pa.pinHash ? h('div', { class: 'groupe-boutons' }, bouton('Changer', () => feuillePin(), { classe: 'btn-petit' }), bouton('Supprimer', async () => { await supprimerPin(); toast('Code PIN supprimé.'); }, { classe: 'btn-petit btn-danger-texte' })) : bouton('Définir', () => feuillePin(), { classe: 'btn-petit' })))),
+    estV100() ? carte('Apparence', h('div', { class: 'formulaire' },
+      h('p', { class: 'petit' }, 'v100 a un seul habillage : le Cockpit, sombre. Les styles Classique et Joyeux et le thème clair sont dans l’app d’origine.'),
+      bouton('Revenir à l’app d’origine', () => basculer('origine'), { classe: 'btn-secondaire' }))) :
     carte('Apparence', h('div', { class: 'formulaire' },
       champ('Style de l’app', segment([['classique', 'Classique'], ['joyeux', 'Joyeux']], pa.style || 'classique', async (v) => { await majParametres({ style: v }); }, 'Style de l’app'), 'Joyeux : couleurs vives, une mascotte, des points et des quêtes du jour. Les chiffres sont les mêmes.'),
       champ('Thème', segment([['auto', 'Automatique'], ['clair', 'Clair'], ['sombre', 'Sombre']], pa.theme || 'auto', async (v) => { await majParametres({ theme: v }); appliquerTheme(v); }, 'Thème')))),

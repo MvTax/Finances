@@ -261,6 +261,48 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## v100, le Cockpit (1.39)
+
+Une deuxième app dans la même page : mêmes données, autre habillage, et un onglet **Stratégie** en plus. L'app d'origine
+(styles Classique et Joyeux) reste telle quelle.
+
+**L'ouvrir** : la bannière « Nouveau : v100 » sur l'Accueil, ou Réglages → L'app → « Ouvrir v100, le Cockpit ».
+**Revenir** : Réglages → L'app → « Revenir à l'app d'origine ». Le choix est gardé sur l'appareil ; tes dépenses, ton épargne,
+tes flammes et tes envies sont les mêmes des deux côtés (une seule base, aucun réimport). `?app=v100` ou `?app=origine`
+dans l'adresse force l'un ou l'autre.
+
+**L'Accueil (cockpit)** : un cadran gradué pour ce qu'il reste aujourd'hui, trois instruments (reste du mois, score,
+série de flammes), six voyants (budget du jour, compte, virement d'épargne, catégories, prélèvements, fin de mois :
+vert, ambre ou rouge, toucher pour aller à la page concernée), le brief du jour, l'envie en cours, l'épargne et la trajectoire sur 12 mois.
+
+**Stratégie**, six outils :
+- **Score Budget** sur 100, cinq cadrans de 20 points. Budget du jour : mois pas dépassé (10) + part des jours finis sous
+  ta part (10). Épargne : part des revenus mise de côté, 10 % donne le maximum. Sécurité : coussin par rapport à son objectif.
+  Dettes : crédits et remboursements dans les revenus, 10 % ou moins donne 20, 40 % ou plus donne 0, moins 5 tant qu'un crédit
+  instantané court. Régularité : 7 jours de flamme (10), soldes vérifiés (5), sauvegarde récente (5). Chaque cadran dit quoi faire pour gagner des points.
+- **Plan du prêt** : capital restant, coût restant, date de fin, et quatre plans comparés mois par mois (ne rien faire,
+  rembourser par paliers, rembourser chaque mois, tout garder puis solder d'un coup), avec le gain en euros et en mois.
+  « 100 € remboursés aujourd'hui » dit ce qu'un remboursement fait gagner. Avant le début des mensualités : garder la
+  mensualité et finir plus tôt, ou garder la durée et payer moins. Tant que la sécurité n'est pas pleine, le conseil est
+  de la remplir d'abord (ton épargne ne rapporte pas d'intérêts : la comparaison ne compte que le coût du prêt).
+- **Projection** 12 ou 24 mois : chaque mois, disponible = revenus − charges − crédits ; vie courante = ton plancher ;
+  l'épargne prend le reste ; le reste des journées est partagé prêt / sécurité / envie. Des réglettes « et si » (vivre
+  avec plus ou moins par jour, part non dépensée, charges en moins, salaire, grosse dépense, mois difficile) et l'écart avec le plan de base.
+  Les dettes envers tes proches et les crédits s'arrêtent aux dates enregistrées.
+- **Brief du jour** : priorités classées, voyants détaillés, économies possibles par mois et par an, abonnements, raisonnement du mois.
+- **Catégories** : chaque enveloppe face au jour du mois (le trait blanc = où tu devrais en être), ce qu'il reste par
+  jour, ta moyenne sur 3 mois, et le « levier » : ce que tenir le plafond te fait gagner par mois. Toucher une enveloppe change son plafond.
+- **Répartition** : quatre préréglages (Sécurité d'abord, Équilibre, Prêt à fond, Plaisir) et un réglage à la main, chacun
+  simulé sur 24 mois (sécurité pleine, prêt soldé, envie débloquée). « Appliquer » change le partage du reste des journées
+  (40 / 30 / 30 par défaut) et celui de l'épargne du mois.
+- **Trésorerie** : le solde du compte jour par jour jusqu'au salaire, en dépensant ta part du jour et à ton rythme réel,
+  le point le plus bas et les prélèvements à venir.
+
+Limites : une projection répète tes revenus, tes charges et tes habitudes d'aujourd'hui, elle montre une direction.
+Le plan du prêt simule le taux, la mensualité et l'assurance enregistrés ; les règles d'un remboursement anticipé
+(frais, recalcul de la mensualité) sont celles de ton contrat, à confirmer auprès de ta banque. Tout est calculé sur
+l'iPhone, par règles, sans envoi de données.
+
 ## Recalcul complet (1.38)
 
 Réglages → Mon argent → **Recalcul complet** (aussi « Vérifier mes soldes » dans les outils de l'Accueil et la liste « À traiter »).

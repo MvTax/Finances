@@ -17,7 +17,7 @@ import { formatEuros } from '../money.js';
 import { aide } from '../ui/aide.js';
 import { feter } from '../ui/fete.js';
 import { POINTS } from '../jeu.js';
-import { PARTS_RESTE } from '../envies.js';
+import { partsReste } from '../envies.js';
 
 const nomPoche = (id) => etat.poches.find((p) => p.id === id)?.nom || 'Épargne';
 /** « ton Livret A LCL (Prêt 8 000 €) » ou le nom de la poche si son compte n'est pas renseigné. */
@@ -107,7 +107,7 @@ export function blocCoffres(o = {}) {
     h('p', { class: 'coffres-titre' }, 'Mon épargne', aide('Mon épargne', () => ({
       texte: `Chaque case montre ce qui est déjà viré sur l’épargne, plus sa part du prochain virement (« dont … à virer »). « Reste à virer » regroupe la part de l’épargne du mois (un virement tous les ${JOURS_PAR_VIREMENT} jours, ${v.nbVirements} ce mois-ci : le ${v.datesVirements.map((d) => Number(d.slice(8))).join(', ')}), les arrondis, les repas à la maison, les privations et les restes du jour pas encore virés.`,
       lignes: [['Part de l’épargne du mois (ce virement)', v.moisSemaineCentimes], ['Arrondis', v.arrondisCentimes], ['Repas, privations, restes du jour', v.privationsCentimes], ['= reste à virer', v.semaineCentimes, 'forte'], ['Épargne du mois prévue', v.moisCibleCentimes], ['Déjà virée ce mois-ci', v.moisDejaCentimes]],
-      note: `Épargne du mois et arrondis : 50 % sécurité, 50 % prêt (réglable dans « Mon système d’épargne »). Reste de la journée : ${PARTS_RESTE.pret} % prêt, ${PARTS_RESTE.securite} % sécurité, ${PARTS_RESTE.envie} % ton envie (gardés sur le compte pour l’achat).`,
+      note: `Épargne du mois et arrondis : 50 % sécurité, 50 % prêt (réglable dans « Mon système d’épargne »). Reste de la journée : ${partsReste(etat).pret} % prêt, ${partsReste(etat).securite} % sécurité, ${partsReste(etat).envie} % ton envie (gardés sur le compte pour l’achat).`,
     }))),
     h('div', { class: 'coffres-grille' }, cases.map((p) => coffre(p, attente(p.id), () => ouvrir(p)))),
     virer);

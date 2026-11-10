@@ -4,6 +4,12 @@ const COULEURS = { classique: { clair: '#f2f3ef', sombre: '#0e1412' }, joyeux: {
 
 export function appliquerTheme(theme = 'auto') {
   const racine = document.documentElement;
+  // v100 (Cockpit) : un seul habillage, sombre ; le réglage clair / sombre ne s'applique qu'à l'app d'origine
+  if (racine.dataset.app === 'v100') {
+    racine.dataset.theme = 'sombre';
+    for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.setAttribute('content', '#070b16');
+    return;
+  }
   if (theme === 'clair') racine.dataset.theme = 'clair';
   else if (theme === 'sombre') racine.dataset.theme = 'sombre';
   else delete racine.dataset.theme;

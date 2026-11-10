@@ -1,6 +1,6 @@
 // actions.js — opérations métier déclenchées par l'interface (saisie, confirmation, virements, échéances, import).
 
-import { fluxEnvies, retenueAvance, repartirRetenue, repartirReste } from './envies.js';
+import { fluxEnvies, retenueAvance, repartirRetenue, repartirReste, partsReste } from './envies.js';
 import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, nouvelId, reinitialiserJauge, ecrireMeta } from './store.js';
 import { cloturerJours } from './restes.js';
 import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, REGLES_DEFAUT, normaliserTexte } from './rules.js';
@@ -190,7 +190,7 @@ export async function virerPrivations(pocheId = null, auto = []) {
   // Partagées entre les épargnes (réglage « partage ») : pocheId null → répartition comme l'épargne du mois
   const cible = pocheId || (etat.profil.arrondi?.pocheId === 'partage' ? null : etat.poches.find((p) => p.id === etat.profil.arrondi?.pocheId && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'remboursementAnticipe' && p.actif !== false)?.id || etat.poches.find((p) => p.type === 'coussin' && p.actif !== false)?.id || null);
   // Reste de la journée : 40 % prêt / 30 % sécurité (les 30 % de l'envie sont restés sur le compte)
-  const parts = repartirReste(total, etat.poches || []);
+  const parts = repartirReste(total, etat.poches || [], partsReste(etat));
   const tx = await enregistrerVirementEpargne({ montantCentimes: total, pocheId: parts ? null : cible, repartition: parts, type: 'privation', libelle: 'Reste de la journée viré sur l’épargne' });
   // Les repas automatiques virés sont enregistrés : leur jour est figé, une dépense ajoutée ensuite ne les change plus
   await enregistrerLot(aVirer.map((p) => ({ collection: 'privations', valeur: { ...p, id: p.auto ? nouvelId('priv') : p.id, vireLe: date, virementId: tx.id, ...figer(p) } })));

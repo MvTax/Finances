@@ -6,7 +6,7 @@ import { ouvrirFeuille } from '../ui/sheet.js';
 import { carte, champ, champMontant, bouton } from '../ui/composants.js';
 import { toast } from '../ui/toast.js';
 import { etat, majProfil, nouvelId } from '../store.js';
-import { fluxEnvies, typeEnvie, TYPES_ENVIE, estimationDuJour, journeesPourFinir, PARTS_RESTE, RETENUE_AVANCE } from '../envies.js';
+import { fluxEnvies, typeEnvie, TYPES_ENVIE, estimationDuJour, journeesPourFinir, partsReste, RETENUE_AVANCE } from '../envies.js';
 import { jaugeDuJour, periodeBudget, depensesVariables } from '../calculs.js';
 import { ajouterTransaction, nouvelleTransaction } from '../actions.js';
 import { compteRevolut, compteParDefaut } from '../revolut.js';
@@ -62,8 +62,9 @@ export function carteEnvie() {
   const auj = aujourdhui();
   const j = jaugeDuJour(etat, auj, etat.meta?.jauge || null);
   const depense = depensesVariables(etat, auj, auj) > 0;
-  const soir = estimationDuJour(j.restantAujourdhuiCentimes, depense, j.parJourCentimes);
-  const nb = journeesPourFinir(e.resteCentimes, j.parJourCentimes);
+  const partEnvie = partsReste(etat).envie / 100;
+  const soir = estimationDuJour(j.restantAujourdhuiCentimes, depense, j.parJourCentimes, partEnvie);
+  const nb = journeesPourFinir(e.resteCentimes, j.parJourCentimes, partEnvie);
   const sortie = e.sortieLe && e.sortieLe > auj ? diffJours(auj, e.sortieLe) : null;
   const autres = f.envies.filter((x) => x.id !== e.id && !(x.complete && x.achat)).length;
   const barre = h('div', { class: 'envie-barre', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(e.cibleCentimes / 100), 'aria-valuenow': String(e.cumulCentimes / 100), 'aria-label': `${e.nom} : ${formatEuros(e.cumulCentimes)} de côté sur ${formatEuros(e.cibleCentimes)}` },
@@ -74,7 +75,7 @@ export function carteEnvie() {
   else if (e.complete && e.achat) etatLigne = h('p', { class: 'envie-statut debloque' }, '✓ Mérité jusqu’au bout');
   else etatLigne = h('p', { class: 'envie-soir' }, soir.superFlamme
     ? ['Ce soir si tu ne dépenses rien : ', h('strong', {}, `+${eur(soir.montantCentimes)}`)]
-    : ['Ce soir : ', h('strong', {}, `+${eur(soir.montantCentimes)}`), ' (30 % de ce qui te reste)']);
+    : ['Ce soir : ', h('strong', {}, `+${eur(soir.montantCentimes)}`), ` (${Math.round(partEnvie * 100)} % de ce qui te reste)`]);
   return h('section', { class: `envie envie-${t.id}`, 'aria-labelledby': `envie-${e.id}` },
     decor(t.id),
     h('div', { class: 'envie-contenu' },
@@ -122,6 +123,7 @@ export function feuilleEnvies() {
 }
 
 function regles() {
+  const PARTS_RESTE = partsReste(etat);
   return h('details', { class: 'details-discret envies-regles' }, h('summary', {}, 'Comment ça se remplit'),
     h('p', { class: 'petit' }, `Chaque matin à 5 h, ce qui reste de ta part de la veille (ce que tu avais le droit de dépenser moins ce que tu as dépensé) est partagé : ${PARTS_RESTE.pret} % épargne du prêt, ${PARTS_RESTE.securite} % épargne sécurité, ${PARTS_RESTE.envie} % ton envie. Exemple : 13 € de part, 3 € dépensés : 10 € partagés (4 €, 3 €, 3 €). Rien dépensé : les 13 € partagés. L’épargne du mois et les arrondis ne sont pas concernés.`),
     h('p', { class: 'petit' }, 'L’argent de l’envie reste sur ton compte courant (il n’est pas viré sur l’épargne) : c’est lui qui paiera l’achat. Une envie se remplit à la fois, dans l’ordre de la liste.'),
