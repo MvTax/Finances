@@ -14,7 +14,9 @@ import { statsDepenses } from '../strategie/stats.js';
 const eur = (c) => (estMasque() ? '•••,•• €' : formatEuros(c));
 const rond = (c) => (estMasque() ? '••• €' : formatEuros(c, { sansCentimes: true }));
 const court = (c) => (estMasque() ? '••' : `${Math.round(c / 100)} €`);
-const TRANCHES = [[0, 0, '0 €'], [1, 500, '≤ 5'], [501, 1000, '≤ 10'], [1001, 2000, '≤ 20'], [2001, 4000, '≤ 40'], [4001, Infinity, '> 40']];
+// [min, max en centimes, étiquette sous la barre, la même tranche dans une phrase]
+const TRANCHES = [[0, 0, '0 €', 'à 0 €'], [1, 500, '≤ 5 €', 'à 5 € ou moins'], [501, 1000, '≤ 10 €', 'entre 5 et 10 €'], [1001, 2000, '≤ 20 €', 'entre 10 et 20 €'],
+  [2001, 4000, '≤ 40 €', 'entre 20 et 40 €'], [4001, Infinity, '> 40 €', 'à plus de 40 €']];
 
 export function rendre(vue) {
   const auj = aujourdhui();
@@ -28,7 +30,7 @@ export function rendre(vue) {
   const regularite = st.recents.cv <= 0.6 ? 'régulier' : st.recents.cv <= 1.1 ? 'variable' : 'en dents de scie';
   const dern = st.serie.slice(-28);
   const glissante = dern.map((_, i) => { const f = dern.slice(Math.max(0, i - 6), i + 1); return Math.round(f.reduce((t, x) => t + x.centimes, 0) / f.length); });
-  const histo = TRANCHES.map(([min, max, nom]) => ({ nom, valeur: st.serie.filter((x) => x.centimes >= min && x.centimes <= max).length }));
+  const histo = TRANCHES.map(([min, max, nom, phrase]) => ({ nom, phrase, valeur: st.serie.filter((x) => x.centimes >= min && x.centimes <= max).length }));
   const plusFrequent = [...histo].sort((a, b) => b.valeur - a.valeur)[0];
   const tendance = st.tendance.sens === 'stable' ? 'stable' : `${st.tendance.sens === 'hausse' ? '+' : '−'}${eur(Math.abs(st.tendance.parSemaineCentimes))}`;
   vue.replaceChildren(h('div', { class: 'st' },
@@ -47,8 +49,8 @@ export function rendre(vue) {
         repere: part > 0 ? { valeur: part, texte: `ta part : ${court(part)}` } : null, description: 'Dépense moyenne par jour de la semaine' }),
       st.jourCher ? h('p', { class: 'note' }, `Le plus cher : le ${JOURS_LONGS[st.jourCher.jour - 1]}, ${eur(st.jourCher.moyenneCentimes)} en moyenne. Le plus sage : le ${JOURS_LONGS[st.jourSage.jour - 1]}, ${eur(st.jourSage.moyenneCentimes)}.`) : null),
     panneau('À quoi ressemble une journée',
-      barres({ valeurs: histo.map((x) => ({ ...x, fort: x === plusFrequent })), format: (n) => `${n} j`, description: 'Nombre de jours par tranche de dépense', hauteur: 130 }),
-      h('p', { class: 'note' }, `Le cas le plus fréquent : une journée à ${plusFrequent.nom === '0 €' ? '0 €' : `${plusFrequent.nom.replace('≤', 'moins de').replace('>', 'plus de')} €`} (${plusFrequent.valeur} jours sur ${st.jours}).`)),
+      barres({ valeurs: histo.map((x) => ({ ...x, fort: x === plusFrequent })), format: (n) => `${n} j`, description: `Nombre de jours par tranche de dépense : ${histo.map((x) => `${x.nom}, ${x.valeur} jours`).join(' ; ')}`, hauteur: 140, classe: 'barres-lisibles' }),
+      h('p', { class: 'note' }, `Le cas le plus fréquent : une journée ${plusFrequent.phrase} (${plusFrequent.valeur} jour${plusFrequent.valeur > 1 ? 's' : ''} sur ${st.jours}).`)),
     st.categories.length ? panneau('Où ça part', h('div', { class: 'habitudes-cats' }, st.categories.map((c) => h('div', { class: 'habitudes-cat' },
       h('span', {}, nomCategorie(c.categorie)), h('b', {}, `${rond(c.montantCentimes)}`), h('small', {}, `${c.part} %`),
       barreRepere({ part: c.part / 100, etat: 'ok', description: `${nomCategorie(c.categorie)} : ${c.part} % des dépenses du quotidien` }))))) : null,

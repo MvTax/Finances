@@ -478,8 +478,8 @@
 :root[data-app="v100"] .fourchette.negatif .fourchette-legende .centre b { color: var(--rouge); }
 
 /* Barres verticales */
-:root[data-app="v100"] .barres .barre { fill: var(--serie-1); opacity: .62; }
-:root[data-app="v100"] .barres .barre.fort { fill: var(--accent); opacity: 1; }
+:root[data-app="v100"] .barres .graphe-barre { fill: var(--serie-1); opacity: .62; }
+:root[data-app="v100"] .barres .graphe-barre.fort { fill: var(--accent); opacity: 1; }
 :root[data-app="v100"] .barres .barre-valeur { fill: var(--texte-2); font-size: 10.5px; }
 :root[data-app="v100"] .barres .barre-valeur.fort { fill: var(--texte); font-weight: 650; }
 
@@ -506,3 +506,12 @@
 :root[data-app="v100"] .confirmation-boutons { display: flex; gap: 8px; }
 :root[data-app="v100"] .confirmation-boutons .btn { flex: 1; }
 @media (prefers-reduced-motion: reduce) { :root[data-app="v100"] .confirmation { transition: none; } }
+
+/* ---------- 1.40.0, vérification à l'écran (390 × 844) ---------- */
+/* Histogramme « À quoi ressemble une journée » : tranches et nombres de jours plus lisibles */
+:root[data-app="v100"] .barres-lisibles .graphe-axe { font-size: 12.5px; }
+:root[data-app="v100"] .barres-lisibles .barre-valeur { font-size: 12.5px; }
+/* La bulle « +5 XP » passe en haut de l'écran : en bas, elle couvrait la carte de confirmation */
+:root[data-app="v100"] .bulle-xp { top: calc(env(safe-area-inset-top) + 64px); bottom: auto; }
+/* L'envie, ouverte depuis l'Accueil : la carte occupe la fiche */
+:root[data-app="v100"] .fiche-envie .envie { margin: 0; }

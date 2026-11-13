@@ -219,13 +219,13 @@ export function fourchette({ bas, attendu, haut, format, description }) {
  * @param {{ valeurs: Array<{ nom: string, valeur: number, fort?: boolean, vide?: boolean }>, format: (v: number) => string,
  *   repere?: { valeur: number, texte: string }, description: string, hauteur?: number }} o
  */
-export function barres({ valeurs, format, repere = null, description, hauteur = 150 }) {
+export function barres({ valeurs, format, repere = null, description, hauteur = 150, classe = '' }) {
   const W = 320; const H = hauteur; const haut = 18; const bas = 20;
   const max = Math.max(1, ...valeurs.map((v) => v.valeur), repere?.valeur || 0) * 1.08;
   const pas = W / valeurs.length;
   const l = Math.min(30, pas * 0.62);
   const y = (v) => haut + (H - haut - bas) * (1 - v / max);
-  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'graphe-svg barres', role: 'img', 'aria-label': description });
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `graphe-svg barres ${classe}`.trim(), role: 'img', 'aria-label': description });
   svg.append(s('line', { x1: 0, x2: W, y1: H - bas, y2: H - bas, class: 'graphe-grille zero' }));
   if (repere && repere.valeur > 0) {
     svg.append(s('line', { x1: 0, x2: W, y1: y(repere.valeur).toFixed(1), y2: y(repere.valeur).toFixed(1), class: 'graphe-repere' }));
@@ -235,7 +235,7 @@ export function barres({ valeurs, format, repere = null, description, hauteur = 
     const cx = pas * i + pas / 2;
     const yy = y(Math.max(0, v.valeur));
     const hh = Math.max(v.vide ? 0 : 2, H - bas - yy);
-    if (!v.vide) svg.append(s('rect', { x: (cx - l / 2).toFixed(1), y: yy.toFixed(1), width: l.toFixed(1), height: hh.toFixed(1), rx: 4, class: `barre ${v.fort ? 'fort' : ''}` }));
+    if (!v.vide) svg.append(s('rect', { x: (cx - l / 2).toFixed(1), y: yy.toFixed(1), width: l.toFixed(1), height: hh.toFixed(1), rx: 4, class: `graphe-barre ${v.fort ? 'fort' : ''}` }));
     svg.append(s('text', { x: cx.toFixed(1), y: (yy - 5).toFixed(1), class: `graphe-axe barre-valeur ${v.fort ? 'fort' : ''}`, 'text-anchor': 'middle' }, v.vide ? '–' : format(v.valeur)));
     svg.append(s('text', { x: cx.toFixed(1), y: H - 6, class: 'graphe-axe', 'text-anchor': 'middle' }, v.nom));
   });

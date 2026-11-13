@@ -1,5 +1,5 @@
 // cockpit.js (v100) — l'Accueil de v100, volontairement court : ce qu'il reste aujourd'hui, les deux gestes du quotidien,
-// puis trois lignes (épargne, mois, série), l'envie en cours et, s'il y en a une, la chose à faire.
+// puis quatre lignes (épargne, mois, série, envie) et, s'il y en a une, la chose à faire. La carte de l'envie est dans sa fiche.
 // Aucun calcul n'est affiché ici : chaque « ? » ouvre une fiche (fiches.js) avec le schéma, le calcul et les statistiques.
 // Le score, les voyants, la projection et les outils vivent dans l'onglet Stratégie.
 
@@ -13,22 +13,22 @@ import { verdictMois } from '../../verdict.js';
 import { profilJeu } from '../../jeu.js';
 import { aujourdhui, formatJourLong, formatDateCourte } from '../../dates.js';
 import { formatEuros } from '../../money.js';
-import { carteEnvie } from '../../pages/envies.js';
+import { fluxEnvies, typeEnvie } from '../../envies.js';
 import { elementsATraiter, ligneATraiter } from '../../pages/a-traiter.js';
 import { bandeaux, puceSansDepense, feuilleVerdict } from '../../pages/accueil.js';
 import { feuilleJeu } from '../../pages/accueil-joyeux.js';
 import { cadran } from '../ui/graphes.js';
 import { briefDuJour } from '../strategie/brief.js';
-import { boutonQ, ficheJour, ficheMois, ficheEpargne, totalEpargne } from './fiches.js';
+import { boutonQ, ficheJour, ficheMois, ficheEpargne, ficheEnvie, totalEpargne } from './fiches.js';
 
 export const titre = 'Accueil';
 
 const euros = (c) => (estMasque() ? '•••,•• €' : formatEuros(c));
 
 /** Une ligne de l'Accueil : un nom, un chiffre, et le « ? » qui ouvre l'explication. */
-function ligne({ ic, nom, valeur, sous = null, ouvrir, classe = '' }) {
+function ligne({ ic, emoji = null, nom, valeur, sous = null, ouvrir, classe = '' }) {
   return h('button', { type: 'button', class: `ck-ligne ${classe}`, onclick: ouvrir },
-    h('span', { class: 'ck-ligne-icone', 'aria-hidden': 'true' }, ic.length <= 2 ? ic : icone(ic)),
+    h('span', { class: 'ck-ligne-icone', 'aria-hidden': 'true' }, emoji || icone(ic)),
     h('span', { class: 'ck-ligne-texte' }, h('span', { class: 'ck-ligne-nom' }, nom), sous ? h('small', {}, sous) : null),
     h('strong', { class: 'ck-ligne-valeur' }, valeur),
     h('span', { class: 'q', 'aria-hidden': 'true' }, '?'),
@@ -86,7 +86,8 @@ export function rendre(vue) {
   const lignes = h('section', { class: 'ck-lignes', 'aria-label': 'En bref' },
     ep.poches.length ? ligne({ ic: 'tirelire', nom: 'Ton épargne', valeur: euros(ep.totalCentimes), sous: ep.aVirerCentimes ? ['dont ', mt(ep.aVirerCentimes), ' à virer'] : 'tout est viré', ouvrir: ficheEpargne }) : null,
     ligne({ ic: 'calendrier', nom: 'Ce mois-ci', valeur: moisDepasse ? `−${euros(-r.resteCentimes)}` : euros(r.resteCentimes), sous: moisDepasse ? 'budget dépassé' : `pour ${j.joursRestants} jour${j.joursRestants > 1 ? 's' : ''}, jusqu’au ${formatDateCourte(r.periode.fin)}`, ouvrir: ficheMois, classe: moisDepasse ? 'alerte' : '' }),
-    ligne({ ic: '🔥', nom: 'Ta série', valeur: `${jeu.serie} jour${jeu.serie > 1 ? 's' : ''}`, sous: `niveau ${jeu.niveau.numero}, ${jeu.niveau.nom.toLowerCase()}`, ouvrir: () => feuilleJeu() }));
+    ligne({ emoji: '🔥', nom: 'Ta série', valeur: `${jeu.serie} jour${jeu.serie > 1 ? 's' : ''}`, sous: `niveau ${jeu.niveau.numero}, ${jeu.niveau.nom.toLowerCase()}`, ouvrir: () => feuilleJeu() }),
+    ligneEnvie());
 
   // --- Une seule chose à faire, quand il y en a une
   const premiere = briefDuJour(etat, auj).priorites.find((p) => p.gravite === 'critique' || p.gravite === 'attention');
@@ -97,7 +98,17 @@ export function rendre(vue) {
 
   const aTraiter = elementsATraiter(bandeaux(r, auj), auj);
   const comprendre = h('button', { type: 'button', class: 'ck-comprendre', onclick: () => aller('strategie') }, h('span', {}, 'Tout comprendre : score, prêt, projection'), icone('suivant'));
-  vue.replaceChildren(h('div', { class: 'ck' }, ...[entete, tableau, actions, aFaire, lignes, carteEnvie(), ligneATraiter(aTraiter), comprendre].filter(Boolean)));
+  vue.replaceChildren(h('div', { class: 'ck' }, ...[entete, tableau, actions, aFaire, lignes, ligneATraiter(aTraiter), comprendre].filter(Boolean)));
+}
+
+/** L'envie en une ligne : où elle en est (en %) ; la carte complète s'ouvre dans sa fiche. */
+function ligneEnvie() {
+  const f = fluxEnvies(etat);
+  if (!f.envies.length) return ligne({ ic: 'etoile', nom: 'Une envie ?', valeur: '', sous: 'ajoute-la : chaque journée sans dépense la rapproche', ouvrir: ficheEnvie });
+  const e = f.active || f.envies[f.envies.length - 1];
+  const pct = e.cibleCentimes ? Math.min(100, Math.floor((e.cumulCentimes / e.cibleCentimes) * 100)) : 0;
+  return ligne({ emoji: typeEnvie(e.type).emoji, nom: 'Ton envie', valeur: `${pct} %`,
+    sous: e.complete ? `${e.nom}, c’est bon !` : [`${e.nom}, encore `, mt(e.resteCentimes)], ouvrir: ficheEnvie });
 }
 
 /** Une priorité du brief : pastille de gravité, titre, phrase ; touche = aller à l'écran concerné. */

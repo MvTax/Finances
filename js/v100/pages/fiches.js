@@ -15,6 +15,7 @@ import { cascade, partage, fourchette, barres, barreRepere, etincelle } from '..
 import { statsDepenses, contexteDepense, previsionMois } from '../strategie/stats.js';
 import { suiviEnveloppes } from '../strategie/enveloppes.js';
 import { projeter } from '../strategie/projection.js';
+import { carteEnvie } from '../../pages/envies.js';
 import { cascadeJour, partageDuReste, reglePartage, effetDepense } from '../strategie/explications.js';
 
 const eur = (c) => (estMasque() ? '•••,•• €' : formatEuros(c));
@@ -201,6 +202,13 @@ export function ficheEpargne() {
     ],
     liens: [['Mon épargne en détail', 'epargne'], ['Changer le partage', 'strategie/repartition'], ['Plan du prêt', 'strategie/pret']],
   });
+}
+
+// ---------- Ton envie ----------
+
+/** La carte complète de l'envie (barre, ce soir, rythme), sortie de l'Accueil pour qu'il reste court. */
+export function ficheEnvie() {
+  return ouvrirFeuille({ titre: 'Ton envie', contenu: h('div', { class: 'fiche fiche-envie' }, carteEnvie()) });
 }
 
 // ---------- Une dépense qui vient d'être notée ----------

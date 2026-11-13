@@ -21,7 +21,8 @@ const eur = (c) => (estMasque() ? '•••,•• €' : formatEuros(c));
 export function confirmation({ titre, lignes, expliquer = null, annuler = null }) {
   courante?.fermer();
   let minuteur = null;
-  const fermer = () => { clearTimeout(minuteur); el.classList.remove('visible'); setTimeout(() => el.remove(), 250); if (courante?.el === el) courante = null; };
+  // Elle se ferme aussi dès qu'on change de page : elle parle de l'écran qu'on vient de quitter
+  const fermer = () => { clearTimeout(minuteur); window.removeEventListener('hashchange', fermer); el.classList.remove('visible'); setTimeout(() => el.remove(), 250); if (courante?.el === el) courante = null; };
   const el = h('div', { class: 'confirmation', role: 'status' },
     h('p', { class: 'confirmation-tete' }, icone('ok'), h('span', {}, titre),
       h('button', { type: 'button', class: 'confirmation-fermer', 'aria-label': 'Fermer', onclick: () => fermer() }, icone('fermer'))),
@@ -33,6 +34,7 @@ export function confirmation({ titre, lignes, expliquer = null, annuler = null }
   requestAnimationFrame(() => el.classList.add('visible'));
   const armer = (ms) => { clearTimeout(minuteur); minuteur = setTimeout(fermer, ms); };
   armer(DUREE);
+  window.addEventListener('hashchange', fermer);
   el.addEventListener('touchstart', () => clearTimeout(minuteur), { passive: true });
   el.addEventListener('touchend', () => armer(3000));
   courante = { el, fermer };
