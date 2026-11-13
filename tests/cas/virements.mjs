@@ -106,7 +106,7 @@ export default [
   { nom: 'historique de la cagnotte : chaque ajout avec sa source, le total à virer = le virement de la semaine', fn: () => {
     const e = etat({ transactions: [tx({ date: '2026-11-06', montant: 1207, categorie: 'abonnements', marchand: 'Streaming' }), tx({ date: '2026-11-09', montant: 340, marchand: 'Boulangerie' })],
       privations: [{ id: 'p', date: '2026-11-09', libelle: 'Un menu au fast-food', montantCentimes: 1000, vireLe: null }] });
-    const hst = historiqueCagnotte(e, '2026-11-10');
+    const hst = historiqueCagnotte(e, '2026-11-10', new Date('2026-11-10T20:00:00+01:00'));
     const v = aVirerEpargne(e, '2026-11-10');
     egal(hst.aVirerCentimes, v.semaineCentimes);
     const arr = hst.lignes.filter((l) => l.source === 'arrondi');

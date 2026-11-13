@@ -14,7 +14,7 @@ import { aujourdhui, formatDate, formatMois, ajouterJours, JOURS_LONGS } from '.
 import { formatEuros, versChamp } from '../money.js';
 import { CATEGORIES, categorie, nomCategorie, definirNomsCategories } from '../categories.js';
 import { libelleRegle } from '../rules.js';
-import { exporterSauvegarde, feuilleRevenus, indicationEnvoiGemini, lireFichierJson } from './communs.js';
+import { exporterSauvegarde, exporterTableur, feuilleRevenus, indicationEnvoiGemini, lireFichierJson } from './communs.js';
 import { confirmerRevenus, declarerSolde, recategoriser } from '../actions.js';
 import { listerModeles, testerCle, choisirFlashStable, MODELE_DEFAUT, iaDisponible } from '../gemini.js';
 import { traiterFile, analyserFrigo } from '../ia.js';
@@ -34,7 +34,7 @@ const SECTIONS = {
   epargne: { titre: 'Épargne automatique', icone: 'tirelire' },
   envies: { titre: 'Mes envies', icone: 'etoile' },
   operations: { titre: 'Opérations et catégories', icone: 'liste' },
-  sauvegarde: { titre: 'Sauvegarde', icone: 'partage' },
+  sauvegarde: { titre: 'Sauvegarde et export', icone: 'partage' },
   profil: { titre: 'Profil', icone: 'personnes' },
   confidentialite: { titre: 'Confidentialité et apparence', icone: 'cadenas' },
   gemini: { titre: 'Gemini (IA)', icone: 'etoile' },
@@ -164,6 +164,7 @@ function cartesSection(id) {
       h('p', { class: 'petit' }, 'Hors de cette fourchette, l’app te demande de qualifier le virement.'))),
   ];
   if (id === 'sauvegarde') return [
+    carteExport(),
     carte('Sauvegarde', h('div', {},
       h('p', {}, pa.derniereSauvegarde ? `Dernière sauvegarde : ${formatDate(pa.derniereSauvegarde.slice(0, 10))}.` : 'Aucune sauvegarde pour l’instant.'),
       h('p', { class: 'petit' }, 'Tes données ne vivent que sur cet iPhone (aucun serveur) et Safari peut les effacer s’il manque de place. Une fois par semaine, l’Accueil te le rappelle : un toucher, puis « Enregistrer dans Fichiers » → iCloud Drive.'),
@@ -232,6 +233,31 @@ export async function forcerMiseAJour() {
     f.fermer();
     toastErreur(`Mise à jour impossible : ${e.message}. Réessaie avec une connexion internet.`);
   }
+}
+
+/** « Exporter mes données » : ce que contient le fichier complet, et le tableau des opérations. */
+function carteExport() {
+  const n = (k) => (etat[k] || []).length;
+  const nb = (x, s1, pl) => `${x.toLocaleString('fr-FR')} ${x > 1 ? pl : s1}`;
+  const envies = (etat.profil.envies?.liste || []).length;
+  const contenu = [
+    nb(n('transactions'), 'opération', 'opérations'),
+    nb(n('comptes'), 'compte', 'comptes'),
+    nb(n('poches'), 'épargne', 'épargnes'),
+    envies ? nb(envies, 'envie', 'envies') : null,
+    nb(n('chargesFixes'), 'charge fixe', 'charges fixes'),
+    n('prets') + n('creditsBancaires') ? nb(n('prets') + n('creditsBancaires'), 'dette ou crédit', 'dettes et crédits') : null,
+    n('privations') ? nb(n('privations'), 'privation', 'privations') : null,
+    nb(n('reglesCategorie'), 'règle', 'règles'),
+  ].filter(Boolean);
+  const chiffre = !!etat.parametres.motDePasseSauvegarde;
+  return carte('Exporter mes données', h('div', { class: 'formulaire' },
+    h('p', {}, `Le fichier complet contient tout : ${contenu.join(', ')}, ton profil, tes réglages, ton plan, et l’historique (restes des journées, journées sans dépense, flammes, points).`),
+    h('p', { class: 'petit' }, `Pour tout retrouver sur une autre app ou un autre iPhone : Réglages → Sauvegarde et export → Restaurer, puis choisis ce fichier. Ne sont jamais dans le fichier : ta clé Gemini et ton code PIN.${chiffre ? ' Le fichier est chiffré : il faudra ton mot de passe des sauvegardes pour l’ouvrir.' : ''}`),
+    h('div', { class: 'groupe-boutons' },
+      bouton(chiffre ? 'Tout exporter (chiffré)' : 'Tout exporter', () => exporterSauvegarde(), { classe: 'btn-principal btn-petit', icone: 'partage' }),
+      bouton('Mes opérations en tableau', () => exporterTableur(), { classe: 'btn-petit', icone: 'liste' })),
+    h('p', { class: 'petit' }, 'Le tableau (CSV) s’ouvre dans Numbers ou Excel : pour lire tes opérations, pas pour restaurer.')));
 }
 
 /** Mot de passe des sauvegardes : le fichier envoyé sur iCloud est chiffré (AES-256), illisible sans lui. */

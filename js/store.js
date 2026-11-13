@@ -402,6 +402,19 @@ export async function ecrireMeta(cle, valeur, { avertir = false } = {}) {
   if (avertir) notifier('meta');
 }
 
+/**
+ * Remet l'historique d'une sauvegarde (restes des journées, journées sans dépense, flammes, points…).
+ * remplacer : le fichier gagne ; sinon on complète sans rien écraser (voir historiqueARestaurer).
+ */
+export async function restaurerHistorique(metaFichier, { remplacer = false } = {}) {
+  const { historiqueARestaurer } = await import('./sauvegarde.js');
+  const ecrire = historiqueARestaurer(etat.meta, metaFichier || {}, { remplacer });
+  if (!ecrire.length) return 0;
+  for (const [cle, valeur] of ecrire) etat.meta[cle] = valeur;
+  await db.ecrireLot(ecrire.map(([cle, valeur]) => ({ store: 'meta', valeur: { cle, valeur } })));
+  return ecrire.length;
+}
+
 /** Remplace toutes les données par un contenu de sauvegarde (secrets locaux conservés). */
 export async function remplacerTout(contenu) {
   const secrets = { cleGemini: etat.parametres.cleGemini, pinHash: etat.parametres.pinHash, pinSel: etat.parametres.pinSel, pinIterations: etat.parametres.pinIterations, motDePasseSauvegarde: etat.parametres.motDePasseSauvegarde };
@@ -422,6 +435,7 @@ export async function remplacerTout(contenu) {
   const { basesDepuisContenu } = await import('./miseajour.js');
   for (const [k, v] of Object.entries({ baseProfil: contenu.profil || null, baseParametres: contenu.parametres || null, baseFichier: basesDepuisContenu(contenu), supprimes: {} })) { etat.meta[k] = v; ops.push({ store: 'meta', valeur: { cle: k, valeur: v } }); }
   await db.ecrireLot(ops);
+  await restaurerHistorique(contenu.meta, { remplacer: true });
   notifier('restauration');
 }
 

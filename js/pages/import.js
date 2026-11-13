@@ -4,7 +4,7 @@ import { h, icone, mt } from '../ui/dom.js';
 import { carte, bouton, champ, selectionner, etatVide, pastillesCategories, interrupteur, ligneTransaction } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
 import { toast, toastErreur } from '../ui/toast.js';
-import { etat, majParametres, majProfil, remplacerTout, enregistrerLot, appliquerMiseAJour } from '../store.js';
+import { etat, majParametres, majProfil, remplacerTout, enregistrerLot, appliquerMiseAJour, restaurerHistorique } from '../store.js';
 import { planifierMiseAJour, resumeMiseAJour, basesDepuisContenu, ESTAMPILLES_HISTORIQUES } from '../miseajour.js';
 import { recalculerTousAjustements } from '../actions.js';
 import { aller } from '../router.js';
@@ -290,6 +290,7 @@ export async function mettreAJourDepuisFichier(objet, r, { apres } = {}) {
       bouton('Annuler', () => f.fermer()),
       bouton('Mettre à jour', async () => {
         await appliquerMiseAJour(plan, { estampille, baseProfil: r.contenu.profil || null, baseParametres: r.contenu.parametres || null, bases: basesDepuisContenu(r.contenu) });
+        await restaurerHistorique(r.contenu.meta); // complète l'historique sans rien écraser
         await recalculerTousAjustements();
         f.fermer(); toast(`Mis à jour : ${resumeMiseAJour(plan)}.`, { type: 'succes' }); apres?.();
       }, { classe: 'btn-principal' }),
