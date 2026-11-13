@@ -47,8 +47,10 @@ try { const r = await fetch(BASE); if (!r.ok) throw new Error(`HTTP ${r.status}`
   console.error(`Serveur injoignable (${BASE}) : lance « python3 -m http.server 8765 » à la racine du dépôt. (${e.message})`);
   process.exit(2);
 }
-const FICHIER = path.join(DOSSIER, 'sauvegarde-synthetique.json');
-execFileSync(process.execPath, [path.join(RACINE, 'tests/outils/generer-sauvegarde.mjs'), FICHIER, '--aujourdhui', AUJ], { stdio: 'ignore' });
+// --fichier <chemin> : restaure une sauvegarde existante (toujours HORS du dépôt) au lieu de la sauvegarde synthétique.
+const FICHIER_DONNE = valeur('--fichier', null);
+const FICHIER = FICHIER_DONNE ? path.resolve(FICHIER_DONNE) : path.join(DOSSIER, 'sauvegarde-synthetique.json');
+if (!FICHIER_DONNE) execFileSync(process.execPath, [path.join(RACINE, 'tests/outils/generer-sauvegarde.mjs'), FICHIER, '--aujourdhui', AUJ], { stdio: 'ignore' });
 const ORIGINAL = JSON.parse(readFileSync(FICHIER, 'utf8'));
 
 const navigateur = await chromium.launch();
