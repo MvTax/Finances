@@ -5,7 +5,9 @@ import { ouvrirFeuille } from '../ui/sheet.js';
 import { champ, champMontant, bouton } from '../ui/composants.js';
 import { toast, toastErreur } from '../ui/toast.js';
 import { etat, majParametres } from '../store.js';
-import { construireExport, nomFichierExport } from '../sauvegarde.js';
+import { construireExport, nomFichierExport, csvOperations } from '../sauvegarde.js';
+import { nomCategorie } from '../categories.js';
+import { versionApp } from '../version.js';
 import { revenusDuMois } from '../calculs.js';
 import { confirmerRevenus } from '../actions.js';
 import { aujourdhui, formatMois } from '../dates.js';
@@ -13,26 +15,42 @@ import { formatEuros } from '../money.js';
 import { chiffrer, dechiffrer, estChiffre } from '../chiffrement.js';
 
 /** Export JSON complet : feuille de partage iOS (fichier) avec repli téléchargement. */
+/** Feuille de partage iOS (« Enregistrer dans Fichiers », AirDrop…), avec repli téléchargement. false si annulé. */
+async function partagerFichier(texte, nom, type, titre) {
+  const fichier = new File([texte], nom, { type });
+  if (navigator.canShare?.({ files: [fichier] })) {
+    try { await navigator.share({ files: [fichier], title: titre }); return true; } catch (e) { if (e?.name === 'AbortError') return false; }
+  }
+  const url = URL.createObjectURL(fichier);
+  const a = h('a', { href: url, download: nom });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return true;
+}
+
+/** Export complet (JSON) : toutes les données et l'historique, sans les secrets. Chiffré si un mot de passe est réglé. */
 export async function exporterSauvegarde() {
   try {
-    const donnees = construireExport(etat);
-    // Chiffrée si un mot de passe des sauvegardes est réglé : illisible sans lui, même sur iCloud
+    const donnees = construireExport(etat, { version: versionApp });
     const mdp = etat.parametres.motDePasseSauvegarde;
     const texte = mdp ? JSON.stringify(await chiffrer(JSON.stringify(donnees), mdp)) : JSON.stringify(donnees);
     const nom = mdp ? nomFichierExport(aujourdhui()).replace(/\.json$/, '-chiffree.json') : nomFichierExport(aujourdhui());
-    const fichier = new File([texte], nom, { type: 'application/json' });
-    let partage = false;
-    if (navigator.canShare?.({ files: [fichier] })) {
-      try { await navigator.share({ files: [fichier], title: 'Sauvegarde Budget' }); partage = true; } catch (e) { if (e?.name === 'AbortError') return false; }
-    }
-    if (!partage) {
-      const url = URL.createObjectURL(fichier);
-      const a = h('a', { href: url, download: nom });
-      document.body.append(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    }
+    if (!await partagerFichier(texte, nom, 'application/json', 'Sauvegarde Budget')) return false;
     await majParametres({ derniereSauvegarde: new Date().toISOString() });
-    toast(`Sauvegarde${mdp ? ' chiffrée' : ''} exportée : ${donnees.contenu.transactions.length.toLocaleString('fr-FR')} transactions.`, { type: 'succes' });
+    toast(`Sauvegarde${mdp ? ' chiffrée' : ''} exportée : ${donnees.contenu.transactions.length.toLocaleString('fr-FR')} opérations et tout le reste.`, { type: 'succes' });
+    return true;
+  } catch (e) {
+    toastErreur(`Export impossible : ${e.message}`);
+    return false;
+  }
+}
+
+/** Toutes les opérations en tableau (CSV pour Numbers ou Excel). Jamais chiffré : c'est un fichier à lire, pas à restaurer. */
+export async function exporterTableur() {
+  try {
+    const texte = csvOperations(etat, nomCategorie);
+    if (!await partagerFichier(texte, `budget-operations-${aujourdhui()}.csv`, 'text/csv', 'Opérations Budget')) return false;
+    toast(`Tableau exporté : ${etat.transactions.length.toLocaleString('fr-FR')} opérations.`, { type: 'succes' });
     return true;
   } catch (e) {
     toastErreur(`Export impossible : ${e.message}`);

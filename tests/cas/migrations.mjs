@@ -1,6 +1,6 @@
 import { egal, vrai } from '../outils/assert.mjs';
 import { SCHEMA_VERSION, migrerContenu, appliquerSchema, MIGRATIONS } from '../../js/migrations.js';
-import { construireExport, lireSauvegarde, fusionner } from '../../js/sauvegarde.js';
+import { construireExport, lireSauvegarde, fusionner, historiqueARestaurer, csvOperations, META_HISTORIQUE } from '../../js/sauvegarde.js';
 
 function fausseBase(existants = []) {
   const stores = new Map(existants.map((n) => [n, { indexNames: new Set(), createIndex(i) { this.indexNames.add(i); } }]));
@@ -46,5 +46,45 @@ export default [
     const f = fusionner({ ...etat, transactions: [{ id: 'a', date: '2026-01-01', montantCentimes: 999, sens: 'debit' }] }, lu.contenu);
     egal(f.transactions.length, 1); egal(f.transactions[0].montantCentimes, 999);
     vrai(!lireSauvegarde({ format: 'autre' }).ok); vrai(!lireSauvegarde({ ...exp, schemaVersion: SCHEMA_VERSION + 1 }).ok);
+  } },
+  { nom: 'sauvegarde : l’historique (restes des journées, flammes, points) part avec le fichier, sans les clés techniques', fn: () => {
+    const etat = { profil: { cle: 'profil' }, parametres: { cle: 'parametres' }, transactions: [],
+      meta: { restesJour: { '2026-11-10': { montantCentimes: 650 } }, joursVus: ['2026-11-09', '2026-11-10'], jeu: { depuis: '2026-11-05', niveauVu: 2 }, sansDepense: { jours: { '2026-11-08': true } },
+        jauge: { date: '2026-11-10' }, estampillesFichier: ['x'], baseProfil: {}, supprimes: {}, migrations: [4] } };
+    const exp = construireExport(etat, { maintenant: '2026-11-13T00:00:00Z' });
+    egal(Object.keys(exp.contenu.meta).sort().join(','), 'jeu,joursVus,restesJour,sansDepense');
+    for (const k of Object.keys(exp.contenu.meta)) vrai(META_HISTORIQUE.includes(k));
+    const lu = lireSauvegarde(JSON.parse(JSON.stringify(exp)));
+    vrai(lu.ok); egal(lu.contenu.meta.restesJour['2026-11-10'].montantCentimes, 650); egal(lu.apercu.historique, 4);
+    vrai(!lireSauvegarde({ ...exp, contenu: { ...exp.contenu, meta: [] } }).ok, 'meta doit être un objet');
+    // Restauration complète : le fichier gagne
+    const local = { joursVus: ['2026-11-12'], jeu: { depuis: '2026-11-12', niveauVu: 1 } };
+    const tout = Object.fromEntries(historiqueARestaurer(local, lu.contenu.meta, { remplacer: true }));
+    egal(tout.joursVus.join(','), '2026-11-09,2026-11-10'); egal(tout.jeu.niveauVu, 2); vrai(tout.restesJour);
+    // Mise à jour : on complète sans écraser (listes réunies, objets fusionnés, ta valeur gagne)
+    const comp = Object.fromEntries(historiqueARestaurer(local, lu.contenu.meta));
+    egal(comp.joursVus.join(','), '2026-11-09,2026-11-10,2026-11-12'); egal(comp.jeu, undefined, 'tes points locaux gardés tels quels'); vrai(comp.restesJour, 'ce qui manque est ajouté');
+    egal(historiqueARestaurer(lu.contenu.meta, lu.contenu.meta).length, 0, 'rien à écrire si identique');
+    // Fusion d'une sauvegarde : l'historique est réuni aussi
+    const f = fusionner({ ...etat, meta: local }, lu.contenu);
+    egal(f.meta.joursVus.length, 3); vrai(f.meta.restesJour['2026-11-10']);
+    // Une ancienne sauvegarde sans historique reste valable
+    const ancienne = construireExport({ ...etat, meta: {} }); delete ancienne.contenu.meta;
+    vrai(lireSauvegarde(JSON.parse(JSON.stringify(ancienne))).ok);
+  } },
+  { nom: 'export tableur : toutes les opérations en CSV pour Numbers/Excel (séparateur ;, virgule décimale, guillemets)', fn: () => {
+    const etat = { comptes: [{ id: 'c1', nom: 'Compte courant' }], transactions: [
+      { id: 'a', date: '2026-11-01', montantCentimes: 125050, sens: 'credit', categorie: 'salaire', libelle: 'Salaire', marchand: 'Employeur', compteId: 'c1', source: 'import' },
+      { id: 'b', date: '2026-11-10', montantCentimes: 1205, sens: 'debit', categorie: 'courses', libelle: 'Courses; "promo"', marchand: 'Magasin', compteId: 'c1', source: 'texte' },
+      { id: 'c', date: '2026-11-05', montantCentimes: 5000, sens: 'debit', libelle: 'Vers épargne', compteId: 'c1', virementInterne: { estInterne: true } },
+    ] };
+    const csv = csvOperations(etat, (id) => ({ salaire: 'Salaire', courses: 'Courses' }[id] || ''));
+    vrai(csv.startsWith('\uFEFF'), 'BOM pour Excel');
+    const lignes = csv.slice(1).trim().split('\r\n');
+    egal(lignes.length, 4);
+    egal(lignes[0], 'Date;Type;Montant (€);Catégorie;Libellé;Commerçant;Compte;Origine');
+    egal(lignes[1], '2026-11-10;Dépense;-12,05;Courses;"Courses; ""promo""";Magasin;Compte courant;Saisie', 'la plus récente d’abord, guillemets doublés');
+    egal(lignes[2], '2026-11-05;Virement interne;-50,00;;Vers épargne;;Compte courant;Saisie');
+    egal(lignes[3], '2026-11-01;Entrée;1250,50;Salaire;Salaire;Employeur;Compte courant;Relevé importé');
   } },
 ];
