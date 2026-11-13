@@ -28,4 +28,5 @@ export const CAS = [
   ['envies', () => import('./cas/envies.mjs')],
   ['recalcul', () => import('./cas/recalcul.mjs')],
   ['v100', () => import('./cas/v100.mjs')],
+  ['sauvegarde-synthetique', () => import('./cas/sauvegarde-synthetique.mjs')],
 ];

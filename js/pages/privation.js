@@ -42,6 +42,7 @@ export function feuillePrivation() {
     vibrer(20); f.fermer();
     const b = bilanPrivations(etat, periodeBudget(aujourdhui(), etat.profil), resteADepenser(etat, aujourdhui()).privationsAuto || []);
     feter('privation', { xp: POINTS.privation, texte: 'pièce mise de côté' });
+    if (document.documentElement.dataset.app === 'v100') { import('../v100/ui/confirmation.js').then((m) => m.confirmerPrivation(montant)).catch(() => {}); return; }
     toast(`${estJoyeux() ? '🐷 ' : ''}Bravo : ${formatEuros(montant)} mis de côté. À virer sur ton compte épargne : ${formatEuros(b.aVirerCentimes)}.`, { type: 'succes', duree: 5000 });
   });
   const f = ouvrirFeuille({

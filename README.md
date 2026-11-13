@@ -153,6 +153,22 @@ node tools/verif-statique.mjs         # imports, id, cache du SW, chemins relati
 node tests/outils/generer-fixtures.mjs  # régénère les PDF/CSV SYNTHÉTIQUES
 ```
 
+Raccourcis (depuis le dossier du projet) :
+
+```
+npm test                                  # n'affiche que les échecs, puis le total
+npm run test:detail                       # le détail de chaque test
+npm run verif                             # contrôles statiques + confidentialité (avant chaque commit)
+node tests/outils/generer-sauvegarde.mjs sortie.json   # fabrique une sauvegarde SYNTHÉTIQUE complète (options --aujourdhui, --graine)
+node tools/ecrans.mjs                     # vérifie les écrans v100 dans Chromium, en largeur iPhone
+node tools/ecrans.mjs --origine           # idem pour l'app d'origine (Classique puis Joyeux)
+node tools/ecrans.mjs --aller-retour      # restaurer → tout exporter → comparer au fichier d'origine
+node tools/ecrans.mjs --capture <écran>   # enregistre une image PNG de l'écran
+```
+
+`tools/ecrans.mjs` a besoin du serveur local (`python3 -m http.server 8765`) et de Playwright, installé hors du projet
+(le projet n'a aucune dépendance). Il utilise toujours la sauvegarde synthétique, jamais tes vraies données.
+
 `tests/index.html` lance les mêmes tests dans Safari, sur l'iPhone lui-même.
 
 ### Tests manuels sur l'iPhone
@@ -261,6 +277,58 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
+## v100 simplifié (1.40)
+
+**Le principe** : à la surface, un chiffre et une phrase. Rien d'autre. Derrière chaque « ? » ou chaque « Plus d'explications »,
+tu trouves le détail : un schéma, le calcul ligne par ligne, les statistiques, et un lien vers l'outil complet (onglet Stratégie).
+Tu lis vite si tu es pressé, tu creuses si tu veux comprendre.
+
+**À la surface de l'Accueil**
+- Ton **solde**, en haut, à côté de ton prénom (touche-le pour le détail).
+- Le cadran **« Reste aujourd'hui »** : ce qu'il te reste à dépenser aujourd'hui, sur ta part du jour. Si le mois est dépassé, il le dit.
+- Deux boutons : **« J'ai dépensé »** et **« Je me suis privé »**.
+- **Une seule chose à faire**, et seulement si elle est urgente ou importante. Sinon, rien.
+- Quatre lignes, chacune avec son « ? » : **Ton épargne**, **Ce mois-ci**, **Ta série**, **Ton envie**. Chacune ouvre une fiche.
+- « **Tout comprendre** » : ouvre l'onglet Stratégie.
+
+**La carte après une dépense ou une privation** : une petite carte apparaît avec « C'est noté », ce qu'il reste aujourd'hui et où
+en est l'épargne. Deux boutons : **Annuler** (pour défaire la saisie) et **Plus d'explications** (la fiche de la dépense). Elle se ferme
+toute seule après 9 secondes, ou dès que tu changes de page. Si tu poses le doigt dessus, elle attend.
+
+**Ce que montre chaque fiche**
+- **Ce que tu peux dépenser aujourd'hui** : d'où vient ta part du jour (tes revenus, moins les charges, les crédits, l'épargne et ce
+  que tu as déjà dépensé, divisé par les jours jusqu'au salaire), puis tes habitudes (moyenne, jour normal, jours sous ta part, jours sans dépense).
+- **Ton mois** : où tu finiras à ton rythme actuel, avec une fourchette, et le calcul ligne par ligne.
+- **Ton épargne** : où elle est (sécurité, prêt), ce que la journée d'aujourd'hui peut lui ajouter, ce qui attend d'être viré, et la trajectoire sur 12 mois.
+- **Ton envie** : la carte complète de l'envie en cours (barre, rythme).
+- **Cette dépense, en détail** (« Plus d'explications » de la carte) : l'effet sur ta journée, sur ton épargne (l'arrondi), sur ton enveloppe, sur ta fin de mois, et la place de cette dépense dans tes habitudes.
+
+**L'onglet Stratégie, en liste** : chaque ligne donne son résultat en quelques mots ; la toucher ouvre l'outil complet.
+Score, Brief du jour, Plan du prêt, Projection, Mes habitudes, Catégories, Répartition, Trésorerie. En dessous, quatre petits
+outils : Abonnements, Mois passés, Recalcul complet, « Et si j'achète ? ».
+
+### Les statistiques expliquées simplement
+
+Elles partent d'une liste : ce que tu as dépensé chaque jour terminé, sur 90 jours au plus. Un jour sans dépense compte pour 0 €.
+Le jour en cours n'en fait pas partie. Exemple inventé : sur 4 jours, tu dépenses 0 €, 10 €, 10 €, 60 €.
+
+- **Moyenne** : le total divisé par le nombre de jours. Ici 20 € par jour. Un gros jour la tire vers le haut.
+- **Médiane** : le jour du milieu. La moitié de tes jours est en dessous. Ici 10 €. Un seul gros achat ne la bouge pas.
+- **Quartiles** : le quart de tes jours est sous le premier quartile, les trois quarts sous le troisième. Ils montrent la zone où tu es le plus souvent.
+- **Écart-type** : de combien tes jours s'écartent de la moyenne, en euros. Petit : tu es régulier. Grand : tes jours sont très différents.
+- **Coefficient de variation** : l'écart-type divisé par la moyenne. Il dit si tu es régulier (jusqu'à 0,6), variable (jusqu'à 1,1) ou en dents de scie.
+- **Moyenne par jour de la semaine** : ta dépense moyenne les lundis, les mardis, etc. Elle montre ton jour le plus cher et le plus sage.
+- **Tendance** : est-ce que tu dépenses de plus en plus, ou de moins en moins ? L'app lisse tes 4 dernières semaines (moyenne sur 7 jours), trace une droite, et donne la pente par semaine. Sous 5 % de ta moyenne par semaine, c'est « stable ».
+- **Prévision de fin de mois** : ce qu'il te resterait au salaire si tu gardes ton rythme des 4 dernières semaines.
+  Exemple : 300 € restants, 10 jours à vivre, 20 € par jour : il te resterait 100 €.
+- **Fourchette à 80 %** : une zone autour de la prévision. Elle dit « 8 fois sur 10, tu finis dans cette zone ». Plus il reste de jours, plus elle est large.
+- **Probabilité de tenir** : les chances de finir le mois sans dépasser ton budget, d'après ton rythme et sa régularité.
+- **Contexte d'une dépense** : sa part de ta journée, et sa place parmi tes autres achats de la même catégorie (par exemple « plus cher que 90 % des autres »).
+
+**La limite, honnêtement** : toutes ces statistiques supposent que les prochains jours ressembleront aux derniers. Un voyage, une grosse
+dépense prévue ou un changement d'habitude ne sont pas vus. Sous 7 jours de données, l'app te prévient que les chiffres sont peu fiables.
+Prends-les comme un ordre de grandeur, pas comme une promesse. Les choix de calcul sont détaillés dans `HYPOTHESES.md`.
+
 ## v100, le Cockpit (1.39)
 
 Une deuxième app dans la même page : mêmes données, autre habillage, et un onglet **Stratégie** en plus. L'app d'origine
@@ -330,7 +398,7 @@ compte pour la veille, et l'Accueil affiche encore la veille jusqu'à 5 h. Les d
 **Super flamme** (flamme bleue) : une journée close sans aucune dépense du quotidien (les prélèvements et abonnements ne comptent pas).
 Elle garde la série, rapporte 40 XP et remplit l'envie en cours. Le détail des 14 derniers jours est dans « Mes points ».
 
-**Mes envies** (Réglages → Mes envies, ou la carte de l'Accueil) : un plaisir à mériter, par exemple un jeu à 80 €.
+**Mes envies** (Réglages → Mes envies, ou la carte de l'Accueil dans l'app d'origine ; en v100, c'est une ligne « Ton envie » sur l'Accueil qui ouvre une fiche avec la carte) : un plaisir à mériter, par exemple un jeu à 80 €.
 - La carte montre l'argent de côté, ce qu'il reste à mettre, une barre en euros, et un décor selon le type (coucher de soleil néon pour un jeu vidéo).
 - **Reste de la journée** (1.37) : ce que tu avais le droit de dépenser moins ce que tu as dépensé, compté à 5 h du matin
   (reste du jour, repas à la maison, « Je me suis privé »). Il est partagé : **40 % épargne du prêt (8000), 30 % épargne sécurité,

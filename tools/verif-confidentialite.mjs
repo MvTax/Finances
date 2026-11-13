@@ -122,7 +122,11 @@ for (const f of fichiers) {
   const texte = /\.pdf$/i.test(rel) ? [...brut.matchAll(/\(((?:\\.|[^\\)])*)\)\s*Tj/g)].map((m) => m[1]).join('\n') : brut;
   for (const [nom, re] of MOTIFS) {
     if (nom.startsWith('suite') && EXCEPTIONS_CHIFFRES.some((r) => r.test(rel))) continue;
-    for (const m of texte.matchAll(re)) problemes.push(`${rel} : ${nom} « ${m[0].slice(0, 6)}… »`);
+    for (const m of texte.matchAll(re)) {
+      // Domaines réservés aux exemples (RFC 2606) : jamais une vraie adresse.
+      if (nom === 'adresse e-mail' && /@(?:[a-z0-9-]+\.)*example(?:\.(?:com|org|net))?$/i.test(m[0])) continue;
+      problemes.push(`${rel} : ${nom} « ${m[0].slice(0, 6)}… »`);
+    }
   }
   if (termes.size && !/^vendor\//.test(rel)) {
     const n = normaliser(/\.pdf$/i.test(rel) ? texte : Buffer.from(brut, 'latin1').toString('utf8')).replace(/\s+/g, ' ');
