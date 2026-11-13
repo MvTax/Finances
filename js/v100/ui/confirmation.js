@@ -4,7 +4,7 @@
 import { h, icone, estMasque } from '../../ui/dom.js';
 import { etat } from '../../store.js';
 import { jaugeDuJour, resteADepenser, estDepenseQuotidienne } from '../../calculs.js';
-import { arrondiTransaction } from '../../epargne.js';
+import { arrondiDeLaDepense } from '../strategie/explications.js';
 import { aujourdhui, formatDateCourte } from '../../dates.js';
 import { formatEuros } from '../../money.js';
 import { estAnnoncee } from '../../sansdepense.js';
@@ -46,7 +46,7 @@ export function confirmerAjout(tx, { annuler = null } = {}) {
   const r = resteADepenser(etat, auj);
   const ep = totalEpargne(auj);
   const depense = tx.sens === 'debit';
-  const arr = depense && etat.profil.arrondi?.actif ? (arrondiTransaction(tx, etat.profil.arrondi) || 0) : 0;
+  const arr = depense ? arrondiDeLaDepense(etat, tx, auj).centimes : 0; // le même arrondi que l'épargne compte
   const nom = tx.marchand || tx.libelle || '';
   const moisDepasse = r.resteCentimes < 0;
   const dispo = j.restantAujourdhuiCentimes;

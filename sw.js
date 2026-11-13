@@ -83,6 +83,7 @@ const COQUILLE = [
   './js/v100/pages/s-score.js',
   './js/v100/pages/s-habitudes.js',
   './js/v100/strategie/stats.js',
+  './js/v100/strategie/explications.js',
   './js/v100/ui/confirmation.js',
   './js/v100/strategie/brief.js',
   './js/v100/strategie/enveloppes.js',

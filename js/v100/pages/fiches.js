@@ -5,17 +5,17 @@ import { h, icone, mt, estMasque } from '../../ui/dom.js';
 import { ouvrirFeuille } from '../../ui/sheet.js';
 import { etat } from '../../store.js';
 import { aller } from '../../router.js';
-import { resteADepenser, jaugeDuJour, depensesVariables, estDepenseQuotidienne } from '../../calculs.js';
-import { contributionDepense, nomCategorie } from '../../categories.js';
-import { soldePoche, arrondiTransaction } from '../../epargne.js';
+import { resteADepenser, jaugeDuJour, depensesVariables } from '../../calculs.js';
+import { nomCategorie } from '../../categories.js';
+import { soldePoche } from '../../epargne.js';
 import { aVirerEpargne, JOURS_PAR_VIREMENT } from '../../virements.js';
-import { partsReste, repartirReste, fluxEnvies } from '../../envies.js';
 import { aujourdhui, formatDateCourte, formatJourLong, formatMois, JOURS_COURTS, JOURS_LONGS } from '../../dates.js';
 import { formatEuros } from '../../money.js';
 import { cascade, partage, fourchette, barres, barreRepere, etincelle } from '../ui/graphes.js';
 import { statsDepenses, contexteDepense, previsionMois } from '../strategie/stats.js';
 import { suiviEnveloppes } from '../strategie/enveloppes.js';
 import { projeter } from '../strategie/projection.js';
+import { cascadeJour, partageDuReste, reglePartage, effetDepense } from '../strategie/explications.js';
 
 const eur = (c) => (estMasque() ? '•••,•• €' : formatEuros(c));
 const rond = (c) => (estMasque() ? '••• €' : formatEuros(c, { sansCentimes: true }));
@@ -53,6 +53,10 @@ function schemaSemaine(st, partCentimes) {
   });
 }
 
+/** « 40 % prêt, 30 % sécurité, 30 % pour ton envie » : seulement les parts qui reçoivent vraiment quelque chose. */
+const phrasePartage = (pc, envie) => [pc.pret ? `${pc.pret} % prêt` : '', pc.securite ? `${pc.securite} % sécurité` : '', pc.envie ? `${pc.envie} % ${envie ? `pour « ${envie.nom} »` : 'envie'}` : '',
+  pc.avance ? `${pc.avance} % pour l’avance de ton envie` : ''].filter(Boolean).join(', ') || 'rien à partager';
+
 const phraseTendance = (t) => (t.sens === 'stable' ? 'Ton rythme est stable depuis 4 semaines.'
   : `Tes dépenses ${t.sens === 'hausse' ? 'montent' : 'baissent'} d’environ ${eur(Math.abs(t.parSemaineCentimes))} par jour, chaque semaine.`);
 
@@ -68,13 +72,11 @@ const phraseProba = (p) => {
 /** Pourquoi ce montant aujourd'hui : du salaire jusqu'à la part du jour, puis ce qui est déjà parti. */
 export function ficheJour() {
   const auj = aujourdhui();
-  const r = resteADepenser(etat, auj);
   const j = jaugeDuJour(etat, auj, etat.meta?.jauge || null);
   const st = statsDepenses(etat, auj);
-  const base = j.instantane?.baseCentimes ?? r.resteCentimes + j.depensesDuJourCentimes;
-  const revenus = r.revenus.totalCentimes;
-  // « Déjà dépensé ce mois-ci » est le solde des autres lignes : la cascade retombe toujours au centime
-  const dejaParti = revenus - r.chargesCentimes - r.dettesCentimes - r.prevuesCentimes - r.epargneCibleCentimes - base;
+  // Chaque ligne est calculée (explications.js) : la cascade retombe au centime sur la base de la jauge
+  const c = cascadeJour(etat, auj, j);
+  const base = c.baseCentimes;
   const dispo = j.restantAujourdhuiCentimes;
   const sousPart = st.serie.filter((x) => x.centimes <= j.parJourCentimes).length;
   ouvrirFiche({
@@ -82,15 +84,7 @@ export function ficheJour() {
     resume: dispo >= 0 ? `Il te reste ${eur(dispo)} aujourd’hui, sur ${eur(j.parJourCentimes)}.` : `Tu as dépassé ta part du jour de ${eur(-dispo)}. Demain repart sur une nouvelle part.`,
     blocs: [
       bloc('D’où vient ta part du jour',
-        cascade({ format: rond, description: 'Du revenu du mois jusqu’à ce qu’il reste pour vivre', etapes: [
-          { nom: 'Tes revenus du mois', centimes: revenus, type: 'total' },
-          { nom: 'Charges fixes', centimes: r.chargesCentimes, type: 'moins' },
-          r.dettesCentimes ? { nom: 'Crédits et remboursements', centimes: r.dettesCentimes, type: 'moins' } : null,
-          r.prevuesCentimes ? { nom: 'Dépenses prévues', centimes: r.prevuesCentimes, type: 'moins' } : null,
-          r.epargneCibleCentimes ? { nom: 'Épargne du mois', centimes: r.epargneCibleCentimes, type: 'moins' } : null,
-          dejaParti > 0 ? { nom: 'Déjà dépensé ou mis de côté', centimes: dejaParti, type: 'moins' } : null,
-          { nom: 'Reste pour vivre, ce matin', centimes: Math.max(0, base), type: 'total' },
-        ].filter(Boolean) }),
+        cascade({ format: eur, description: 'Du revenu du mois jusqu’à ce qu’il reste pour vivre', etapes: c.etapes }),
         lignes([
           ['Reste pour vivre, ce matin', base],
           ['÷ jours jusqu’au salaire', String(j.joursRestants)],
@@ -162,14 +156,12 @@ export function ficheEpargne() {
   const t = totalEpargne(auj);
   const v = t.virement;
   const j = jaugeDuJour(etat, auj, etat.meta?.jauge || null);
-  const parts = partsReste(etat);
   const dispo = Math.max(0, j.restantAujourdhuiCentimes);
-  const actives = etat.poches.filter((p) => p.actif !== false);
-  const envie = fluxEnvies(etat).active;
-  // Même règle que la clôture de 5 h : la part de l'envie d'abord, le reste entre prêt et sécurité
-  const versEnvie = envie ? Math.round((dispo * parts.envie) / 100) : 0;
-  const rep = repartirReste(dispo - versEnvie, actives, parts) || [];
-  const vers = (type) => { const poche = actives.find((x) => x.type === type); return rep.find((x) => x.pocheId === poche?.id)?.montantCentimes || 0; };
+  // Même règle que la clôture de 5 h et le virement (aVirerEpargne) : part de l'envie seulement si une envie peut encore
+  // recevoir, sinon tout entre prêt et sécurité. Rien à partager : on montre la règle (pourcentages).
+  const pt = partageDuReste(etat, auj, dispo);
+  const pc = dispo > 0 ? pt.pourcents : reglePartage(etat, auj);
+  const envie = pt.envie;
   let proj = null;
   try { proj = projeter(etat, auj, { nbMois: 12 }); } catch { proj = null; }
   const jalon = (type) => proj?.jalons.find((x) => x.type === type);
@@ -188,12 +180,13 @@ export function ficheEpargne() {
         cartePoche(secu, jalon('coussin') ? `Pleine vers ${formatMois(jalon('coussin').mois)} si tu continues comme ça` : null),
         cartePoche(pret, jalon('pretSolde') ? `Prêt soldé vers ${formatMois(jalon('pretSolde').mois)} si tu continues comme ça` : null)),
       bloc('Ce que la journée d’aujourd’hui peut ajouter',
-        partage({ description: `Partage du reste de la journée : ${parts.pret} % prêt, ${parts.securite} % sécurité, ${parts.envie} % envie`, parts: [
-          { nom: `Prêt (${parts.pret} %)`, valeur: parts.pret, classe: 'serie-1', texte: eur(vers('remboursementAnticipe')) },
-          { nom: `Sécurité (${parts.securite} %)`, valeur: parts.securite, classe: 'serie-4', texte: eur(vers('coussin')) },
-          { nom: `${envie ? envie.nom : 'Envie'} (${parts.envie} %)`, valeur: parts.envie, classe: 'serie-2', texte: envie ? eur(versEnvie) : 'aucune envie en cours' },
-        ] }),
-        h('p', { class: 'note' }, dispo > 0 ? `Si tu ne dépenses plus rien aujourd’hui, ${eur(dispo)} partent à l’épargne demain à 5 h, partagés comme ça.` : 'Aujourd’hui, ta part du jour est dépensée : rien à partager ce soir.')),
+        partage({ description: `Partage du reste de la journée : ${phrasePartage(pc, envie)}`, parts: [
+          { nom: `Prêt (${pc.pret} %)`, valeur: pc.pret, classe: 'serie-1', texte: dispo > 0 ? eur(pt.pretCentimes) : `${pc.pret} %` },
+          { nom: `Sécurité (${pc.securite} %)`, valeur: pc.securite, classe: 'serie-4', texte: dispo > 0 ? eur(pt.securiteCentimes) : `${pc.securite} %` },
+          { nom: `${envie ? envie.nom : 'Envie'} (${pc.envie} %)`, valeur: pc.envie, classe: 'serie-2', texte: !envie ? 'aucune envie en cours' : pc.envie ? (dispo > 0 ? eur(pt.envieCentimes) : `${pc.envie} %`) : 'déjà pleine ou achetée' },
+          pc.avance ? { nom: `Avance de l’envie (${pc.avance} %)`, valeur: pc.avance, classe: 'serie-3', texte: dispo > 0 ? eur(pt.avanceCentimes) : `${pc.avance} %` } : null,
+        ].filter(Boolean) }),
+        h('p', { class: 'note' }, dispo > 0 ? `Si tu ne dépenses plus rien aujourd’hui, ${eur(dispo)} partent demain à 5 h, partagés comme ça.${pt.envieCentimes ? ' La part de ton envie reste sur le compte, pour l’achat.' : ''}${pt.avanceCentimes ? ' L’avance de ton envie est reprise : elle reste sur le compte.' : ''}` : 'Aujourd’hui, ta part du jour est dépensée : rien à partager ce soir.')),
       v.totalCentimes || v.semaineCentimes ? bloc('Ce qui attend d’être viré', lignes([
         ['Épargne du mois (ce virement)', v.moisSemaineCentimes],
         ['Arrondis de tes dépenses', v.arrondisCentimes],
@@ -217,34 +210,29 @@ export function ficheDepense(tx) {
   const auj = aujourdhui();
   const r = resteADepenser(etat, auj);
   const j = jaugeDuJour(etat, auj, etat.meta?.jauge || null);
-  const quotidienne = tx.sens === 'debit' && estDepenseQuotidienne(tx) && contributionDepense(tx) > 0;
-  const duJour = tx.date === auj;
-  const arr = etat.profil.arrondi?.actif ? (arrondiTransaction(tx, etat.profil.arrondi) || 0) : 0;
-  const autres = Math.max(0, j.depensesDuJourCentimes - (quotidienne && duJour ? tx.montantCentimes + arr : 0));
+  // Même arrondi que celui que l'épargne compte (réglage profil.arrondi, dépense exclue ou non) : explications.js
+  const ef = effetDepense(etat, tx, auj, j);
+  const { quotidienne, duJour } = ef;
+  const arr = ef.arrondiCentimes;
   const dispo = j.restantAujourdhuiCentimes;
   const nom = tx.marchand || tx.libelle || nomCategorie(tx.categorie);
   const ctx = contexteDepense(etat, tx, auj, j.parJourCentimes);
   const env = suiviEnveloppes(etat, auj).lignes.find((l) => l.categories.includes(tx.categorie));
   const p = previsionMois(etat, auj);
   const st = statsDepenses(etat, auj);
-  const parts = partsReste(etat);
+  const pt = partageDuReste(etat, auj, Math.max(0, dispo));
+  const horsPart = !quotidienne ? (duJour && ef.compteAujourdhuiCentimes ? `Elle ne touche pas à ta part du jour, sauf son arrondi (${eur(arr)}).` : 'Elle ne touche pas à ta part du jour.') : null;
   ouvrirFiche({
     titre: 'Cette dépense, en détail',
-    resume: `${eur(tx.montantCentimes)}, ${nom}. ${!quotidienne ? 'Elle ne touche pas à ta part du jour.' : !duJour ? `Elle compte pour le ${formatDateCourte(tx.date)}.` : dispo >= 0 ? `Il te reste ${eur(dispo)} aujourd’hui.` : `Ta part du jour est dépassée de ${eur(-dispo)}.`}`,
+    resume: `${eur(tx.montantCentimes)}, ${nom}. ${horsPart || (!duJour ? `Elle compte pour le ${formatDateCourte(tx.date)}.` : dispo >= 0 ? `Il te reste ${eur(dispo)} aujourd’hui.` : `Ta part du jour est dépassée de ${eur(-dispo)}.`)}`,
     blocs: [
       quotidienne && duJour ? bloc('Sur ta journée',
-        cascade({ format: eur, description: 'De ta part du jour à ce qu’il reste', etapes: [
-          { nom: 'Ta part du jour', centimes: j.parJourCentimes, type: 'total' },
-          autres > 0 ? { nom: 'Déjà dépensé aujourd’hui', centimes: autres, type: 'moins' } : null,
-          { nom: 'Cette dépense', centimes: tx.montantCentimes, type: 'moins' },
-          arr ? { nom: 'Son arrondi, vers l’épargne', centimes: arr, type: 'moins' } : null,
-          { nom: dispo >= 0 ? 'Reste aujourd’hui' : 'Reste aujourd’hui (dépassé)', centimes: Math.max(0, dispo), type: 'total' },
-        ].filter(Boolean) }),
-        h('p', { class: 'note' }, dispo > 0 ? `Si tu t’arrêtes là, ${eur(dispo)} partent à l’épargne demain à 5 h : ${parts.pret} % prêt, ${parts.securite} % sécurité, ${parts.envie} % envie.`
+        cascade({ format: eur, description: 'De ta part du jour à ce qu’il reste', etapes: ef.etapes }),
+        h('p', { class: 'note' }, dispo > 0 ? `Si tu t’arrêtes là, ${eur(dispo)} partent demain à 5 h : ${phrasePartage(pt.pourcents, pt.envie)}.`
           : dispo < 0 ? `Le dépassement est repris sur les ${Math.max(1, j.joursRestants - 1)} jours suivants : environ ${eur(Math.round(-dispo / Math.max(1, j.joursRestants - 1)))} de moins par jour.` : 'Ta part du jour est pile dépensée.')) : null,
       arr ? bloc('Sur ton épargne', lignes([
         [`Arrondi à l’euro du dessus`, arr],
-        ['Il part à l’épargne', 'au prochain virement'],
+        ['Il part à l’épargne', ef.arrondiAVirer ? 'au prochain virement' : 'pas dans le prochain virement (déjà viré)'],
       ])) : null,
       bloc('Dans tes habitudes',
         chiffres(

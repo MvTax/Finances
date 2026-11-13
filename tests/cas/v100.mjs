@@ -10,6 +10,9 @@ import { briefDuJour, voyants } from '../../js/v100/strategie/brief.js';
 import { comparerPartages, PREREGLAGES } from '../../js/v100/strategie/repartition.js';
 import { rythmes, TAUX_PAR_DEFAUT } from '../../js/v100/strategie/rythmes.js';
 import { resumer, quantile, regression, phi, serieQuotidienne, statsDepenses, previsionMois, contexteDepense } from '../../js/v100/strategie/stats.js';
+import { cascadeJour, partageDuReste, reglePartage, arrondiDeLaDepense, effetDepense, totalCascade } from '../../js/v100/strategie/explications.js';
+import { jaugeDuJour, resteADepenser, arrondisPeriode } from '../../js/calculs.js';
+import { fluxEnvies } from '../../js/envies.js';
 
 // Prêt simple à vérifier de tête : 12 % par an = 1 % par mois ; différé jusqu'en février 2027, puis 100 € par mois
 const credit = (o = {}) => ({ id: 'pret', libelle: 'Prêt', type: 'amortissable', actif: true, capitalCentimes: 120000, tauxPourcent: 12, mensualiteCentimes: 10000, assuranceMensuelleCentimes: 100, dureeMois: 13, dateDebut: '2027-02-15', remboursementsAnticipes: [], payees: [], ...o });
@@ -218,5 +221,125 @@ export default [
     const c = contexteDepense({ ...e, transactions: [...t, nouvelle] }, nouvelle, A, 3000);
     egal(c.partDuJour, 0.5); egal(c.categorie.n, 14); egal(c.categorie.moyenneCentimes, 1000); egal(c.categorie.rang, 100, 'aucune n’est plus chère');
     vrai(c.marchand.n >= 1);
+  } },
+
+  // ---------- Fiches « ? » : les calculs affichés (explications.js) ----------
+  { nom: 'v100 fiche du jour : la cascade retombe au centime sur « Reste pour vivre, ce matin » (début de période, veille du salaire)', fn: () => {
+    // Début de période (salaire le 5) : rien de dépensé, aucune ligne « déjà dépensé »
+    const e = etat();
+    const c = cascadeJour(e, '2026-11-05');
+    vrai(c.retombe, 'la cascade retombe sur la base');
+    egal(totalCascade(c.etapes), c.baseCentimes);
+    egal(c.etapes[c.etapes.length - 1].nom, 'Reste pour vivre, ce matin'); egal(c.etapes[c.etapes.length - 1].centimes, c.baseCentimes);
+    egal(c.baseCentimes, jaugeDuJour(e, '2026-11-05').instantane.baseCentimes);
+    vrai(!c.etapes.some((x) => ['depense', 'deCote', 'arrondis', 'rembourse'].includes(x.cle)), 'rien de dépensé au premier jour');
+    egal(c.joursRestants, 30); vrai(Math.abs(c.parJourCentimes * 30 - c.baseCentimes) <= 15, 'part = base ÷ 30 jours');
+    for (const x of c.etapes) vrai(x.centimes >= 0, `${x.nom} jamais négatif ici`);
+    // Veille du salaire : un seul jour, la part du jour est toute la base
+    const v = etat({ transactions: [tx({ date: '2026-11-10', montant: 4590 }), tx({ date: '2026-11-20', montant: 3200, categorie: 'vtc' })] });
+    const cv = cascadeJour(v, '2026-12-04');
+    vrai(cv.retombe); egal(cv.joursRestants, 1); egal(cv.parJourCentimes, cv.baseCentimes);
+    egal(cv.etapes.find((x) => x.cle === 'depense').centimes, 7790, 'dépensé avant aujourd’hui : 45,90 € + 32 €');
+  } },
+  { nom: 'v100 fiche du jour : journée avec dépenses, privations et arrondis ; chaque ligne calculée, jamais négative', fn: () => {
+    const e = etat({ transactions: [tx({ date: '2026-11-06', montant: 1990 }), tx({ date: '2026-11-08', montant: 1450, categorie: 'vtc' }), tx({ date: A, montant: 1230, categorie: 'restaurants' })],
+      privations: [{ id: 'p1', date: '2026-11-07', categorie: 'restauration-rapide', libelle: 'Menu', montantCentimes: 800, vireLe: null }, { id: 'p2', date: A, categorie: 'autres', libelle: 'Café', montantCentimes: 300, vireLe: null }] });
+    e.profil.arrondi.actif = true;
+    const j = jaugeDuJour(e, A);
+    const c = cascadeJour(e, A, j);
+    vrai(c.retombe); egal(totalCascade(c.etapes), c.baseCentimes);
+    const ligne = (cle) => c.etapes.find((x) => x.cle === cle)?.centimes || 0;
+    egal(ligne('depense'), 1990 + 1450, 'dépenses des jours d’avant');
+    egal(ligne('deCote'), 800, 'privation d’avant (celle d’aujourd’hui est dans « dépensé aujourd’hui »)');
+    egal(ligne('arrondis'), 10 + 50, 'arrondis des jours d’avant');
+    egal(c.depensesDuJourCentimes, 1230 + 300 + 70, 'aujourd’hui : dépense, privation, arrondi');
+    egal(c.baseCentimes, resteADepenser(e, A).resteCentimes + c.depensesDuJourCentimes);
+    egal(c.restantCentimes, c.parJourCentimes - c.depensesDuJourCentimes);
+    for (const x of c.etapes) vrai(x.centimes >= 0, `${x.nom} jamais négatif`);
+  } },
+  { nom: 'v100 fiche du jour : plus de remboursements que d’achats, ou mois dépassé : la cascade retombe quand même', fn: () => {
+    // Avant : « déjà dépensé » était déduit par différence et caché s'il était négatif → la cascade ne retombait plus
+    const e = etat({ transactions: [tx({ date: '2026-11-06', montant: 5000, sens: 'credit', categorie: 'vtc', remboursementDe: 'achat' }), tx({ date: '2026-11-07', montant: 1000 }), tx({ date: A, montant: 500 })] });
+    const r = resteADepenser(e, A);
+    const j = jaugeDuJour(e, A);
+    const ancien = r.revenus.totalCentimes - r.chargesCentimes - r.dettesCentimes - r.prevuesCentimes - r.epargneCibleCentimes - j.instantane.baseCentimes;
+    vrai(ancien < 0, 'l’ancien calcul par différence donnait une ligne négative');
+    const c = cascadeJour(e, A, j);
+    vrai(c.retombe); egal(c.etapes.find((x) => x.cle === 'rembourse').centimes, 4000); egal(c.etapes.find((x) => x.cle === 'rembourse').type, 'plus');
+    // Mois dépassé : la base est négative, la dernière ligne la montre telle quelle (plus de « 0 » qui ne colle pas)
+    const d = etat({ transactions: [tx({ date: '2026-11-06', montant: 200000, categorie: 'vetements' })] });
+    const cd = cascadeJour(d, A);
+    vrai(cd.baseCentimes < 0); vrai(cd.retombe); egal(cd.etapes[cd.etapes.length - 1].centimes, cd.baseCentimes);
+    egal(cd.etapes.find((x) => x.cle === 'epargne'), undefined, 'l’épargne du mois tombe à 0 avant le dépassement');
+  } },
+  { nom: 'v100 fiche épargne : le partage du reste suit la clôture de 5 h (sans envie, envie en cours, plafond, achat en avance)', fn: () => {
+    // Sans envie : tout entre prêt et sécurité (40/30 → 4/7, 3/7)
+    const sans = partageDuReste(etat(), A, 1000);
+    egal(sans.envie, null); egal(sans.envieCentimes, 0); egal(sans.pretCentimes, 571); egal(sans.securiteCentimes, 429);
+    egal(JSON.stringify(sans.pourcents), '{"pret":57,"securite":43,"envie":0,"avance":0}');
+    egal(JSON.stringify(reglePartage(etat(), A)), '{"pret":57,"securite":43,"envie":0,"avance":0}', 'la règle, même sans reste aujourd’hui');
+    // Envie en cours : 30 % gardés sur le compte pour l’envie, le reste 40/30
+    const envie = (o = {}) => { const e = etat(); e.profil.envies = { depuis: '2026-11-01', liste: [{ id: 'e1', nom: 'Jeu', type: 'jeu', montantCentimes: 5000, creeLe: '2026-11-01', achat: null, ...o }] }; return e; };
+    const avec = partageDuReste(envie(), A, 1000);
+    egal(avec.envie.nom, 'Jeu'); egal(avec.envieCentimes, 300); egal(avec.pretCentimes, 400); egal(avec.securiteCentimes, 300);
+    egal(avec.envieCentimes + avec.pretCentimes + avec.securiteCentimes, 1000, 'rien ne se perd');
+    egal(JSON.stringify(reglePartage(envie(), A)), '{"pret":40,"securite":30,"envie":30,"avance":0}');
+    // Même chiffre que la clôture : la ligne « reste du jour » simulée reçoit la même part dans fluxEnvies
+    const e = envie();
+    const flux = fluxEnvies({ ...e, privations: [{ id: 'r', date: A, source: 'resteJour', montantCentimes: 1000, vireLe: null }] }, { auto: [], aujourdhuiIso: A });
+    egal(flux.parReste.get('r').garde, avec.envieCentimes);
+    // Envie presque pleine : elle ne prend que ce qui lui manque
+    const plafond = partageDuReste(envie({ montantCentimes: 200 }), A, 1000);
+    egal(plafond.envieCentimes, 200); egal(plafond.pretCentimes + plafond.securiteCentimes, 800);
+    // Envie achetée en avance (exception) : sa part ne reste pas sur le compte, la moitié rembourse l’avance
+    const achetee = partageDuReste(envie({ achat: { date: '2026-11-08', montantCentimes: 5000, txId: 'x', exception: true, retenues: [] } }), A, 1000);
+    egal(achetee.envieCentimes, 0); egal(achetee.avanceCentimes, 500); egal(achetee.pretCentimes, 286); egal(achetee.securiteCentimes, 214);
+    // Partage réglé autrement (Stratégie → Répartition) : 50/50, rien pour l’envie
+    const regle = envie(); regle.profil.partsReste = { pret: 50, securite: 50, envie: 0 };
+    const r = partageDuReste(regle, A, 1000);
+    egal(r.envieCentimes, 0); egal(r.pretCentimes, 500); egal(r.securiteCentimes, 500);
+    egal(partageDuReste(etat(), A, 0).pretCentimes, 0, 'rien à partager');
+  } },
+  { nom: 'v100 fiche dépense : l’arrondi affiché est celui que l’épargne compte ; la cascade du jour retombe au centime', fn: () => {
+    const base = (o = {}) => {
+      const e = etat({ transactions: [tx({ id: 'cette', date: A, montant: 1230, categorie: 'restaurants', ...o }), tx({ id: 'autre', date: A, montant: 520 })],
+        privations: [{ id: 'p', date: A, categorie: 'autres', libelle: 'Café', montantCentimes: 300, vireLe: null }] });
+      e.profil.arrondi.actif = true;
+      return e;
+    };
+    const e = base();
+    const t = e.transactions[0];
+    const ef = effetDepense(e, t, A);
+    egal(ef.arrondiCentimes, 70); vrai(ef.arrondiAVirer, 'dans la cagnotte du prochain virement');
+    egal(ef.arrondiCentimes + 80, arrondisPeriode(e, resteADepenser(e, A).periode, A), 'le même arrondi que le budget du jour (+ 80 c de l’autre dépense)');
+    egal(ef.autresCentimes, 520 + 80 + 300, 'l’autre dépense, son arrondi, la privation');
+    egal(totalCascade(ef.etapes), ef.etapes[ef.etapes.length - 1].centimes, 'la cascade retombe sur le reste du jour');
+    egal(ef.etapes[ef.etapes.length - 1].centimes, jaugeDuJour(e, A).restantAujourdhuiCentimes);
+    // Arrondi désactivé dans le réglage
+    const off = base(); off.profil.arrondi.actif = false;
+    const efOff = effetDepense(off, off.transactions[0], A);
+    egal(efOff.arrondiCentimes, 0); vrai(!efOff.etapes.some((x) => x.cle === 'arrondi')); egal(totalCascade(efOff.etapes), jaugeDuJour(off, A).restantAujourdhuiCentimes);
+    // Dépense exclue des arrondis
+    const exclue = base({ extra: { arrondiDesactive: true } });
+    egal(effetDepense(exclue, exclue.transactions[0], A).arrondiCentimes, 0);
+    egal(arrondisPeriode(exclue, resteADepenser(exclue, A).periode, A), 80, 'seul l’arrondi de l’autre dépense');
+    // Virement entre tes comptes : ni dépense du jour, ni arrondi
+    const vi = base({ interne: true, categorie: 'virements-internes' });
+    const efVi = effetDepense(vi, vi.transactions[0], A);
+    vrai(!efVi.quotidienne); egal(efVi.arrondiCentimes, 0);
+    // Prélèvement d’une charge fixe aujourd’hui : hors part du jour, mais son arrondi compte dans la journée
+    const prlv = base({ montant: 2999, categorie: 'abonnements', chargeFixeId: 'loyer', libellePrincipal: 'PRLV SEPA EXEMPLE' });
+    const efP = effetDepense(prlv, prlv.transactions[0], A);
+    vrai(!efP.quotidienne); egal(efP.arrondiCentimes, 1); egal(efP.compteAujourdhuiCentimes, 1);
+    egal(totalCascade(efP.etapes), jaugeDuJour(prlv, A).restantAujourdhuiCentimes);
+    // Dépense d’un autre jour : elle ne change pas la journée, la cascade retombe quand même
+    const hier = base({ date: '2026-11-08' });
+    const efH = effetDepense(hier, hier.transactions[0], A);
+    vrai(!efH.duJour); egal(efH.compteAujourdhuiCentimes, 0); egal(totalCascade(efH.etapes), jaugeDuJour(hier, A).restantAujourdhuiCentimes);
+    egal(arrondiDeLaDepense(hier, hier.transactions[0], A).centimes, 70);
+    // Dépassement : le reste final est négatif, affiché tel quel
+    const gros = base({ montant: 90000, categorie: 'vetements' });
+    const efG = effetDepense(gros, gros.transactions[0], A);
+    vrai(efG.etapes[efG.etapes.length - 1].centimes < 0); egal(totalCascade(efG.etapes), efG.etapes[efG.etapes.length - 1].centimes);
   } },
 ];
