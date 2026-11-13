@@ -9,6 +9,7 @@ import { tresorerie } from '../../js/v100/strategie/tresorerie.js';
 import { briefDuJour, voyants } from '../../js/v100/strategie/brief.js';
 import { comparerPartages, PREREGLAGES } from '../../js/v100/strategie/repartition.js';
 import { rythmes, TAUX_PAR_DEFAUT } from '../../js/v100/strategie/rythmes.js';
+import { resumer, quantile, regression, phi, serieQuotidienne, statsDepenses, previsionMois, contexteDepense } from '../../js/v100/strategie/stats.js';
 
 // Prêt simple à vérifier de tête : 12 % par an = 1 % par mois ; différé jusqu'en février 2027, puis 100 € par mois
 const credit = (o = {}) => ({ id: 'pret', libelle: 'Prêt', type: 'amortissable', actif: true, capitalCentimes: 120000, tauxPourcent: 12, mensualiteCentimes: 10000, assuranceMensuelleCentimes: 100, dureeMois: 13, dateDebut: '2027-02-15', remboursementsAnticipes: [], payees: [], ...o });
@@ -156,5 +157,66 @@ export default [
     const secu = c.lignes.find((l) => l.id === 'securite').resultat; const pret = c.lignes.find((l) => l.id === 'pret').resultat;
     vrai(secu.coussinMois <= pret.coussinMois, 'sécurité d’abord remplit le coussin au moins aussi tôt');
     vrai(rythmes(e, A).tauxNonDepense === TAUX_PAR_DEFAUT);
+  } },
+  { nom: 'v100 statistiques : moyenne, médiane, quartiles, écart-type, régression, loi normale', fn: () => {
+    const st = resumer([1000, 2000, 3000, 4000, 10000]);
+    egal(st.moyenne, 4000); egal(st.mediane, 3000); egal(st.q1, 2000); egal(st.q3, 4000); egal(st.min, 1000); egal(st.max, 10000);
+    egal(st.ecartType, 3536, 'écart-type de l’échantillon (n − 1)');
+    egal(quantile([0, 100], 0.25), 25, 'interpolation linéaire');
+    egal(resumer([]).moyenne, 0, 'série vide');
+    const reg = regression([100, 200, 300, 400]);
+    egal(Math.round(reg.pente), 100); egal(Math.round(reg.r2 * 100), 100, 'droite parfaite');
+    egal(regression([500, 500, 500]).pente, 0);
+    egal(Math.round(phi(0) * 1000), 500); egal(Math.round(phi(1.2816) * 100), 90); egal(Math.round(phi(-1.2816) * 100), 10);
+  } },
+  { nom: 'v100 statistiques : série des jours terminés (zéros compris), jours de semaine, tendance, catégories', fn: () => {
+    // 14 jours terminés avant le 9 novembre (26 oct. → 8 nov.) : 10 € chaque jour, 30 € les deux samedis, rien les dimanches
+    const t = [];
+    for (let k = 0; k < 14; k += 1) {
+      const d = new Date(Date.UTC(2026, 9, 26 + k)).toISOString().slice(0, 10);
+      const js = new Date(`${d}T12:00:00Z`).getUTCDay();
+      if (js === 0) continue;
+      t.push(tx({ date: d, montant: js === 6 ? 3000 : 1000, categorie: js === 6 ? 'restaurants' : 'courses' }));
+    }
+    // Un prélèvement et la dépense du jour ne comptent pas dans la série
+    t.push(tx({ date: '2026-11-03', montant: 5000, categorie: 'abonnements', marchand: 'Abo' }));
+    t.push(tx({ date: A, montant: 700 }));
+    const e = etat({ transactions: t });
+    const serie = serieQuotidienne(e, A);
+    egal(serie.length, 14); egal(serie[0].date, '2026-10-26'); egal(serie[13].date, '2026-11-08');
+    egal(serie.filter((x) => x.centimes === 0).length, 2, 'les dimanches valent zéro');
+    const s = statsDepenses(e, A);
+    vrai(s.fiable); egal(s.jours, 14);
+    egal(s.global.moyenne, Math.round((10 * 1000 + 2 * 3000) / 14));
+    egal(s.global.mediane, 1000); egal(s.joursSansDepense, 2);
+    egal(s.jourCher.jour, 6, 'le samedi est le jour le plus cher'); egal(s.jourCher.moyenneCentimes, 3000);
+    egal(s.jourSage.jour, 7);
+    egal(s.tendance.sens, 'stable', 'deux semaines identiques');
+    egal(s.categories[0].categorie, 'courses'); egal(s.categories.length, 2, 'le prélèvement n’est pas une dépense du quotidien'); egal(s.categories[0].montantCentimes, 10000); egal(s.categories[1].montantCentimes, 6000);
+    // Une série qui monte de 1 € par jour : tendance à la hausse, 7 € par semaine
+    const monte = etat({ transactions: Array.from({ length: 14 }, (_, k) => tx({ date: new Date(Date.UTC(2026, 9, 26 + k)).toISOString().slice(0, 10), montant: 500 + k * 100 })) });
+    const sm = statsDepenses(monte, A);
+    egal(sm.tendance.sens, 'hausse'); egal(sm.tendance.parSemaineCentimes, 700);
+    // Sans opération : rien à dire, sans erreur
+    const vide = statsDepenses(etat(), A);
+    egal(vide.jours, 0); egal(vide.fiable, false); egal(vide.jourCher, null);
+  } },
+  { nom: 'v100 statistiques : prévision de fin de mois (fourchette, probabilité) et contexte d’une dépense', fn: () => {
+    const t = Array.from({ length: 14 }, (_, k) => tx({ date: new Date(Date.UTC(2026, 9, 26 + k)).toISOString().slice(0, 10), montant: k % 2 ? 1500 : 500 }));
+    const e = etat({ transactions: t });
+    const p = previsionMois(e, A);
+    egal(p.rythmeCentimes, 1000);
+    egal(p.attenduCentimes, p.resteCentimes - p.joursRestants * 1000);
+    vrai(p.basCentimes < p.attenduCentimes && p.attenduCentimes < p.hautCentimes, 'fourchette autour de la valeur attendue');
+    vrai(p.probaTenir >= 0 && p.probaTenir <= 1);
+    egal(p.rythmeMaxCentimes, Math.floor(Math.max(0, p.resteCentimes) / p.joursRestants));
+    // Dépenser beaucoup plus chaque jour fait baisser la probabilité de tenir
+    const cher = etat({ transactions: t.map((x) => ({ ...x, montantCentimes: x.montantCentimes * 6 })) });
+    vrai(previsionMois(cher, A).probaTenir <= p.probaTenir);
+    // Contexte : une dépense de 15 € en courses, parmi 14 dépenses de 5 ou 15 €
+    const nouvelle = tx({ date: A, montant: 1500, marchand: 'Marchand' });
+    const c = contexteDepense({ ...e, transactions: [...t, nouvelle] }, nouvelle, A, 3000);
+    egal(c.partDuJour, 0.5); egal(c.categorie.n, 14); egal(c.categorie.moyenneCentimes, 1000); egal(c.categorie.rang, 100, 'aucune n’est plus chère');
+    vrai(c.marchand.n >= 1);
   } },
 ];

@@ -93,6 +93,11 @@ function toastAjout(tx, { annuler = true } = {}) {
     const xp = n > POINTS.saisiesMaxJour ? 0 : POINTS.saisie + (n === 1 ? POINTS.jourNote : 0);
     feter('saisie', { xp, texte: n === 1 ? 'première du jour' : 'dépense notée' });
   }
+  // v100 : une carte courte (reste du jour, épargne) avec « Plus d'explications », à la place du message
+  if (document.documentElement.dataset.app === 'v100') {
+    import('../v100/ui/confirmation.js').then((m) => m.confirmerAjout(tx, { annuler: annuler ? () => supprimerTransaction(tx) : null })).catch(() => {});
+    return;
+  }
   const arr = estEligibleArrondi(tx, etat.profil.arrondi) && etat.profil.arrondi?.actif ? arrondiEuroSuperieur(tx.montantCentimes) : 0;
   const rompue = tx.sens === 'debit' && tx.date === auj && estAnnoncee(etat, auj) && estDepenseQuotidienne(tx);
   toast(`${estJoyeux() ? (tx.sens === 'debit' ? '🎉 ' : '💰 ') : ''}${tx.sens === 'debit' ? 'Dépense' : 'Entrée'}${tx.date !== auj ? ` du ${formatDateCourte(tx.date)}` : ''} ajoutée : ${formatEuros(tx.montantCentimes)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}${rompue ? '. Ta journée sans dépense est rompue.' : ''}`,

@@ -1,27 +1,38 @@
-// strategie.js (v100) — l'onglet Stratégie : le score, la trajectoire sur 12 mois et l'accès aux outils
-// (plan du prêt, projection et scénarios, brief, catégories, répartition, trésorerie). #strategie/<outil> ouvre l'outil.
+// strategie.js (v100) — l'onglet Stratégie : tout ce que l'app calcule, rangé en une liste. Chaque ligne donne
+// son résultat en quelques mots ; la toucher ouvre l'outil complet (#strategie/<outil>), avec ses schémas.
 
 import { h, icone, estMasque } from '../../ui/dom.js';
 import { etat } from '../../store.js';
 import { aller } from '../../router.js';
-import { aujourdhui, formatMois } from '../../dates.js';
+import { aujourdhui, formatMois, formatDateCourte } from '../../dates.js';
 import { formatEuros } from '../../money.js';
-import { anneau, courbes, barreRepere } from '../ui/graphes.js';
-import { entete, panneau } from '../ui/blocs.js';
+import { partsReste } from '../../envies.js';
+import { entete } from '../ui/blocs.js';
 import { scoreBudget } from '../strategie/score.js';
 import { projeter } from '../strategie/projection.js';
+import { statsDepenses } from '../strategie/stats.js';
+import { suiviEnveloppes } from '../strategie/enveloppes.js';
+import { tresorerie } from '../strategie/tresorerie.js';
+import { briefDuJour } from '../strategie/brief.js';
+import { creditPrincipal } from '../strategie/pret.js';
 
 export const titre = 'Stratégie';
 
 const OUTILS = {
+  score: () => import('./s-score.js'),
   pret: () => import('./s-pret.js'),
   projection: () => import('./s-projection.js'),
+  habitudes: () => import('./s-habitudes.js'),
   coach: () => import('./s-coach.js'),
   categories: () => import('./s-categories.js'),
   repartition: () => import('./s-repartition.js'),
   tresorerie: () => import('./s-tresorerie.js'),
 };
 let jeton = 0;
+const eur = (c) => (estMasque() ? '•••,•• €' : formatEuros(c));
+const rond = (c) => (estMasque() ? '••• €' : formatEuros(c, { sansCentimes: true }));
+/** Un résultat en quelques mots ; si le calcul échoue, la ligne reste, sans résultat. */
+const essayer = (fn) => { try { return fn(); } catch (e) { console.warn('Stratégie', e?.message); return null; } };
 
 export function rendre(vue, params = []) {
   const outil = OUTILS[params[0]];
@@ -32,43 +43,38 @@ export function rendre(vue, params = []) {
   }
   jeton += 1;
   const auj = aujourdhui();
-  const score = scoreBudget(etat, auj);
-  const etatAxe = (a) => (a.points >= 15 ? 'bien' : a.points >= 8 ? 'ok' : 'attention');
-  const scoreBloc = panneau('Score Budget',
-    h('div', { class: 'score-tete' },
-      h('div', { class: 'score-anneau' }, anneau({ part: score.total / 100, etat: score.total >= 65 ? 'bien' : score.total >= 35 ? 'ok' : 'attention', description: `Score de ${score.total} sur 100` }), h('strong', {}, String(score.total)), h('small', {}, 'SUR 100')),
-      h('div', {}, h('p', { class: 'score-niveau' }, score.niveau.nom), h('p', { class: 'note' }, `Cinq cadrans de 20 points. Le plus bas aujourd’hui : ${score.pointFaible.nom.toLowerCase()}.`))),
-    h('div', { class: 's-axes' }, score.axes.map((a) => h('div', { class: 's-axe' },
-      h('span', { class: 's-axe-nom' }, a.nom), h('span', { class: 's-axe-points' }, String(a.points), h('small', {}, ` / ${a.max}`)),
-      barreRepere({ part: a.points / a.max, etat: etatAxe(a), description: `${a.nom} : ${a.points} sur ${a.max}` }),
-      h('p', { class: 's-axe-texte' }, a.constat, ' ', h('b', {}, a.conseil))))));
+  const score = essayer(() => scoreBudget(etat, auj));
+  const proj = essayer(() => projeter(etat, auj, { nbMois: 24 }));
+  const st = essayer(() => statsDepenses(etat, auj));
+  const env = essayer(() => suiviEnveloppes(etat, auj));
+  const tr = essayer(() => tresorerie(etat, auj));
+  const brief = essayer(() => briefDuJour(etat, auj));
+  const parts = partsReste(etat);
+  const jalon = (type) => proj?.jalons.find((x) => x.type === type);
+  const prochain = proj?.jalons.find((x) => x.type !== 'survie');
+  const aFaire = brief ? brief.priorites.filter((p) => p.gravite === 'critique' || p.gravite === 'attention').length : 0;
 
-  let trajectoire = null;
-  try {
-    const p = projeter(etat, auj, { nbMois: 12 });
-    const L = p.lignes;
-    const fmt = (c) => (estMasque() ? '•••' : formatEuros(c, { sansCentimes: true }));
-    const series = [];
-    if (L.some((l) => l.capitalPretCentimes > 0)) series.push({ nom: 'Prêt restant', classe: 'serie-1', valeurs: L.map((l) => l.capitalPretCentimes) });
-    series.push({ nom: 'Sécurité', classe: 'serie-4', valeurs: L.map((l) => l.soldeSecuCentimes) });
-    trajectoire = panneau('Trajectoire 12 mois',
-      courbes({ series, etiquettes: L.map((l) => formatMois(l.mois, true)), format: fmt, formatAxe: (v) => `${Math.round(v / 100)}`, titre: 'Prêt restant et épargne sécurité, en euros' }),
-      p.jalons.length ? h('ol', { class: 'jalons' }, p.jalons.map((x) => h('li', { class: `jalon jalon-${x.type}` }, h('span', { class: 'jalon-mois' }, formatMois(x.mois, true)), h('span', { class: 'jalon-titre' }, x.titre)))) : null,
-      h('button', { type: 'button', class: 'btn btn-secondaire', onclick: () => aller('strategie/projection') }, 'Changer les hypothèses'));
-  } catch (e) { console.warn('Trajectoire', e?.message); }
+  const ligne = (ic, nom, resultat, route, classe = '') => h('button', { type: 'button', class: `ck-ligne ${classe}`, onclick: () => aller(route) },
+    h('span', { class: 'ck-ligne-icone', 'aria-hidden': 'true' }, icone(ic)),
+    h('span', { class: 'ck-ligne-texte' }, h('span', { class: 'ck-ligne-nom' }, nom), resultat ? h('small', {}, resultat) : null),
+    icone('suivant'));
 
-  const outilBouton = (ic, nom, sous, action) => h('button', { type: 'button', class: 'outil', onclick: action }, icone(ic), h('strong', {}, nom), h('small', {}, sous));
-  const outils = h('section', { 'aria-label': 'Outils' }, h('div', { class: 'outils' },
-    outilBouton('banque', 'Plan du prêt', 'Date de fin, coût, meilleur rythme', () => aller('strategie/pret')),
-    outilBouton('graphique', 'Projection', '12 mois et scénarios « et si »', () => aller('strategie/projection')),
-    outilBouton('eclair', 'Brief du jour', 'Priorités, voyants, économies', () => aller('strategie/coach')),
-    outilBouton('liste', 'Catégories', 'Plafonds, rythme, leviers', () => aller('strategie/categories')),
-    outilBouton('tirelire', 'Répartition', 'Où va chaque euro mis de côté', () => aller('strategie/repartition')),
-    outilBouton('calendrier', 'Trésorerie', 'Ton compte jusqu’au salaire', () => aller('strategie/tresorerie')),
-    outilBouton('boucle', 'Abonnements', 'Coût par mois et par an', () => aller('abonnements')),
-    outilBouton('etoile', 'Statistiques', 'Les mois passés, poste par poste', () => aller('statistiques')),
-    outilBouton('ok', 'Recalcul complet', 'Compare avec tes banques', async () => { const { feuilleRecalcul } = await import('../../pages/recalcul.js'); feuilleRecalcul(); }),
-    outilBouton('coeur', 'Et si j’achète ?', 'L’effet d’un achat avant de payer', async () => { const { feuilleSimulateurAchat } = await import('../../pages/simulateur-achat.js'); feuilleSimulateurAchat(); })));
+  const liste = h('section', { class: 'ck-lignes st-liste', 'aria-label': 'Ce que l’app calcule' },
+    score ? ligne('etoile', 'Score Budget', `${score.total} sur 100, ${score.niveau.nom.toLowerCase()}`, 'strategie/score') : null,
+    brief ? ligne('eclair', 'Brief du jour', aFaire ? `${aFaire} chose${aFaire > 1 ? 's' : ''} à faire` : 'rien d’urgent aujourd’hui', 'strategie/coach', aFaire ? 'a-faire' : '') : null,
+    creditPrincipal(etat) ? ligne('banque', 'Plan du prêt', jalon('pretSolde') ? `soldé vers ${formatMois(jalon('pretSolde').mois)} à ce rythme` : 'date de fin, coût, meilleur rythme', 'strategie/pret') : null,
+    ligne('graphique', 'Projection', prochain ? `${prochain.titre.toLowerCase()} en ${formatMois(prochain.mois)}` : 'les 12 prochains mois et tes « et si »', 'strategie/projection'),
+    ligne('historique', 'Mes habitudes', st?.jours ? `${eur(st.recents.moyenne)} par jour en moyenne` : 'tes statistiques arrivent dès demain', 'strategie/habitudes'),
+    ligne('liste', 'Catégories', env?.lignes.length ? (env.alertes.length ? `${env.alertes.length} à surveiller` : 'tout est dans les clous') : 'tes plafonds par catégorie', 'strategie/categories', env?.alertes.length ? 'a-faire' : ''),
+    ligne('tirelire', 'Répartition', `${parts.pret} % prêt, ${parts.securite} % sécurité, ${parts.envie} % envie`, 'strategie/repartition'),
+    tr ? ligne('calendrier', 'Trésorerie', `au plus bas ${rond(Math.min(tr.plusBas.soldeCentimes, tr.plusBasRythme.soldeCentimes))} le ${formatDateCourte(tr.plusBasRythme.soldeCentimes < tr.plusBas.soldeCentimes ? tr.plusBasRythme.date : tr.plusBas.date)}`, 'strategie/tresorerie', tr.risque === 'decouvert' ? 'a-faire' : '') : null);
 
-  vue.replaceChildren(h('div', { class: 'st' }, ...[entete('Stratégie', 'Où tu en es, où tu vas, et quoi faire pour y arriver plus vite.', { retour: null }), scoreBloc, trajectoire, outils].filter(Boolean)));
+  const outilBouton = (ic, nom, action) => h('button', { type: 'button', class: 'outil-mini', onclick: action }, icone(ic), h('span', {}, nom));
+  const outils = h('section', { class: 'outils-mini', 'aria-label': 'Autres outils' },
+    outilBouton('boucle', 'Abonnements', () => aller('abonnements')),
+    outilBouton('graphique', 'Mois passés', () => aller('statistiques')),
+    outilBouton('ok', 'Recalcul complet', async () => { const { feuilleRecalcul } = await import('../../pages/recalcul.js'); feuilleRecalcul(); }),
+    outilBouton('panier', 'Et si j’achète ?', async () => { const { feuilleSimulateurAchat } = await import('../../pages/simulateur-achat.js'); feuilleSimulateurAchat(); }));
+
+  vue.replaceChildren(h('div', { class: 'st' }, entete('Stratégie', 'Tout ce que l’app calcule pour toi. Touche une ligne pour voir le détail et les schémas.', { retour: null }), liste, outils));
 }
