@@ -36,3 +36,24 @@ Ce fichier liste les décisions prises sans pouvoir demander, et les vérificati
 - **Plan du prêt (v100)** : simulation mensuelle, intérêts = capital × taux / 12 arrondis au centime, assurance fixe par mois, différé pris en compte. Un remboursement anticipé réduit le capital le mois même ; par défaut la mensualité est gardée et la durée raccourcit. L'option « garder la durée, payer moins » recalcule une mensualité constante sur les échéances restantes : la banque doit l'accepter. Aucuns frais de remboursement anticipé ne sont comptés (à vérifier sur le contrat). L'épargne étant déclarée sans intérêts, attendre ne rapporte rien : le conseil compare le coût du prêt au risque de manquer de coussin.
 - **Projection (v100)** : revenus du mois en cours répétés ; charges fixes et dettes prises à leurs dates ; vie courante au plancher réglé ; taux de non-dépense mesuré sur les jours clos du mois (25 % par défaut sous 5 jours). Sous le plancher, le mois est marqué « survie » et l'épargne s'arrête.
 - **Score Budget (v100)** : cinq cadrans de 20 points (budget du jour, épargne, sécurité, dettes, régularité). C'est un tableau de bord, pas une note de solvabilité.
+
+## Statistiques de v100 (1.40)
+
+Code : `js/v100/strategie/stats.js`. Ce qui suit décrit ce que fait le code.
+
+- **La série** : la dépense du quotidien de chaque jour terminé, du plus ancien au plus récent. Les jours à 0 € sont comptés (ils tirent la moyenne vers le bas). La série commence au plus tard 90 jours avant aujourd'hui, et pas avant la première opération connue (pas de zéros avant le début du suivi). Le jour en cours est exclu : la série s'arrête à hier. Arrondis et privations n'y sont pas.
+- **Deux fenêtres** : « global » sur toute la série (90 jours au plus), « récent » sur les 28 derniers jours. La moyenne, l'écart-type et la prévision affichées dans les fiches viennent de la fenêtre de 28 jours.
+- **Médiane et quartiles** : sur la série triée, par interpolation linéaire entre deux jours voisins, arrondis au centime.
+- **Écart-type** : de l'échantillon (division par n − 1), 0 s'il n'y a qu'un jour.
+- **Coefficient de variation** : écart-type ÷ moyenne, arrondi à 2 décimales (0 si la moyenne est nulle). Lecture : jusqu'à 0,6 régulier, jusqu'à 1,1 variable, au-delà en dents de scie.
+- **Tendance** : régression linéaire (moindres carrés) sur la moyenne glissante de 7 jours des 28 derniers jours. La pente est ramenée à « par semaine ». Sous 5 % de la moyenne récente par semaine (50 centimes au minimum), ou sous 7 jours de données : « stable ». Précision : la moyenne glissante n'est utilisée qu'à partir de 10 jours dans la fenêtre ; en dessous, la régression porte sur les jours bruts.
+- **Prévision de fin de période** : reste du mois − jours restants × moyenne récente (28 jours). Le « reste du mois » vient du calcul du budget et contient déjà ce qui est dépensé aujourd'hui ; les jours restants sont ceux après aujourd'hui, jusqu'au jour avant le salaire. C'est équivalent à « dépensé + moyenne × jours restants » comparé au budget.
+- **Fourchette à 80 %** : prévision ± 1,2816 × écart-type récent × √(jours restants). Elle suppose des jours indépendants entre eux et une loi normale. C'est une hypothèse simple : dans la vraie vie, un gros jour peut en entraîner un autre, et la loi des dépenses n'est pas symétrique.
+- **Probabilité de tenir** : fonction de répartition de la loi normale (approximation d'Abramowitz et Stegun) de prévision ÷ (écart-type × √jours). Sans incertitude (écart-type nul ou aucun jour restant) : 100 % si la prévision est positive ou nulle, sinon 0 %.
+- **Peu fiable** : sous 7 jours de données, les chiffres sont affichés mais marqués comme peu fiables.
+- **Contexte d'une dépense** : comparée aux autres achats (débits) de la même catégorie sur les 90 derniers jours ; le rang est la part des achats de montant inférieur ou égal.
+- **Limite générale** : tout suppose que les prochains jours ressemblent aux derniers.
+
+Deux limites connues :
+- Un jour où les remboursements dépassent les achats compte comme un jour sans dépense (0 €) : la série ne descend jamais sous zéro.
+- « Sous ta part » compare les dépenses seules des 90 derniers jours à la part du jour d'aujourd'hui, et cette part inclut les arrondis et les privations. Les deux ne sont pas tout à fait de la même nature : le chiffre est un repère, pas une mesure exacte.

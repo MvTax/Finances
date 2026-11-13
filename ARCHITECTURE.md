@@ -35,10 +35,18 @@ js/
   aiguillage.js          script classique chargé en premier : choisit l'app (origine ou v100) avant le premier affichage
   v100/                  l'app « Cockpit » : bascule.js, ui/ (graphes SVG, blocs), pages/ (cockpit, strategie, s-*),
                          strategie/ (moteurs purs : pret, projection, rythmes, enveloppes, tresorerie, score, repartition, brief)
+    pages/fiches.js      les fiches « ? » (schéma, calcul, statistiques) ouvertes depuis l'Accueil
+    pages/s-score.js     Stratégie → Score Budget ; pages/s-habitudes.js : Stratégie → Mes habitudes (statistiques)
+    ui/confirmation.js   la petite carte après une dépense ou une privation (se ferme seule après 9 s)
+    strategie/stats.js   statistiques des dépenses du quotidien (moyenne, médiane, tendance, prévision de fin de mois)
+    strategie/explications.js  calculs ligne par ligne des fiches (mêmes fonctions que l'app)
 vendor/pdfjs/            pdf.js « legacy » (ES module) embarqué, chargé uniquement pour l'import PDF
 icons/                   PNG 180, 192, 512, maskable 512 + SVG source
-tools/                   icones.html (régénère les PNG), verif-confidentialite.mjs, verif-statique.mjs
+tools/                   icones.html (régénère les PNG), verif-confidentialite.mjs, verif-statique.mjs, ecrans.mjs (écrans dans Chromium, sauvegarde synthétique)
 tests/                   tests Node (node --test), fixtures synthétiques, tests/index.html (Safari)
+  outils/                generer-sauvegarde.mjs (sauvegarde synthétique), fausse-idb.mjs (fausse base pour Node), rapport-court.mjs (npm test : seulement les échecs)
+CLAUDE.md, ETAT.md, IDEES.md  à la racine : consignes pour Claude, état du projet, idées futures
+.claude/                 agents/ et skills/ : l'équipe et les procédures de Claude (pas chargés par l'app)
 ```
 
 ## Flux de données
