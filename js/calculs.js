@@ -155,10 +155,12 @@ export function dettesPeriode(etat, periode) {
 /** Dépenses variables de la période : hors internes, épargne, prêts, dettes, charges fixes ; remboursements nettés. */
 /**
  * Dépense « du quotidien » (celle qui entame le budget du jour) : pas une charge fixe rattachée,
- * pas un abonnement, pas un prélèvement automatique (PRLV). Ces derniers comptent dans les charges du mois.
+ * pas un abonnement, pas un prélèvement automatique (PRLV), pas une dépense obligatoire reconnue (horsPartDuJour).
+ * Ces derniers comptent dans les charges du mois.
  */
 export function estDepenseQuotidienne(t) {
   if (t.chargeFixeId) return false;
+  if (t.horsPartDuJour) return false; // dépense obligatoire reconnue à la saisie (obligatoires.js) : comptée dans le mois
   if (t.envieId) return false; // payé avec l'argent mis de côté pour une envie (envies.js)
   if (t.categorie === 'abonnements') return false;
   if (t.sens === 'debit' && /^PRLV\b/i.test(t.libellePrincipal || t.libelleBrut || '')) return false;
