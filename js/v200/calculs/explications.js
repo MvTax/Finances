@@ -1,6 +1,6 @@
-// explications.js (v100) — les calculs des fiches « ? » (fiches.js), en fonctions pures testées.
-// Chaque fiche montre un calcul ligne par ligne : ici, on le refait avec LES MÊMES fonctions que l'app
-// (resteADepenser, jaugeDuJour, aVirerEpargne, arrondiTransaction…), pour que la fiche dise exactement ce qui se passe.
+// explications.js — les calculs ligne par ligne d'une journée et d'une dépense (partage du reste, arrondi), en fonctions pures testées.
+// Utilisés par v200 (carte « C'est noté ! », phrase du jour). Chaque calcul est refait avec LES MÊMES fonctions que l'app
+// (resteADepenser, jaugeDuJour, aVirerEpargne, arrondiTransaction…), pour que l’écran dise exactement ce qui se passe.
 
 import { jaugeDuJour, depensesVariables, arrondisPeriode, estDepenseQuotidienne, cagnotteArrondis } from '../../calculs.js';
 import { contributionDepense } from '../../categories.js';

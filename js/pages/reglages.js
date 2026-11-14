@@ -1,9 +1,9 @@
 // reglages.js — Profil & Finances, sécurité, Gemini, sauvegarde, comptes, règles, questions, pont.
 
-import { basculer, appPrecedente, nomApp } from '../v100/bascule.js';
-import { appCourante, estCockpit, estV200 } from '../habillage.js';
+import { estV200, basculer } from '../habillage.js';
 import { sonMolette, definirSonMolette } from '../v200/ui/molette.js';
 import { cartesReglagesEnvies } from './envies.js';
+import { partsReste, partsDepuisChoix } from '../envies.js';
 import { h, icone, mt, definirMasquage } from '../ui/dom.js';
 import { carte, bouton, champ, champMontant, interrupteur, selectionner, segment, etatVide, pastillesCategories } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
@@ -60,6 +60,7 @@ export function rendre(vue, params = []) {
  * Sans données, le gros bouton d'import du fichier passe en premier.
  */
 function rendreAccueilReglages(vue) {
+  if (estV200()) return rendreAccueilV200(vue);
   const p = etat.profil; const pa = etat.parametres;
   const per = periodeBudget(aujourdhui(), p);
   const rev = revenusDuMois(etat, per.mois);
@@ -87,15 +88,10 @@ function rendreAccueilReglages(vue) {
       sect('envies', (() => { const l = (p.envies?.liste || []); return l.length ? l.map((e) => e.nom).join(', ') : 'un jeu, des baskets… mis de côté jour après jour'; })()),
       lien('Mes épargnes', 'prêt, sécurité, plan du mois', () => aller('epargne'), 'graphique'))),
     carte('L’app', h('div', { class: 'liste-liens' },
-      estV200()
-        ? lien(`Revenir à ${nomApp(appPrecedente())}`, 'tu es dans la nouvelle app ; mêmes données des deux côtés', () => basculer(appPrecedente()), 'retour')
-        : lien('Essayer la nouvelle app', 'claire et joyeuse : noter une dépense en deux gestes ; mêmes données', () => basculer('v200'), 'etoile'),
-      estV200() ? null : estCockpit()
-        ? lien('Revenir à l’app d’origine', 'tu es dans v100 (Cockpit) ; mêmes données des deux côtés', () => basculer('origine'), 'retour')
-        : lien('Ouvrir v100, le Cockpit', 'nouvelle app : tableau de bord, stratégie, projections ; mêmes données', () => basculer('v100'), 'eclair'),
+      lien('Ouvrir la nouvelle app', 'claire et joyeuse : noter une dépense en deux gestes ; mêmes données', () => basculer('v200'), 'etoile'),
       sect('sauvegarde', `${pa.derniereSauvegarde ? `dernière le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}` : 'aucune pour l’instant'}${pa.motDePasseSauvegarde ? ', chiffrée' : ''}`),
       sect('profil', p.prenomAffichage || 'prénom, jour de salaire'),
-      sect('confidentialite', `${pa.pinHash ? 'code PIN actif' : 'sans code PIN'}, ${estCockpit() ? 'habillage Cockpit' : estV200() ? 'nouvelle app' : `style ${pa.style === 'joyeux' ? 'Joyeux' : 'Classique'}`}`),
+      sect('confidentialite', `${pa.pinHash ? 'code PIN actif' : 'sans code PIN'}, ${`style ${pa.style === 'joyeux' ? 'Joyeux' : 'Classique'}`}`),
       lien('Forcer la mise à jour', `version ${versionApp}, tes données restent`, () => forcerMiseAJour(), 'boucle'))),
     h('details', { class: 'reglages-avance' },
       h('summary', {}, 'Avancé'),
@@ -105,6 +101,75 @@ function rendreAccueilReglages(vue) {
         sect('diagnostic', 'tester toute l’app et me l’envoyer'),
         sect('apropos', `version ${versionApp}`)))),
   ].filter(Boolean));
+}
+
+/**
+ * v200 : la même page, plus courte. En haut, la sauvegarde (sauvegarder, restaurer un fichier) ;
+ * puis « Mon argent », « L'app », et le reste replié dans « Avancé ».
+ */
+function rendreAccueilV200(vue) {
+  const p = etat.profil; const pa = etat.parametres;
+  const rev = revenusDuMois(etat, periodeBudget(aujourdhui(), p).mois);
+  const ia = iaDisponible();
+  const nbQuestions = etat.questions.filter((q) => q.statut === 'ouverte').length;
+  const der = etat.meta.derniereMiseAJour;
+  const vide = !etat.transactions.length;
+  const sect = (id, detail, titreL = SECTIONS[id].titre) => lien(titreL, detail, () => aller(`reglages/${id}`), SECTIONS[id].icone);
+  const parts = partsReste(etat);
+  vue.replaceChildren(...[
+    h('h1', { class: 'titre-page' }, 'Réglages'),
+    carte('Sauvegarde', h('div', { class: 'v2-reg-sauvegarde' },
+      h('p', { class: 'petit' }, pa.derniereSauvegarde ? `Dernière sauvegarde le ${formatDate(pa.derniereSauvegarde.slice(0, 10))}${pa.motDePasseSauvegarde ? ', chiffrée' : ''}.` : 'Aucune sauvegarde pour l’instant. Tes données ne vivent que sur cet iPhone.'),
+      h('div', { class: 'groupe-boutons' },
+        vide ? null : bouton(pa.motDePasseSauvegarde ? 'Sauvegarder (chiffrée)' : 'Sauvegarder', () => exporterSauvegarde(), { classe: 'btn-principal', icone: 'partage' }),
+        bouton(vide ? 'Restaurer mon fichier' : 'Restaurer un fichier', () => aller('reglages/import'), { classe: vide ? 'btn-principal' : 'btn-secondaire', icone: 'importer' })),
+      h('div', { class: 'liste-liens' }, sect('sauvegarde', 'tout exporter, tableau, chiffrement')))),
+    carte('Mon argent', h('div', { class: 'liste-liens' },
+      nbQuestions ? lien('Questions sur tes relevés', `${nbQuestions} en attente`, () => aller('reglages/questions'), 'info') : null,
+      sect('revenus', `${formatEuros(rev.totalCentimes)} ce mois-ci`),
+      sect('epargne', `reste du jour : ${parts.pret} % prêt, ${parts.securite} % sécurité, ${parts.envie} % envie`),
+      sect('envies', (() => { const l = (p.envies?.liste || []); return l.length ? l.map((e) => e.nom).join(', ') : 'un jeu, des baskets… mis de côté jour après jour'; })()))),
+    carte('L’app', h('div', { class: 'liste-liens' },
+      sect('profil', p.prenomAffichage || 'prénom, jour de salaire'),
+      sect('confidentialite', pa.pinHash ? 'code PIN actif, petit bruit de la molette' : 'code PIN, petit bruit de la molette'),
+      lien('Revenir à l’ancienne app', 'styles Classique et Joyeux ; mêmes données des deux côtés', () => basculer('origine'), 'retour'))),
+    h('details', { class: 'reglages-avance' },
+      h('summary', {}, 'Avancé'),
+      carte(null, h('div', { class: 'liste-liens' },
+        sect('operations', 'relevés, prélèvements, catégories, comptes'),
+        lien('Recalcul complet', 'tape tes soldes : tout est recalculé, chaque écart expliqué', async () => { const { feuilleRecalcul } = await import('./recalcul.js'); feuilleRecalcul(); }, 'boucle'),
+        lien('Mettre à jour depuis mon fichier', der ? `dernière le ${formatDate(der.le.slice(0, 10))}, tes saisies sont gardées` : 'budget-import-prive.json, tes saisies sont gardées', () => choisirFichierMiseAJour(), 'telecharger'),
+        sect('gemini', ia.ok ? 'activé' : 'désactivé'),
+        sect('pont', 'échanges avec l’app Repas'),
+        sect('diagnostic', 'tester toute l’app et me l’envoyer'),
+        lien('Forcer la mise à jour', `version ${versionApp}, tes données restent`, () => forcerMiseAJour(), 'boucle'),
+        sect('apropos', `version ${versionApp}`)))),
+  ].filter(Boolean));
+}
+
+/** v200 : le partage du reste du jour (prêt, sécurité, le reste à l'envie), réglable ici. */
+function cartePartageReste() {
+  const actuel = partsReste(etat);
+  let choix = { ...actuel };
+  const options = Array.from({ length: 21 }, (_, i) => [String(i * 5), `${i * 5} %`]);
+  const note = h('p', { class: 'petit', 'aria-live': 'polite' });
+  const valider = bouton('Garder ce partage', async () => {
+    const parts = partsDepuisChoix(choix.pret, choix.securite);
+    if (!parts) return;
+    await majProfil({ partsReste: parts });
+    toast(`Partage gardé : ${parts.pret} % prêt, ${parts.securite} % sécurité, ${parts.envie} % envie.`, { type: 'succes' });
+  }, { classe: 'btn-principal btn-petit' });
+  const maj = () => {
+    const parts = partsDepuisChoix(choix.pret, choix.securite);
+    note.textContent = parts ? `Ton envie reçoit le reste : ${parts.envie} %.` : 'Le prêt et la sécurité dépassent 100 % : baisse l’un des deux.';
+    valider.disabled = !parts || (parts.pret === actuel.pret && parts.securite === actuel.securite);
+  };
+  const menu = (cle) => selectionner(options, String(choix[cle] - (choix[cle] % 5)), (v) => { choix[cle] = Number(v); maj(); });
+  maj();
+  return carte('Partage du reste du jour', h('div', { class: 'formulaire' },
+    h('p', { class: 'petit' }, 'Chaque matin à 5 h, ce qui reste de ta part de la veille est partagé entre tes pots. Conseillé : 40 % prêt, 30 % sécurité, 30 % envie.'),
+    h('div', { class: 'deux-colonnes' }, champ('Prêt', menu('pret')), champ('Sécurité', menu('securite'))),
+    note, valider));
 }
 
 /** Contenu de chaque section (mêmes réglages qu'avant, rangés par thème). */
@@ -131,6 +196,7 @@ function cartesSection(id) {
         champ('Aide au logement', champMontant({ valeur: p.aideLogementCentimes, onValeur: (v) => majProfil({ aideLogementCentimes: v }) }), 'Aide versée au bailleur, non comptabilisée dans vos revenus.')))),
   ];
   if (id === 'epargne') return [
+    estV200() ? cartePartageReste() : null,
     carte('Repas et reste du jour → épargne', h('div', { class: 'formulaire' },
       interrupteur('Épargner automatiquement les repas pris à la maison', p.repasAuto?.actif !== false, (v) => majProfil({ repasAuto: { ...p.repasAuto, actif: v, depuis: v ? (p.repasAuto?.depuis || aujourdhui()) : p.repasAuto?.depuis } }),
         `Chaque jour sans repas dehors noté (fast-food, livraison, resto), le prix de ton menu habituel (${formatEuros(prixRepas(etat))}) part à l’épargne pour chaque repas, sans dépasser ce qui reste de ta part du jour.`),
@@ -190,13 +256,10 @@ function cartesSection(id) {
       interrupteur('Mode 100 % local', pa.mode100Local, (v) => majParametres({ mode100Local: v }), 'Tout fonctionne par règles ; aucune requête réseau hors mise à jour de l’app.'),
       interrupteur('Masquer les montants', pa.masquageMontants, (v) => { definirMasquage(v); majParametres({ masquageMontants: v }); }),
       h('div', { class: 'ligne-reglage' }, h('span', { class: 'ligne-reglage-libelle' }, 'Code PIN', h('small', {}, PIN_EST_UN_VERROU)), pa.pinHash ? h('div', { class: 'groupe-boutons' }, bouton('Changer', () => feuillePin(), { classe: 'btn-petit' }), bouton('Supprimer', async () => { await supprimerPin(); toast('Code PIN supprimé.'); }, { classe: 'btn-petit btn-danger-texte' })) : bouton('Définir', () => feuillePin(), { classe: 'btn-petit' })))),
-    appCourante() === 'v200' ? carte('Apparence', h('div', { class: 'formulaire' },
-      h('p', { class: 'petit' }, 'La nouvelle app a un seul habillage, clair. Les styles Classique et Joyeux sont dans l’app d’origine.'),
+    estV200() ? carte('Apparence', h('div', { class: 'formulaire' },
+      h('p', { class: 'petit' }, 'La nouvelle app a un seul habillage, clair. Les styles Classique et Joyeux sont dans l’ancienne app.'),
       interrupteur('Petit bruit de la molette', sonMolette(), (v) => definirSonMolette(v), 'Un léger « tic » à chaque cran. Gardé sur cet iPhone seulement.'),
-      bouton(`Revenir à ${nomApp(appPrecedente())}`, () => basculer(appPrecedente()), { classe: 'btn-secondaire' }))) :
-    estCockpit() ? carte('Apparence', h('div', { class: 'formulaire' },
-      h('p', { class: 'petit' }, 'v100 a un seul habillage : le Cockpit, sombre. Les styles Classique et Joyeux et le thème clair sont dans l’app d’origine.'),
-      bouton('Revenir à l’app d’origine', () => basculer('origine'), { classe: 'btn-secondaire' }))) :
+      bouton('Revenir à l’ancienne app', () => basculer('origine'), { classe: 'btn-secondaire' }))) :
     carte('Apparence', h('div', { class: 'formulaire' },
       champ('Style de l’app', segment([['classique', 'Classique'], ['joyeux', 'Joyeux']], pa.style || 'classique', async (v) => { await majParametres({ style: v }); }, 'Style de l’app'), 'Joyeux : couleurs vives, une mascotte, des points et des quêtes du jour. Les chiffres sont les mêmes.'),
       champ('Thème', segment([['auto', 'Automatique'], ['clair', 'Clair'], ['sombre', 'Sombre']], pa.theme || 'auto', async (v) => { await majParametres({ theme: v }); appliquerTheme(v); }, 'Thème')))),

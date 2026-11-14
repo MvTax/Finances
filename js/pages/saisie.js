@@ -99,11 +99,6 @@ function toastAjout(tx, { annuler = true } = {}) {
     import('../v200/ui/confirmation.js').then((m) => m.confirmerDepense(tx, { annuler: annuler ? () => supprimerTransaction(tx) : null })).catch(() => {});
     return;
   }
-  // v100 : une carte courte (reste du jour, épargne) avec « Plus d'explications », à la place du message
-  if (appCourante() === 'v100') {
-    import('../v100/ui/confirmation.js').then((m) => m.confirmerAjout(tx, { annuler: annuler ? () => supprimerTransaction(tx) : null })).catch(() => {});
-    return;
-  }
   const arr = estEligibleArrondi(tx, etat.profil.arrondi) && etat.profil.arrondi?.actif ? arrondiEuroSuperieur(tx.montantCentimes) : 0;
   const rompue = tx.sens === 'debit' && tx.date === auj && estAnnoncee(etat, auj) && estDepenseQuotidienne(tx);
   toast(`${estJoyeux() ? (tx.sens === 'debit' ? '🎉 ' : '💰 ') : ''}${tx.sens === 'debit' ? 'Dépense' : 'Entrée'}${tx.date !== auj ? ` du ${formatDateCourte(tx.date)}` : ''} ajoutée : ${formatEuros(tx.montantCentimes)}${arr ? ` (+${formatEuros(arr)} d'arrondi)` : ''}${rompue ? '. Ta journée sans dépense est rompue.' : ''}`,

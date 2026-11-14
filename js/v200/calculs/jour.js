@@ -4,7 +4,7 @@
 
 import { jaugeDuJour } from '../../calculs.js';
 import { serieJours, estSaisie } from '../../jeu.js';
-import { partageDuReste } from '../../v100/strategie/explications.js';
+import { partageDuReste } from './explications.js';
 import { preventions } from './resume.js';
 import { eur } from './commun.js';
 

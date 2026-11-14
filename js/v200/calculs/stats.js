@@ -1,4 +1,4 @@
-// stats.js (v100) — les statistiques de tes dépenses du quotidien, calculées sur les jours terminés.
+// stats.js — les statistiques de tes dépenses du quotidien, calculées sur les jours terminés.
 //
 // Tout part d'une série : la dépense de chaque jour (0 pour un jour sans dépense), sur 90 jours au plus.
 //  - tendance centrale : moyenne, médiane, quartiles (la médiane résiste aux gros jours) ;

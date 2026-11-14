@@ -9,7 +9,7 @@ import { etat } from '../../store.js';
 import { estDepenseQuotidienne } from '../../calculs.js';
 import { aujourdhui, ajouterJours, formatDateCourte } from '../../dates.js';
 import { nomCategorie } from '../../categories.js';
-import { arrondiDeLaDepense } from '../../v100/strategie/explications.js';
+import { arrondiDeLaDepense } from '../calculs/explications.js';
 import { confirmerObligatoire } from '../../actions.js';
 import { serieJours } from '../../jeu.js';
 import { eur } from '../calculs/commun.js';

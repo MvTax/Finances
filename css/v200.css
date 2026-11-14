@@ -1,7 +1,7 @@
 /* v200.css — la nouvelle app, claire et joyeuse (sans être enfantine) : fond crème, cartes blanches, beige doux,
    un corail chaleureux pour agir, un jaune soleil seulement pour les flammes, les pièces et le soleil (jamais en texte).
    Nunito (chiffres alignés, gros chiffres en 800), Fredoka pour quelques petits titres. Ombres douces, coins arrondis généreux.
-   Tout est rangé sous :root[data-app="v200"] : l'app d'origine et v100 ne sont pas touchées.
+   Tout est rangé sous :root[data-app="v200"] : l'app d'origine (styles Classique et Joyeux) n'est pas touchée.
    Seule exception : les onglets propres à v200 sont cachés ailleurs (première règle). */
 
 :root:not([data-app="v200"]) .onglet-v200 { display: none; }
@@ -55,15 +55,36 @@
 :root[data-app="v200"] .carte-titre, :root[data-app="v200"] .feuille-titre { font-family: var(--police-titres); font-weight: 600; letter-spacing: 0; }
 :root[data-app="v200"] :focus-visible { outline-color: var(--accent); }
 
-/* ---------- Pages d'origine réutilisées pour l'instant (Dépenses, Épargne, Résumé, Réglages) ---------- */
+/* ---------- Pages et feuilles héritées de l'app d'origine (Réglages, modification, virement, mois passés, import, rentrée) ---------- */
 :root[data-app="v200"] .carte-corps { background: var(--surface); border-radius: var(--rayon); box-shadow: var(--ombre); }
 :root[data-app="v200"] .btn { border-radius: 16px; font-weight: 800; }
 :root[data-app="v200"] .btn-principal { background: var(--accent); color: #FFFFFF; box-shadow: 0 6px 16px rgb(196 71 29 / 22%); }
 :root[data-app="v200"] .btn-secondaire { background: var(--surface-2); color: var(--texte); }
 :root[data-app="v200"] .btn-petit { border-radius: 999px; }
-:root[data-app="v200"] .input { background: var(--surface-2); border-radius: 14px; }
+:root[data-app="v200"] .input { background-color: var(--surface-2); border-radius: 14px; } /* background-color : garde la flèche des menus (select) */
 :root[data-app="v200"] .feuille { background: var(--fond); border-radius: 28px 28px 0 0; }
 :root[data-app="v200"] .feuille-poignee { background: #D9CDB6; }
+
+:root[data-app="v200"] .btn:not(.btn-principal):not(.btn-secondaire):not(.btn-danger):not(.btn-danger-texte):not(.btn-icone) { background: var(--surface-2); color: var(--texte); }
+:root[data-app="v200"] .groupe-boutons { margin-block: 12px; gap: 10px; }
+:root[data-app="v200"] .carte-corps > div > p + .btn, :root[data-app="v200"] .carte-corps > div > p + label.btn { margin-top: 12px; }
+:root[data-app="v200"] .carte-corps > div > .btn + p, :root[data-app="v200"] .carte-corps > div > input + p { margin-top: 10px; }
+:root[data-app="v200"] .segment, :root[data-app="v200"] .onglets-internes { border-radius: 16px; }
+:root[data-app="v200"] .segment-option.actif, :root[data-app="v200"] .onglet-interne.actif { box-shadow: 0 1px 3px rgb(88 60 30 / 14%); }
+:root[data-app="v200"] .reglages-avance > summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--texte-2); }
+:root[data-app="v200"] .ligne-lien-texte small { color: var(--texte-2); }
+:root[data-app="v200"] .lien-inline { color: var(--accent-fort); }
+:root[data-app="v200"] .detail-cat { color: color-mix(in srgb, var(--c) 70%, #2B2420); }
+:root[data-app="v200"] .toast { background: var(--texte); color: var(--fond); border-radius: 18px; }
+:root[data-app="v200"] .toast-succes { background: var(--vert); }
+:root[data-app="v200"] .toast-erreur { background: var(--rouge); }
+/* Virement : une carte blanche par épargne, le libellé à copier */
+:root[data-app="v200"] .virement-ligne { background: var(--surface); box-shadow: var(--ombre); border-radius: 18px; padding: 12px 14px; }
+:root[data-app="v200"] .virement-libelle-titre { color: var(--texte-2); }
+:root[data-app="v200"] .btn-copier { background: var(--accent-doux); color: var(--accent-fort); min-height: 44px; padding: 6px 14px; font-weight: 700; }
+/* Réglages : la sauvegarde en haut, deux gros boutons */
+:root[data-app="v200"] .v2-reg-sauvegarde .groupe-boutons { display: grid; grid-template-columns: 1fr; }
+:root[data-app="v200"] .v2-reg-sauvegarde .groupe-boutons .btn { width: 100%; min-height: 50px; }
 
 /* ---------- Barre d'onglets : Aujourd'hui | Dépenses | (+) | Épargne | Résumé ---------- */
 :root[data-app="v200"] .onglet-hors-v200 { display: none; }

@@ -23,11 +23,21 @@ import { aujourdhui } from './dates.js';
 export const PARTS_RESTE = { pret: 40, securite: 30, envie: 30 };
 export const PART_ENVIE = PARTS_RESTE.envie / 100;
 
-/** Le partage réglé (profil.partsReste, modifiable dans v100 → Stratégie → Répartition), sinon 40/30/30. Total toujours 100. */
+/** Le partage réglé (profil.partsReste, modifiable dans v200 → Réglages → Épargne automatique), sinon 40/30/30. Total toujours 100. */
 export function partsReste(etat) {
   const p = etat?.profil?.partsReste;
   const ok = p && [p.pret, p.securite, p.envie].every((x) => Number.isInteger(x) && x >= 0 && x <= 100) && p.pret + p.securite + p.envie === 100;
   return ok ? { pret: p.pret, securite: p.securite, envie: p.envie } : PARTS_RESTE;
+}
+
+/**
+ * Le partage choisi dans les Réglages : la part du prêt et celle de la sécurité (en %, nombres entiers),
+ * le reste va à l'envie. null si les deux dépassent 100 % ou si une valeur n'est pas un entier de 0 à 100.
+ */
+export function partsDepuisChoix(pret, securite) {
+  const p = Number(pret); const s = Number(securite);
+  if (![p, s].every((x) => Number.isInteger(x) && x >= 0 && x <= 100) || p + s > 100) return null;
+  return { pret: p, securite: s, envie: 100 - p - s };
 }
 
 /**

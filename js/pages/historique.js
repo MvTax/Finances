@@ -1,5 +1,6 @@
 // historique.js — Statistiques des mois passés (bilan, postes, mois par mois, marchands, problèmes) et Conseils.
 
+import { estV200 } from '../habillage.js';
 import { h, icone, mt } from '../ui/dom.js';
 import { aller } from '../router.js';
 import { carte, onglets, bouton, etatVide, segment, statistique } from '../ui/composants.js';
@@ -28,7 +29,7 @@ export function rendre(vue, params = []) {
   if (params[0]) ongletActif = params[0] === 'remedier' ? 'conseils' : params[0];
   const zone = h('div');
   const dessiner = () => zone.replaceChildren(ongletActif === 'conseils' ? vueConseils(dessiner) : vueBilan(dessiner));
-  vue.replaceChildren(h('button', { class: 'lien retour', type: 'button', onclick: () => aller('depenses') }, icone('retour'), 'Dépenses'), h('h1', { class: 'titre-page' }, 'Statistiques'),
+  vue.replaceChildren(h('button', { class: 'lien retour', type: 'button', onclick: () => aller(estV200() ? 'resume' : 'depenses') }, icone('retour'), estV200() ? 'Résumé' : 'Dépenses'), h('h1', { class: 'titre-page' }, 'Statistiques'),
     h('p', { class: 'sous-titre-page' }, 'Tes mois passés, pour comprendre où part ton argent. Le budget du mois en cours ne dépend que de ce mois-ci.'),
     onglets([['bilan', 'Bilan'], ['conseils', 'Conseils']], ongletActif, (v) => { ongletActif = v; history.replaceState(null, '', `#statistiques/${v}`); dessiner(); }), zone);
   dessiner();

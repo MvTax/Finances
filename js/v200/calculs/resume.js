@@ -8,7 +8,7 @@ import { contributionDepense, nomCategorie } from '../../categories.js';
 import { epargneNettePeriode } from '../../epargne.js';
 import { serieJours } from '../../jeu.js';
 import { fluxEnvies } from '../../envies.js';
-import { statsDepenses } from '../../v100/strategie/stats.js';
+import { statsDepenses } from './stats.js';
 import { ajouterJours, diffJours, formatMois, formatDateCourte, jourSemaine, JOURS_LONGS } from '../../dates.js';
 import { eur, premierJourConnu, mediane } from './commun.js';
 

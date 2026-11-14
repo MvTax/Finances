@@ -45,6 +45,19 @@ const sp = (x) => (typeof x === 'string' ? x.replace(/[\u202f\u00a0]/g, ' ') : x
 const avecDate = (auj, fn) => { forcerAujourdhui(auj); try { return fn(); } finally { forcerAujourdhui(null); } };
 
 export default [
+  { nom: 'aiguillage : v200 par défaut, « v100 » réécrit en v200, « origine » gardée, ?app= prioritaire', fn: async () => {
+    await import('../../js/aiguillage.js'); // script classique : chargé en module, il ne fait qu'exposer son choix
+    const choix = globalThis.choixAppBudget;
+    egalProfond(choix(null, null), { app: 'v200', aGarder: null }, 'rien de gardé : la nouvelle app');
+    egalProfond(choix(null, 'v200'), { app: 'v200', aGarder: null });
+    egalProfond(choix(null, 'v100'), { app: 'v200', aGarder: 'v200' }, 'l’ancien Cockpit ouvre v200 et le choix est réécrit');
+    egalProfond(choix(null, 'origine'), { app: 'origine', aGarder: null }, 'l’ancienne app, choisie, reste');
+    egalProfond(choix(null, 'nimporte'), { app: 'v200', aGarder: 'v200' });
+    egalProfond(choix('v100', 'origine'), { app: 'v200', aGarder: 'v200' }, '?app=v100 ouvre v200');
+    egalProfond(choix('origine', 'v200'), { app: 'origine', aGarder: 'origine' });
+    egalProfond(choix('v200', 'origine'), { app: 'v200', aGarder: 'v200' });
+    egalProfond(choix('v200', 'v200'), { app: 'v200', aGarder: null });
+  } },
   { nom: 'outils : montants lisibles et arrondi aux 10 centimes', fn: () => {
     egal(eur(1200), '12 €'); egal(eur(-1230), '12,30 €');
     egal(arrondi10(455), 460); egal(arrondi10(404), 400); egal(arrondi10(1000), 1000);

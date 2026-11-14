@@ -28,7 +28,7 @@ export const CAS = [
   ['envies', () => import('./cas/envies.mjs')],
   ['recalcul', () => import('./cas/recalcul.mjs')],
   ['obligatoires', () => import('./cas/obligatoires.mjs')],
-  ['v100', () => import('./cas/v100.mjs')],
+  ['v200-stats', () => import('./cas/v200-stats.mjs')],
   ['v200', () => import('./cas/v200.mjs')],
   ['sauvegarde-synthetique', () => import('./cas/sauvegarde-synthetique.mjs')],
 ];

@@ -43,7 +43,7 @@ function bulle(b) {
 export function rendre(vue) {
   const auj = aujourdhui();
   const b = bulleDuJour(etat, auj);
-  // La part du jour est figée pour la journée (comme l'Accueil d'origine et le Cockpit)
+  // La part du jour est figée pour la journée (comme l'Accueil d'origine)
   const snap = b.jauge.instantane; const j0 = etat.meta.jauge;
   if (b.etat !== 'vide' && (!j0 || j0.date !== snap.date || j0.mois !== snap.mois || j0.baseCentimes !== snap.baseCentimes)) ecrireMeta('jauge', snap);
   document.documentElement.classList.remove('mode-critique');

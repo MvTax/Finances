@@ -1,12 +1,12 @@
 // risques.js (v200) — le risque du mois en un mot (calme, attention, risque) et une phrase simple.
 // Trois sources, toutes calculées sur le téléphone :
-//  - la prévision de fin de mois (v100/strategie/stats.js) : chance de finir sans dépasser, à ton rythme récent ;
+//  - la prévision de fin de mois (stats.js) : chance de finir sans dépasser, à ton rythme récent ;
 //  - la projection du compte courant jusqu'au salaire (calculs.js) : un prélèvement que le solde ne couvre pas ;
 //  - les charges fixes encore à payer avant le salaire.
 // Fonctions pures : l'état et la journée de budget sont passés en paramètres.
 
 import { periodeBudget, projectionDecouvert, chargesFixesPeriode } from '../../calculs.js';
-import { previsionMois, JOURS_FIABLES } from '../../v100/strategie/stats.js';
+import { previsionMois, JOURS_FIABLES } from './stats.js';
 import { diffJours, formatDateCourte } from '../../dates.js';
 import { eur } from './commun.js';
 

@@ -1,5 +1,6 @@
 // import.js — import de relevés (PDF LCL/Revolut, CSV) et restauration de sauvegarde, avec écran de revue.
 
+import { estV200 } from '../habillage.js';
 import { h, icone, mt } from '../ui/dom.js';
 import { carte, bouton, champ, selectionner, etatVide, pastillesCategories, interrupteur, ligneTransaction } from '../ui/composants.js';
 import { ouvrirFeuille, confirmer } from '../ui/sheet.js';
@@ -23,6 +24,18 @@ import { indicationEnvoiGemini, lireFichierJson } from './communs.js';
 
 export function rendreImport(vue) {
   const input = h('input', { type: 'file', accept: '.pdf,.csv,.json,application/pdf,text/csv,application/json', multiple: true, class: 'sr', id: 'fichiers-import', onchange: (e) => traiter([...e.target.files]) });
+  // v200 : on arrive ici depuis « Restaurer » des Réglages, la restauration passe donc en premier
+  if (estV200()) {
+    vue.replaceChildren(
+      h('button', { class: 'lien retour', type: 'button', onclick: () => aller('reglages') }, icone('retour'), 'Réglages'),
+      h('h1', { class: 'titre-page' }, 'Restaurer ou importer'),
+      carte('Restaurer une sauvegarde', h('div', {},
+        h('p', {}, 'Choisis ton fichier .json : une sauvegarde de l’app, ou ton fichier d’import privé. Avant de remplacer quoi que ce soit, l’app te demande de confirmer.'),
+        h('label', { for: 'fichiers-import', class: 'btn btn-principal btn-large' }, icone('importer'), h('span', {}, 'Choisir mon fichier')), input)),
+      carte('Relevés bancaires', h('div', {},
+        h('p', { class: 'petit' }, 'PDF LCL ou Revolut, ou un CSV : choisis-les avec le même bouton. Tout est analysé sur ton iPhone, rien n’est envoyé. Réimporter le même relevé n’ajoute rien.'))));
+    return;
+  }
   vue.replaceChildren(
     h('button', { class: 'lien retour', type: 'button', onclick: () => aller('reglages/operations') }, icone('retour'), 'Opérations et catégories'),
     h('h1', { class: 'titre-page' }, 'Importer'),

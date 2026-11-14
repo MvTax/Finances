@@ -15,33 +15,34 @@ Répondre en français simple : l'utilisateur n'est pas développeur. App faite 
 9. Clé Gemini sur l'appareil ; tout envoi annoncé (« Envoi à Gemini : … »).
 10. Mot de passe des sauvegardes jamais écrit dans le fichier exporté.
 11. Sauvegarde : ne pas changer `format` ni la structure de `contenu` ; nouvelle donnée → migration + `META_HISTORIQUE`.
-12. L'app d'origine (styles Classique/Joyeux) ne doit pas changer ; v100 = `html[data-app="v100"]`.
+12. L'app d'origine (styles Classique/Joyeux) ne doit pas changer ; l'app (nouvelle, joyeuse) = `html[data-app="v200"]`.
 13. Branche de travail `v100-simple` ; `main` = en ligne (GitHub Pages). Fusion dans `main` seulement à la mise en ligne.
 14. Valeurs personnelles (salaire, seuils, catégories…) : dans `profil`/réglages, calculées sur l'appareil, jamais dans le code.
 
 ## Où changer quoi
 | Besoin | Fichier |
 |---|---|
-| Fiche « ? » / « Plus d'explications » | `js/v100/pages/fiches.js` |
-| Accueil v100 | `js/v100/pages/cockpit.js` |
-| Carte après une dépense/privation | `js/v100/ui/confirmation.js` |
-| Onglet Stratégie et ses outils | `js/v100/pages/strategie.js`, `js/v100/pages/s-*.js` |
-| Calcul / statistique v100 | `js/v100/strategie/*.js` + test dans `tests/cas/v100.mjs` |
+| Pages (Aujourd'hui, Dépenses, Épargne, Résumé) | `js/v200/pages/*.js` |
+| Saisie / privation par gestes | `js/v200/pages/saisie.js`, `privation.js`, `js/v200/ui/` (molette, glisser-valider, tuiles) |
+| Carte après une dépense/privation | `js/v200/ui/confirmation.js` |
+| Calcul / statistique de l'app | `js/v200/calculs/*.js` + test dans `tests/cas/v200.mjs` |
+| Dépenses obligatoires (loyer, abonnements) | `js/obligatoires.js` + `tests/cas/obligatoires.mjs` |
+| Choix de l'app (v200 / origine) | `js/aiguillage.js`, `js/habillage.js` |
 | Calcul commun (reste, jauge, épargne) | `js/calculs.js`, `js/epargne.js`, `js/envies.js` + test |
-| Schéma SVG | `js/v100/ui/graphes.js` |
-| Style v100 | fin de `css/cockpit.css`, règles sous `:root[data-app="v100"]` |
+| Petits dessins SVG | `js/v200/ui/dessins.js`, `soleil.js` |
+| Style | `css/v200.css`, règles sous `:root[data-app="v200"]` |
 | Nouvelle donnée sauvegardée | `js/migrations.js` (`SCHEMA_VERSION`+1) + `META_HISTORIQUE` (`js/sauvegarde.js`) + test `tests/cas/migrations.mjs` |
 | Nouveau fichier | liste de cache de `sw.js` |
 | Export / restauration | `js/sauvegarde.js`, `js/store.js` (`remplacerTout`), `js/pages/import.js` |
 
 ## Sommaire de la doc (lire la section utile, pas tout)
-- `README.md` : v100 le Cockpit (§ « v100, le Cockpit »), sauvegarde (§ « Sauvegarde »), tests (§ « Tests »), système d'épargne (§ « Mon système d'épargne »), journée 5 h (§ « Journée de budget de 5 h à 5 h »).
+- `README.md` : la nouvelle app (§ « La nouvelle app joyeuse »), sauvegarde (§ « Sauvegarde »), tests (§ « Tests »), système d'épargne (§ « Mon système d'épargne »), journée 5 h (§ « Journée de budget de 5 h à 5 h »).
 - `ARCHITECTURE.md` : arborescence, flux de données, schéma IndexedDB, pièges iOS, règles de calcul.
 - `HYPOTHESES.md` : choix de conception et méthodes statistiques.
 - `IDEES.md` : idées futures — à lire seulement si l'utilisateur le demande.
 
 ## Commandes
-`npm test` (n'affiche que les échecs) · `npm run test:detail` · `npm run verif` · `npm run fixtures` · `python3 -m http.server 8765` puis `http://localhost:8765/?app=v100`.
+`npm test` (n'affiche que les échecs) · `npm run test:detail` · `npm run verif` · `npm run fixtures` · `python3 -m http.server 8765` puis `http://localhost:8765/` · `node tools/ecrans.mjs` (écrans, `--origine`, `--aller-retour`).
 Skills du projet : `nouvelle-version`, `ajouter-fonctionnalite`, `verif-ecrans`, `aller-retour-sauvegarde`.
 
 ## Mode chef de projet

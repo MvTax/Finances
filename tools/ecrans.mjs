@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// ecrans.mjs — vérifie les écrans de l'app dans Chromium (Playwright), en largeur iPhone (390 × 844, thème sombre ; clair pour v200),
+// ecrans.mjs — vérifie les écrans de l'app dans Chromium (Playwright), en largeur iPhone (390 × 844 ; thème clair pour v200, sombre pour l'origine),
 // avec la sauvegarde SYNTHÉTIQUE (tests/outils/generer-sauvegarde.mjs), jamais de vraies données.
 // Outil de développement : n'est pas chargé par l'app. Aucune dépendance du projet (Playwright installé globalement).
 //
 // Prérequis : un serveur à la racine du dépôt :  python3 -m http.server 8765
 // Usage :
-//   node tools/ecrans.mjs                      écrans v100 (?app=v100)
+//   node tools/ecrans.mjs                      v200, la nouvelle app (thème clair) : aiguillage (sans réglage, ancien « v100 », « origine »),
+//                                              écrans, saisie par la molette et le glisser, Dépenses (ligne → modification,
+//                                              question oui / non, mois d'avant, rentrée), Épargne (pots, feuille d'un pot, « À virer »),
+//                                              Résumé (météo, mois / année, détail), Réglages et pages héritées de l'app d'origine
+//                                              (captures toujours faites). « --v200 » : même chose (ancien nom).
 //   node tools/ecrans.mjs --origine            app d'origine, styles Classique puis Joyeux
-//   node tools/ecrans.mjs --v200               v200 (?app=v200, thème clair) : écrans, saisie par la molette et le glisser,
-//                                              Dépenses (ligne → modification, question oui / non, mois d'avant, rentrée),
-//                                              Épargne (pots, feuille d'un pot, « À virer »), Résumé (météo, mois / année, détail)
-//                                              (captures de l'écran Aujourd'hui et de la feuille de saisie toujours faites)
 //   node tools/ecrans.mjs --aller-retour       restaurer → « Tout exporter » → comparer au fichier d'origine
 //   options : --capture <écran>[,<écran>…] (capture PNG dans le dossier temporaire), --url http://localhost:8765/,
 //             --aujourdhui AAAA-MM-JJ (date du générateur et de l'horloge figée)
@@ -31,14 +31,15 @@ const args = process.argv.slice(2);
 const valeur = (nom, defaut = null) => (args.includes(nom) ? args[args.indexOf(nom) + 1] : defaut);
 const ORIGINE = args.includes('--origine');
 const ALLER_RETOUR = args.includes('--aller-retour');
-const V200 = args.includes('--v200');
+const V200 = !ORIGINE && !ALLER_RETOUR; // v200 par défaut (« --v200 » accepté)
 const BASE = valeur('--url', 'http://localhost:8765/');
 const { REFERENCE_DEFAUT } = await import(path.join(RACINE, 'tests/outils/generer-sauvegarde.mjs'));
 const AUJ = valeur('--aujourdhui', REFERENCE_DEFAUT);
 const simplifier = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const CAPTURES = new Set(args.flatMap((a, i) => (args[i - 1] === '--capture' ? a.split(',') : [])).map(simplifier));
 if (V200) for (const c of ['v200-aujourdhui', 'v200-saisie', 'v200-saisie-montant', 'v200-confirmation', 'v200-vide', 'v200-privation', 'v200-toutes', 'v200-question', 'v200-privation-montant',
-  'v200-depenses', 'v200-depenses-bas', 'v200-detail-depense', 'v200-rentree', 'v200-epargne', 'v200-pot', 'v200-virement', 'v200-resume', 'v200-resume-annee', 'v200-resume-bas']) CAPTURES.add(c);
+  'v200-depenses', 'v200-depenses-bas', 'v200-detail-depense', 'v200-rentree', 'v200-epargne', 'v200-pot', 'v200-virement', 'v200-resume', 'v200-resume-annee', 'v200-resume-bas',
+  'v200-reglages', 'v200-reglages-avance', 'v200-reglages-apparence', 'v200-reglages-sauvegarde', 'v200-reglages-epargne', 'v200-reglages-revenus', 'v200-import', 'v200-historique', 'v200-saisie-clavier']) CAPTURES.add(c);
 const DOSSIER = mkdtempSync(path.join(os.tmpdir(), 'ecrans-'));
 const LARGEUR = 390; const HAUTEUR = 844;
 
@@ -237,7 +238,7 @@ async function verifierFeuille(page, id, libelle, { fermer = 'bouton', extra = a
     if (corps.scrollHeight <= corps.clientHeight + 1 && fin > corps.getBoundingClientRect().bottom + 2 && !/auto|scroll/.test(getComputedStyle(corps).overflowY)) q.push('contenu coupé en bas de la feuille');
     return q;
   }));
-  p.push(...await controler(page, '.feuille-racine:last-of-type'), ...await extra());
+  p.push(...await controler(page, '.feuille-racine:last-of-type'), ...await extra(), ...(V200 ? await contrastes(page, '.feuille-racine:last-of-type') : []));
   await capturer(page, id);
   // Fermeture
   if (fermer === 'bouton') await page.locator('.feuille-racine').last().locator('.feuille-fermer').click();
@@ -286,9 +287,8 @@ async function verifierCarte(page, id, libelle) {
 }
 
 /** Saisie d'une dépense par le clavier (feuille « Nouvelle opération »). */
-async function saisirDepense(page, montant, libelle, { ouvrir = 'v100', verifier = null } = {}) {
-  if (ouvrir === 'v100') await page.locator('.ck-action-depense').click();
-  else await page.locator('#bouton-plus').click();
+async function saisirDepense(page, montant, libelle, { verifier = null } = {}) {
+  await page.locator('#bouton-plus').click();
   await page.waitForSelector('.feuille.visible form.vue-clavier', { timeout: 4000 });
   await attendre(page, 350);
   await page.locator('.feuille.visible input[aria-label="Montant"]').fill(montant);
@@ -298,139 +298,6 @@ async function saisirDepense(page, montant, libelle, { ouvrir = 'v100', verifier
   await page.waitForFunction(() => !document.querySelector('.feuille.visible'), null, { timeout: 4000 }).catch(() => {});
 }
 const trouverTx = (page, libelle) => page.evaluate(async (l) => (await import('/js/store.js')).etat.transactions.filter((t) => t.libelle === l).length, libelle);
-
-// ---------------------------------------------------------------- v100
-
-async function ecransV100() {
-  const { contexte, page } = await nouveauContexte();
-  await restaurer(page, 'v100');
-  await aller(page, '#accueil');
-  await page.waitForSelector('.ck', { timeout: 6000 });
-
-  await verifierPage(page, 'accueil', 'Accueil', async () => page.evaluate((H) => {
-    const q = [];
-    for (const el of document.querySelectorAll('.ck-lignes > *')) if (el.tagName !== 'BUTTON') q.push(`ligne de l’Accueil qui n’est pas un <button> : ${el.tagName.toLowerCase()}`);
-    const ck = document.querySelector('.ck');
-    const bas = ck.getBoundingClientRect().bottom + scrollY;
-    const limite = Math.round(1.5 * H);
-    console.info(`hauteur Accueil ${Math.round(bas)}`);
-    if (bas > limite + 20) q.push(`Accueil trop long : ${Math.round(bas)} px de contenu (> ~${limite} px, 1,5 écran)`);
-    return q;
-  }, HAUTEUR));
-  const hauteur = await page.evaluate(() => Math.round(document.querySelector('.ck').getBoundingClientRect().bottom + scrollY));
-  console.log(`  hauteur de l’Accueil : ${hauteur} px (1,5 écran = ${Math.round(1.5 * HAUTEUR)} px)`);
-
-  // Les fiches de l'Accueil (chaque méthode de fermeture est essayée)
-  await page.locator('.ck-libelle button.q').click();
-  await verifierFeuille(page, 'fiche-jour', 'Fiche « ? » du cadran (ficheJour)', { fermer: 'bouton' });
-  for (const [nom, id, fermer] of [['Ton épargne', 'fiche-epargne', 'voile'], ['Ce mois-ci', 'fiche-mois', 'glissement'], ['Ta série', 'fiche-serie', 'bouton'], ['Ton envie', 'fiche-envie', 'voile']]) {
-    const l = page.locator('.ck-lignes .ck-ligne', { hasText: nom });
-    if (!await l.count()) { rapport(`Fiche « ${nom} »`, ['ligne absente de l’Accueil']); continue; }
-    await l.click();
-    await verifierFeuille(page, id, `Fiche « ${nom} »`, { fermer });
-  }
-
-  // J'ai dépensé → saisie → carte → Plus d'explications
-  await page.locator('.ck-action-depense').click();
-  await verifierFeuille(page, 'saisie', 'Saisie « J’ai dépensé »', { fermer: 'bouton' });
-  await saisirDepense(page, '4,20', 'SAISIE TEST EXEMPLE');
-  if ((await trouverTx(page, 'SAISIE TEST EXEMPLE')) !== 1) rapport('Saisie d’une dépense', ['la dépense n’est pas enregistrée']);
-  if (await verifierCarte(page, 'carte-depense', 'Carte de confirmation (dépense)')) {
-    await page.locator('.confirmation.visible .confirmation-plus').click();
-    await verifierFeuille(page, 'fiche-depense', 'Fiche « Plus d’explications » (dépense)', { fermer: 'glissement' });
-  }
-
-  // Annuler supprime vraiment la dépense
-  await saisirDepense(page, '3,10', 'ANNULER EXEMPLE');
-  const avant = await trouverTx(page, 'ANNULER EXEMPLE');
-  await page.waitForSelector('.confirmation.visible', { timeout: 4000 }).catch(() => {});
-  const bAnnuler = page.locator('.confirmation.visible button', { hasText: 'Annuler' });
-  if (!await bAnnuler.count()) rapport('Carte : « Annuler »', ['bouton Annuler absent']);
-  else {
-    await bAnnuler.click(); await attendre(page, 500);
-    const apres = await trouverTx(page, 'ANNULER EXEMPLE');
-    const visible = await page.locator('.confirmation').count();
-    rapport('Carte : « Annuler »', [avant !== 1 ? 'la dépense n’avait pas été enregistrée' : null, apres !== 0 ? 'la dépense est toujours dans les données' : null, visible ? 'la carte reste affichée' : null, ...viderErreurs(page)]);
-  }
-
-  // La carte disparaît quand on change de page
-  await saisirDepense(page, '2,00', 'PAGE EXEMPLE');
-  await page.waitForSelector('.confirmation.visible', { timeout: 4000 }).catch(() => {});
-  await page.locator('.barre-onglets .onglet[data-onglet="strategie"]').click();
-  await attendre(page, 600);
-  rapport('Carte : changement de page', [await page.locator('.confirmation').count() ? 'la carte reste affichée sur la page Stratégie' : null, ...viderErreurs(page)]);
-  await aller(page, '#accueil');
-
-  // La carte se ferme seule après 9 s
-  await saisirDepense(page, '1,50', 'DUREE EXEMPLE');
-  await page.waitForSelector('.confirmation.visible', { timeout: 4000 }).catch(() => {});
-  await page.clock.runFor(8000);
-  const encore = await page.locator('.confirmation.visible').count();
-  await page.clock.runFor(1500); await attendre(page, 500);
-  const fin = await page.locator('.confirmation').count();
-  rapport('Carte : fermeture seule après 9 s', [!encore ? 'la carte disparaît avant 9 s' : null, fin ? 'la carte est encore là après 9,5 s' : null, ...viderErreurs(page)]);
-  await page.evaluate(async () => {
-    const { etat } = await import('/js/store.js'); const { supprimerTransaction } = await import('/js/actions.js');
-    for (const t of etat.transactions.filter((x) => /^(PAGE|DUREE) EXEMPLE$/.test(x.libelle))) await supprimerTransaction(t);
-  });
-
-  // Je me suis privé → carte
-  await stable(page);
-  await page.locator('.ck-action', { hasText: 'Je me suis privé' }).click();
-  await verifierFeuille(page, 'privation', 'Feuille « Je me suis privé »', { fermer: null });
-  await page.locator('.feuille.visible .btn-principal.btn-large').click();
-  if (await verifierCarte(page, 'carte-privation', 'Carte de confirmation (privation)')) await page.locator('.confirmation.visible .confirmation-fermer').click();
-  await attendre(page, 400);
-
-  // Stratégie et ses outils
-  await aller(page, '#strategie');
-  await verifierPage(page, 'strategie', 'Stratégie (liste)');
-  const OUTILS = [['score', 'Score'], ['habitudes', 'Mes habitudes'], ['pret', 'Prêt'], ['projection', 'Projection'], ['coach', 'Brief'], ['categories', 'Catégories'], ['repartition', 'Répartition'], ['tresorerie', 'Trésorerie']];
-  for (const [route, nom] of OUTILS) {
-    await aller(page, `#strategie/${route}`);
-    await attendre(page, 300);
-    await verifierPage(page, route, `Stratégie → ${nom}`, route === 'habitudes' ? () => controlerHistogramme(page) : async () => []);
-  }
-  for (const [route, nom] of [['abonnements', 'Abonnements'], ['statistiques', 'Mois passés']]) {
-    await aller(page, `#${route}`);
-    await verifierPage(page, simplifier(nom), `Petit outil → ${nom}`);
-  }
-  for (const nom of ['Recalcul complet', 'Et si j’achète ?']) {
-    await aller(page, '#strategie');
-    await page.locator('.outil-mini', { hasText: nom }).click();
-    await verifierFeuille(page, simplifier(nom), `Petit outil → ${nom}`, { fermer: 'bouton' });
-  }
-  await contexte.close();
-}
-
-/** Mes habitudes : l'histogramme « À quoi ressemble une journée » et sa phrase. */
-async function controlerHistogramme(page) {
-  return page.evaluate(() => {
-    const q = [];
-    const panneau = [...document.querySelectorAll('#vue section, #vue .panneau, #vue div')].find((el) => /^À quoi ressemble une journée/.test(el.firstElementChild?.textContent?.trim() || ''));
-    if (!panneau) return ['panneau « À quoi ressemble une journée » introuvable'];
-    const svg = panneau.querySelector('svg');
-    if (!svg) return ['histogramme absent'];
-    const s = svg.getBoundingClientRect();
-    const textes = [...svg.querySelectorAll('text')].map((t) => ({ t: t.textContent, r: t.getBoundingClientRect(), taille: parseFloat(getComputedStyle(t).fontSize) * (s.width / svg.viewBox.baseVal.width) }));
-    for (const x of textes) {
-      if (x.taille < 10.5) { q.push(`étiquette trop petite dans l’histogramme (« ${x.t} » à ${x.taille.toFixed(1)} px)`); break; }
-    }
-    for (let i = 0; i < textes.length; i += 1) for (let j = i + 1; j < textes.length; j += 1) {
-      const a = textes[i].r; const b = textes[j].r;
-      if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) q.push(`étiquettes qui se chevauchent : « ${textes[i].t} » et « ${textes[j].t} »`);
-    }
-    for (const x of textes) if (x.r.top < s.top - 1 || x.r.right > s.right + 1 || x.r.left < s.left - 1) q.push(`étiquette coupée par le cadre : « ${x.t} »`);
-    const phrase = [...panneau.querySelectorAll('p')].find((p) => /journée/.test(p.textContent));
-    if (!phrase) q.push('phrase sous l’histogramme absente');
-    else {
-      const cs = getComputedStyle(phrase);
-      if (parseFloat(cs.fontSize) < 13) q.push(`phrase sous l’histogramme trop petite (${cs.fontSize})`);
-      if (phrase.scrollWidth > phrase.clientWidth + 1) q.push('phrase sous l’histogramme coupée');
-    }
-    return q;
-  });
-}
 
 // ---------------------------------------------------------------- App d'origine
 
@@ -442,7 +309,7 @@ async function ecransOrigine() {
     await page.goto(`${BASE}?app=origine#accueil`);
     await page.reload();
     await stable(page, 600);
-    const st = await page.evaluate(() => ({ app: document.documentElement.dataset.app || 'origine', style: document.documentElement.dataset.style || 'classique', strat: getComputedStyle(document.querySelector('.onglet-v100')).display, v200: [...document.querySelectorAll('.onglet-v200')].some((e) => getComputedStyle(e).display !== 'none') }));
+    const st = await page.evaluate(() => ({ app: document.documentElement.dataset.app || 'origine', style: document.documentElement.dataset.style || 'classique', strat: document.querySelector('[data-onglet="strategie"]') ? 'flex' : 'none', v200: [...document.querySelectorAll('.onglet-v200')].some((e) => getComputedStyle(e).display !== 'none') }));
     rapport(`Origine ${style} : habillage`, [st.app !== 'origine' ? `app « ${st.app} » au lieu de l’origine` : null, st.style !== style ? `style « ${st.style} »` : null, st.strat !== 'none' ? 'onglet Stratégie visible' : null, st.v200 ? 'onglet de v200 visible' : null]);
     viderErreurs(page);
     for (const [hash, nom] of [['accueil', 'Accueil'], ['depenses', 'Dépenses'], ['budgets', 'Budgets'], ['historique', 'Historique'], ['avenir', 'Avenir'], ['abonnements', 'Abonnements'], ['epargne', 'Épargne'], ['reglages', 'Réglages'], ['reglages/sauvegarde', 'Sauvegarde et export']]) {
@@ -450,12 +317,12 @@ async function ecransOrigine() {
       await verifierPage(page, `origine-${style}-${simplifier(nom)}`, `Origine ${style} → ${nom}`);
     }
     await aller(page, '#accueil');
-    await saisirDepense(page, '4,20', `ORIGINE ${style.toUpperCase()} EXEMPLE`, { ouvrir: 'plus' });
+    await saisirDepense(page, '4,20', `ORIGINE ${style.toUpperCase()} EXEMPLE`);
     await attendre(page, 500);
     const toast = await page.locator('#toasts .toast').first().textContent().catch(() => null);
     const carte = await page.locator('.confirmation').count();
     await capturer(page, `origine-${style}-saisie`);
-    rapport(`Origine ${style} → saisie d’une dépense`, [!toast || !/Dépense ajoutée : 4,20/.test(toast.replace(/ | /g, ' ')) ? `message habituel absent (${toast || 'aucun'})` : null, carte ? 'carte v100 affichée dans l’app d’origine' : null, ...viderErreurs(page)]);
+    rapport(`Origine ${style} → saisie d’une dépense`, [!toast || !/Dépense ajoutée : 4,20/.test(toast.replace(/ | /g, ' ')) ? `message habituel absent (${toast || 'aucun'})` : null, carte ? 'carte de confirmation affichée dans l’app d’origine' : null, ...viderErreurs(page)]);
   }
   await contexte.close();
 }
@@ -500,13 +367,19 @@ function comparer(origine, export_) {
   return { p, lignes };
 }
 
-/** Les chiffres de l'Accueil v100 (reste, lignes) pour comparer avant / après. */
-const chiffresAccueil = (page) => page.evaluate(() => [...document.querySelectorAll('.ck-montant, .ck-ligne-valeur, .ck-ligne-texte small, .ck-solde strong')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+/** Les chiffres de v200 (Aujourd'hui, puis les pots de l'Épargne) pour comparer avant / après. */
+async function chiffresAccueil(page) {
+  await aller(page, '#accueil');
+  const jour = await page.evaluate(() => [...document.querySelectorAll('.v2-bulle, .v2-phrase')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  await aller(page, '#epargne');
+  const pots = await page.evaluate(() => [...document.querySelectorAll('.v2-ep')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  await aller(page, '#accueil');
+  return [...jour, ...pots];
+}
 
 async function allerRetour() {
   const { contexte, page } = await nouveauContexte();
-  await restaurer(page, 'v100');
-  await aller(page, '#accueil');
+  await restaurer(page, 'v200');
   const avant = await chiffresAccueil(page);
   await aller(page, '#reglages');
   await page.locator('#vue button, #vue a', { hasText: 'Sauvegarde et export' }).first().click();
@@ -530,17 +403,35 @@ async function allerRetour() {
   const f2 = path.join(DOSSIER, 'export.json');
   (await import('node:fs')).writeFileSync(f2, texte);
   const c2 = await nouveauContexte();
-  await restaurer(c2.page, 'v100', f2);
-  await aller(c2.page, '#accueil');
+  await restaurer(c2.page, 'v200', f2);
   const apres = await chiffresAccueil(c2.page);
   const diff = avant.map((x, i) => (x !== apres[i] ? `« ${x} » → « ${apres[i]} »` : null)).filter(Boolean);
-  rapport('Aller-retour → chiffres de l’Accueil après nouvelle restauration', [avant.length !== apres.length ? `${avant.length} chiffres avant, ${apres.length} après` : null, ...diff, ...viderErreurs(c2.page)]);
+  rapport('Aller-retour → chiffres d’Aujourd’hui et de l’Épargne après nouvelle restauration', [!avant.length ? 'aucun chiffre lu sur Aujourd’hui ni l’Épargne' : null, avant.length !== apres.length ? `${avant.length} chiffres avant, ${apres.length} après` : null, ...diff, ...viderErreurs(c2.page)]);
   await c2.contexte.close();
 }
 
 // ---------------------------------------------------------------- v200
 
 async function ecransV200() {
+  // Aiguillage : sans réglage → v200 ; ancien choix « v100 » (ou ?app=v100) → v200, réécrit ; « origine » → l'app d'origine
+  {
+    const { contexte, page } = await nouveauContexte();
+    const etat = async () => page.evaluate(() => ({ app: document.documentElement.dataset.app || 'origine', garde: localStorage.getItem('budget-app') }));
+    await page.goto(`${BASE}#accueil`); await stable(page, 400);
+    const vierge = await etat();
+    await page.evaluate(() => localStorage.setItem('budget-app', 'v100')); await page.reload(); await stable(page, 400);
+    const ancien = await etat();
+    await page.evaluate(() => localStorage.setItem('budget-app', 'origine')); await page.reload(); await stable(page, 400);
+    const origine = await etat();
+    await page.goto(`${BASE}?app=v100#accueil`); await stable(page, 400);
+    const param = await etat();
+    rapport('Aiguillage : sans réglage, ancien « v100 », « origine », ?app=v100', [
+      vierge.app !== 'v200' ? `sans réglage : ${vierge.app}` : null,
+      ancien.app !== 'v200' || ancien.garde !== 'v200' ? `« v100 » gardé : app ${ancien.app}, réglage ${ancien.garde}` : null,
+      origine.app !== 'origine' || origine.garde !== 'origine' ? `« origine » : app ${origine.app}, réglage ${origine.garde}` : null,
+      param.app !== 'v200' || param.garde !== 'v200' ? `?app=v100 : app ${param.app}, réglage ${param.garde}` : null, ...viderErreurs(page)]);
+    await contexte.close();
+  }
   // Sans aucune donnée : « Note ta première dépense »
   {
     const { contexte, page } = await nouveauContexte();
@@ -593,15 +484,15 @@ async function ecransV200() {
     return q;
   }, HAUTEUR));
 
-  for (const [hash, nom] of [['depenses', 'Dépenses'], ['epargne', 'Épargne'], ['resume', 'Résumé'], ['reglages', 'Réglages'], ['reglages/confidentialite', 'Réglages → apparence']]) {
+  for (const [hash, nom] of [['depenses', 'Dépenses'], ['epargne', 'Épargne'], ['resume', 'Résumé']]) {
     await aller(page, `#${hash}`);
     await verifierPage(page, `v200-${simplifier(nom)}`, `v200 → ${nom}`, async () => {
       const q = [];
-      if (hash === 'reglages' && !await page.locator('#vue .ligne-lien', { hasText: 'Revenir à' }).count()) q.push('lien « Revenir à… » absent');
       if (hash === 'resume' && !await page.locator('.barre-onglets .onglet.actif[data-onglet="resume"]').count()) q.push('onglet Résumé pas actif');
       return q;
     });
   }
+  await pagesHeritees(page);
   await pagesV200(page);
   await aller(page, '#accueil');
   await parcoursV200(page);
@@ -739,6 +630,80 @@ async function pagesV200(page) {
   await stable(page, 500);
   const h = await page.evaluate(() => ({ hash: location.hash, actif: document.querySelector('.barre-onglets .onglet.actif')?.dataset.onglet }));
   rapport('v200 → Résumé : « Voir le détail »', [h.hash !== '#historique' ? `adresse ${h.hash}` : null, h.actif !== 'resume' ? `onglet actif : ${h.actif}` : null, ...viderErreurs(page)]);
+  await verifierPage(page, 'v200-historique', 'v200 → « Voir le détail » : mois passés (page héritée)', async () => contrastes(page, '#vue'), { pleine: true });
+}
+
+/** Lisibilité : contraste du texte sur son fond réel (4,5 pour un texte normal, 3 pour un gros texte ou en gras ≥ 18,5 px). */
+const contrastes = (page, zone) => page.evaluate((z) => {
+  const q = [];
+  const rgb = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const [r, g, b, a = 1] = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return { r, g, b, a }; };
+  const lum = ({ r, g, b }) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const fond = (el) => {
+    const couches = [];
+    for (let a = el; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c && c.a > 0) { couches.push(c); if (c.a >= 1) break; } }
+    let res = { r: 255, g: 255, b: 255 };
+    for (const c of couches.reverse()) res = { r: c.r * c.a + res.r * (1 - c.a), g: c.g * c.a + res.g * (1 - c.a), b: c.b * c.a + res.b * (1 - c.a) };
+    return res;
+  };
+  const vus = new Set();
+  for (const el of document.querySelectorAll(`${z} *`)) {
+    if (el.closest('svg') || el.closest('.sr') || !el.getClientRects().length) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || Number(cs.opacity) < 0.5 || el.closest('[disabled], [aria-disabled="true"]')) continue;
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    if (/gradient|url\(/.test(cs.backgroundImage)) continue;
+    const t = rgb(cs.color); if (!t) continue;
+    const f = fond(el); const l1 = lum(t); const l2 = lum(f);
+    const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    const taille = parseFloat(cs.fontSize); const gros = taille >= 24 || (taille >= 18.5 && Number(cs.fontWeight) >= 700);
+    if (ratio < (gros ? 3 : 4.5)) {
+      const cle = `${el.tagName}.${el.className}`; if (vus.has(cle)) continue; vus.add(cle);
+      q.push(`texte peu lisible (contraste ${ratio.toFixed(1)}) : ${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? `.${el.className.split(' ')[0]}` : ''} « ${el.textContent.trim().slice(0, 30)} »`);
+    }
+  }
+  return q.slice(0, 6);
+}, zone);
+
+/** Pages héritées de l'app d'origine, vues dans v200 : Réglages (la sauvegarde en haut), sections, restauration, saisie au clavier. */
+async function pagesHeritees(page) {
+  await aller(page, '#reglages');
+  await verifierPage(page, 'v200-reglages', 'v200 → Réglages : la sauvegarde en premier', async () => [
+    ...await page.evaluate(() => {
+      const q = [];
+      const titres = [...document.querySelectorAll('#vue .carte-titre')].map((e) => e.textContent.trim());
+      if (titres[0] !== 'Sauvegarde') q.push(`première carte : « ${titres[0]} » (attendu « Sauvegarde »)`);
+      if (![...document.querySelectorAll('#vue button')].some((b) => /Restaurer/.test(b.textContent))) q.push('bouton « Restaurer » absent');
+      if (![...document.querySelectorAll('#vue .ligne-lien')].some((b) => /Revenir à l’ancienne app/.test(b.textContent))) q.push('lien « Revenir à l’ancienne app » absent');
+      if ([...document.querySelectorAll('#vue .ligne-lien')].some((b) => /Ouvrir la nouvelle app|v100|Cockpit/.test(b.textContent))) q.push('lien vers une autre nouvelle app affiché');
+      return q;
+    }), ...await contrastes(page, '#vue'), ...await zonesDeToucher(page, '#vue')], { pleine: true });
+  await page.locator('#vue details.reglages-avance > summary').click();
+  await attendre(page, 250);
+  await verifierPage(page, 'v200-reglages-avance', 'v200 → Réglages : « Avancé » ouvert', async () => contrastes(page, '#vue'), { pleine: true });
+  for (const [hash, nom, attendu] of [['reglages/sauvegarde', 'Réglages → sauvegarde', /Tout exporter/], ['reglages/epargne', 'Réglages → épargne', /Partage du reste du jour/],
+    ['reglages/revenus', 'Réglages → revenus', /Revenus du mois/], ['reglages/confidentialite', 'Réglages → apparence', /Revenir à l’ancienne app/], ['reglages/import', 'Import', /Restaurer|Importer/]]) {
+    await aller(page, `#${hash}`);
+    await verifierPage(page, `v200-${simplifier(nom)}`, `v200 → ${nom}`, async () => {
+      const txt = await page.locator('#vue').textContent();
+      return [attendu.test(txt) ? null : `texte attendu absent (${attendu.source})`, ...await contrastes(page, '#vue')];
+    }, { pleine: true });
+  }
+  // Partage du reste : un choix au-delà de 100 % est refusé, un choix valable est gardé, puis on remet le réglage d'avant
+  await aller(page, '#reglages/epargne');
+  const avant = await page.evaluate(async () => (await import('/js/store.js')).etat.profil.partsReste || null);
+  const menus = page.locator('#vue select');
+  await menus.nth(0).selectOption('70'); await menus.nth(1).selectOption('40');
+  const refuse = await page.locator('#vue button', { hasText: 'Garder ce partage' }).isDisabled();
+  await menus.nth(1).selectOption('20');
+  await page.locator('#vue button', { hasText: 'Garder ce partage' }).click();
+  await attendre(page, 400);
+  const garde = await page.evaluate(async () => (await import('/js/store.js')).etat.profil.partsReste);
+  await page.evaluate(async (a) => (await import('/js/store.js')).majProfil({ partsReste: a || undefined }), avant);
+  rapport('v200 → Réglages : partage du reste du jour', [refuse ? null : 'un partage à plus de 100 % peut être gardé', JSON.stringify(garde) !== JSON.stringify({ pret: 70, securite: 20, envie: 10 }) ? `partage gardé : ${JSON.stringify(garde)}` : null, ...viderErreurs(page)]);
+  // Saisie au clavier (feuille d'origine, ouverte depuis la voix ou une saisie préremplie)
+  await aller(page, '#accueil');
+  await page.evaluate(async () => (await import('/js/pages/saisie.js')).ouvrirSaisie('clavier'));
+  await verifierFeuille(page, 'v200-saisie-clavier', 'v200 → feuille « Nouvelle opération » (héritée)', { fermer: 'bouton' });
 }
 
 /** Ce que l'écran Aujourd'hui calcule (centimes) et ce qu'il affiche. */
@@ -976,9 +941,8 @@ async function parcoursV200(page) {
 // ---------------------------------------------------------------- Lancement
 try {
   if (ALLER_RETOUR) await allerRetour();
-  else if (V200) await ecransV200();
   else if (ORIGINE) await ecransOrigine();
-  else await ecransV100();
+  else await ecransV200();
 } catch (e) {
   console.error(`✗ Arrêt : ${e.message.split('\n')[0]}`);
   problemesTotal += 1;
