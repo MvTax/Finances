@@ -67,4 +67,18 @@ export default [
     e.privations = []; e.profil.repasAuto.actif = false;
     egal(resteADepenser(e, '2026-11-08').privationsCentimes, 0);
   } },
+  { nom: 'repas automatiques : le prix d’un repas vient de l’historique jusqu’à la veille (une dépense du jour ne change pas les jours passés)', fn: () => {
+    const e = etatBase({ revenusMensuels: [revenus('2026-11', 150000)], transactions: [
+      tx({ date: '2026-10-20', montant: 600, categorie: 'restauration-rapide', marchand: 'Fast-food' }), tx({ date: '2026-10-21', montant: 620, categorie: 'restauration-rapide', marchand: 'Fast-food' }),
+      tx({ date: '2026-10-22', montant: 640, categorie: 'restauration-rapide', marchand: 'Fast-food' })] });
+    e.profil = { ...e.profil, repasAuto: { actif: true, depuis: '2026-11-06', repasParJour: 1 } };
+    const avant = resteADepenser(e, '2026-11-08');
+    egal(avant.privationsAuto.map((p) => p.montantCentimes).join(' '), '620 620', 'médiane jusqu’à la veille : 6,20 €');
+    // Un menu à 7,30 € noté aujourd'hui : la médiane avec lui serait 6,30 €, mais les jours passés gardent 6,20 €
+    e.transactions.push(tx({ date: '2026-11-08', montant: 730, categorie: 'restauration-rapide', marchand: 'Fast-food' }));
+    const apres = resteADepenser(e, '2026-11-08');
+    egal(apres.privationsCentimes, avant.privationsCentimes);
+    egal(apres.resteCentimes, avant.resteCentimes - 730, 'le reste baisse exactement de la dépense');
+    egal(resteADepenser(e, '2026-11-09').privationsAuto.find((p) => p.date === '2026-11-07').montantCentimes, 630, 'le lendemain, la dépense entre dans l’historique');
+  } },
 ];

@@ -589,7 +589,7 @@ async function ecransV200() {
       const r = b.getBoundingClientRect();
       if (getComputedStyle(b).display !== 'none' && (r.width < 44 || r.height < 44)) q.push(`zone de toucher trop petite : ${b.textContent.trim() || b.getAttribute('aria-label')} (${Math.round(r.width)} × ${Math.round(r.height)})`);
     }
-    if (!/Tu peux encore dépenser|dépassé/.test(document.querySelector('.v2-bulle').textContent)) q.push('phrase de la bulle absente');
+    if (!/Tu peux encore dépenser|dépassé|déjà utilisée/.test(document.querySelector('.v2-bulle').textContent)) q.push('phrase de la bulle absente');
     return q;
   }, HAUTEUR));
 
@@ -624,8 +624,13 @@ async function pagesV200(page) {
   });
   await aller(page, '#depenses');
   await page.waitForSelector('.v2-dep', { timeout: 6000 });
-  const dep = await page.evaluate(() => {
+  const dep = await page.evaluate(async () => {
     const q = [];
+    // Une charge du mois (loyer, abonnement…) déjà passée depuis le salaire ? (le jour du salaire, souvent pas encore)
+    const { etat } = await import('/js/store.js'); const { aujourdhui } = await import('/js/dates.js');
+    const { joursDepenses, depuisSalaire } = await import('/js/v200/calculs/depenses.js');
+    const auj = aujourdhui();
+    const chargeDuMois = joursDepenses(etat, depuisSalaire(etat, auj).periode.debut, '9999-12-31', auj).some((j) => j.lignes.some((l) => l.nature === 'du-mois'));
     const resume = document.querySelector('.v2-dep-resume')?.textContent || '';
     if (!/^Depuis le salaire/.test(resume)) q.push(`phrase du haut : « ${resume.slice(0, 60)} »`);
     const titres = [...document.querySelectorAll('.v2-dep-jour-titre')].map((e) => e.textContent);
@@ -634,7 +639,7 @@ async function pagesV200(page) {
     const lignes = [...document.querySelectorAll('.v2-dep-ligne')];
     if (!lignes.length) q.push('aucune ligne');
     if (lignes.some((l) => l.tagName !== 'BUTTON' || !l.getAttribute('aria-label'))) q.push('ligne qui n’est pas un <button> avec aria-label');
-    if (!document.querySelector('.v2-dep-etiquette-du-mois')) q.push('aucune étiquette « du mois »');
+    if (chargeDuMois !== !!document.querySelector('.v2-dep-etiquette-du-mois')) q.push(chargeDuMois ? 'aucune étiquette « du mois »' : 'étiquette « du mois » sans charge du mois depuis le salaire');
     for (const m of document.querySelectorAll('.v2-dep-montant')) { const c = getComputedStyle(m).color; if (c === 'rgb(179, 38, 30)') q.push(`montant en rouge : ${m.textContent}`); }
     if (document.querySelectorAll('.v2-dep-question').length !== 1) q.push(`${document.querySelectorAll('.v2-dep-question').length} question(s) oui / non (attendu 1)`);
     return { q, n: lignes.length, jours: titres.length };
@@ -742,8 +747,23 @@ const bulleV200 = (page) => page.evaluate(async () => {
   const { bulleDuJour } = await import('/js/v200/calculs/jour.js'); const { eur } = await import('/js/v200/calculs/commun.js');
   const b = bulleDuJour(etat, aujourdhui());
   const el = document.querySelector('.v2-bulle');
-  return { etat: b.etat, restant: b.jauge.restantAujourdhuiCentimes, attendu: eur(b.montantCentimes), texte: (el?.textContent || '').replace(/\s+/g, ' ').trim(), classe: el?.className || '' };
+  return { etat: b.etat, restant: b.jauge.restantAujourdhuiCentimes, joursRestants: b.jauge.joursRestants, attendu: eur(b.montantCentimes), texte: (el?.textContent || '').replace(/\s+/g, ' ').trim(), classe: el?.className || '' };
 });
+const sansInsecables = (t) => (t || '').replace(/[\u00a0\u202f]/g, ' ');
+
+/** La bulle dit la même chose que le calcul, selon qu'il reste de la marge ou non : bons mots, montant exact, jamais de chiffre négatif. */
+function problemesBulle(b, quand) {
+  const t = sansInsecables(b.texte);
+  const mots = { ok: /Tu peux encore dépenser/, 'jour-depasse': /Aujourd’hui, tu as dépassé de/, 'mois-depasse': /Ta part du mois est déjà utilisée/ }[b.etat];
+  return [
+    !mots ? `${quand} : état « ${b.etat} »` : !mots.test(t) ? `${quand} (${b.etat}) : « ${t.slice(0, 70)} »` : null,
+    b.etat !== 'ok' && /Tu peux encore dépenser/.test(t) ? `${quand} : « Tu peux encore dépenser » alors que l’état est « ${b.etat} »` : null,
+    !t.includes(sansInsecables(b.attendu)) ? `${quand} : montant affiché ≠ ${b.attendu} (${t.slice(0, 70)})` : null,
+    /[-−]\s?\d/.test(t) ? `${quand} : chiffre négatif affiché (${t.slice(0, 70)})` : null,
+  ];
+}
+/** La ligne « ta journée » de la carte suit l'état de la bulle. */
+const ligneCarteAttendue = { ok: /Il te reste/, 'jour-depasse': /Tu as dépassé de/, 'mois-depasse': /Ta part du mois est déjà utilisée/ };
 
 /** Molette : glisse verticalement de n crans (vers le haut = +) avec de vrais événements de pointeur. */
 async function glisserMolette(page, fenetre, n) {
@@ -808,9 +828,9 @@ async function parcoursV200(page) {
   await aller(page, '#accueil');
   const avant = await bulleV200(page);
   const arrondiActif = await page.evaluate(async () => !!(await import('/js/store.js')).etat.profil.arrondi?.actif);
-  console.log(`  part du jour restante avant la saisie : ${(avant.restant / 100).toFixed(2)} €`);
-  rapport('v200 → Aujourd’hui avant la saisie', [avant.etat !== 'ok' ? `état « ${avant.etat} »` : null, !avant.texte.includes('Tu peux encore dépenser') ? `texte : ${avant.texte}` : null,
-    !avant.texte.replace(/[\u00a0\u202f]/g, ' ').includes(avant.attendu.replace(/[\u00a0\u202f]/g, ' ')) ? `montant affiché ≠ ${avant.attendu}` : null, ...viderErreurs(page)]);
+  // Selon la date (--aujourdhui), il reste de la marge ou non (mois déjà dépassé la veille du salaire, par exemple) : les deux cas sont vérifiés
+  console.log(`  part du jour restante avant la saisie : ${(avant.restant / 100).toFixed(2)} € (état « ${avant.etat} », ${avant.joursRestants} jour(s) avant le salaire)`);
+  rapport('v200 → Aujourd’hui avant la saisie', [...problemesBulle(avant, 'avant la saisie'), ...viderErreurs(page)]);
   await capturer(page, 'v200-aujourdhui');
 
   // 1. J'ai dépensé : les tuiles
@@ -847,9 +867,8 @@ async function parcoursV200(page) {
   await stable(page, 1500); // laisse le soleil se vider
   const apres = await bulleV200(page);
   const baisse = avant.restant - apres.restant; const attendue = arrondiActif ? 800 : 730;
-  rapport('v200 → dépense de 7,30 € enregistrée', [tx.length !== 1 ? `${tx.length} dépense(s) trouvée(s)` : null, baisse !== attendue ? `« Tu peux encore dépenser » baisse de ${baisse} centimes au lieu de ${attendue}${arrondiActif ? ' (arrondi actif)' : ''}` : null,
-    !apres.texte.includes('Tu peux encore dépenser') ? `après la saisie : « ${apres.texte.slice(0, 50)} »` : null,
-    !apres.texte.replace(/[\u00a0\u202f]/g, ' ').includes(apres.attendu.replace(/[\u00a0\u202f]/g, ' ')) ? `montant affiché ≠ ${apres.attendu} (${apres.texte})` : null, ...viderErreurs(page)]);
+  rapport('v200 → dépense de 7,30 € enregistrée', [tx.length !== 1 ? `${tx.length} dépense(s) trouvée(s)` : null, baisse !== attendue ? `la journée baisse de ${baisse} centimes au lieu de ${attendue}${arrondiActif ? ' (arrondi actif)' : ''}` : null,
+    ...problemesBulle(apres, 'après la saisie'), ...viderErreurs(page)]);
   console.log(`  arrondi ${arrondiActif ? 'actif' : 'inactif'} : la journée baisse de ${(baisse / 100).toFixed(2)} €`);
   if (await verifierCarte(page, 'v200-confirmation', 'v200 → carte après la dépense')) {
     const txt = (await page.locator('.confirmation.visible').textContent()).replace(/\s+/g, ' ');
@@ -857,11 +876,15 @@ async function parcoursV200(page) {
     await attendre(page, 600);
     const reste = await txV200(page, 'restauration-rapide', 730);
     const fin = await bulleV200(page);
-    rapport('v200 → carte : « Annuler »', [!/C’est noté/.test(txt) ? `texte de la carte : ${txt.slice(0, 80)}` : null, reste.length ? 'la dépense est toujours dans les données' : null,
+    rapport('v200 → carte : « Annuler »', [!/C’est noté/.test(txt) ? `texte de la carte : ${txt.slice(0, 80)}` : null,
+      !ligneCarteAttendue[apres.etat]?.test(txt) ? `la carte ne dit pas la même chose que la bulle (${apres.etat}) : ${txt.slice(0, 90)}` : null, /[-−]\s?\d/.test(txt) ? `chiffre négatif sur la carte : ${txt.slice(0, 90)}` : null,
+      reste.length ? 'la dépense est toujours dans les données' : null,
       fin.restant !== avant.restant ? `le reste du jour ne revient pas (${fin.restant} au lieu de ${avant.restant})` : null, await page.locator('.confirmation').count() ? 'la carte reste affichée' : null, ...viderErreurs(page)]);
   }
 
-  // 3. Un loyer de 230 € en logement : appui long sur « + », puis flèches ; dépense obligatoire → pas de « dépassé »
+  // 3. Un loyer de 230 € en logement : appui long sur « + », puis flèches ; dépense obligatoire → pas comptée comme une dépense du jour,
+  //    et la carte dit ce qu'elle change vraiment (rien, répartie sur les jours qui restent, en entier le dernier jour, mois déjà dépassé)
+  const b2 = await bulleV200(page);
   await page.locator('.v2-action-depense').click();
   await choisirCategorie(page, 'logement');
   const plus = await page.locator('.feuille.visible .v2-roue-euros .v2-roue-btn.plus').boundingBox();
@@ -886,10 +909,18 @@ async function parcoursV200(page) {
   await stable(page, 400);
   const b3 = await bulleV200(page);
   console.log(`  appui long de 3,2 s sur « + » : ${apresAppui} € ; question « obligatoire ? » : ${question ? 'oui (répondu Oui)' : 'non (reconnue sûre)'}`);
+  const baisseLoyer = b2.restant - b3.restant;
+  const pasComptee = /pas comptée dans ta journée/.test(carteLoyer);
+  console.log(`  loyer : la journée baisse de ${(baisseLoyer / 100).toFixed(2)} € (état « ${b2.etat} » → « ${b3.etat} ») ; carte : ${carteLoyer.replace(/.*?(Charge du mois[^.]*\.[^.]*\.?).*/, '$1').slice(0, 110)}`);
   rapport('v200 → loyer de 230 € (logement)', [!loyerOk ? 'les molettes ne sont pas sur 230,00 €' : null, apresAppui < 60 ? `l’appui long n’accélère pas assez (${apresAppui} € en 3,2 s)` : null,
     loyer.length !== 1 ? `${loyer.length} loyer(s) trouvé(s)` : null, loyer[0] && !(loyer[0].hors || loyer[0].charge) ? 'le loyer compte dans la journée' : null, loyer[0]?.probable ? 'la réponse « Oui » n’est pas enregistrée' : null,
-    /dépassé/i.test(b3.texte) || b3.etat !== 'ok' ? `Aujourd’hui affiche « ${b3.texte.slice(0, 60)} »` : null, /dépassé/i.test(carteLoyer) ? `la carte parle de dépassement : ${carteLoyer.slice(0, 80)}` : null,
-    question && !/Charge du mois/.test(carteLoyer) ? `après « Oui », la carte dit : ${carteLoyer.slice(0, 80)}` : null, ...viderErreurs(page)]);
+    b2.joursRestants > 1 && baisseLoyer >= 23000 ? `le loyer compte en entier dans la journée (baisse de ${baisseLoyer} centimes) alors qu’il reste ${b2.joursRestants} jours` : null,
+    ...problemesBulle(b3, 'après le loyer'),
+    !/Charge du mois/.test(carteLoyer) ? `la carte dit : ${carteLoyer.slice(0, 80)}` : null,
+    pasComptee && baisseLoyer > 0 ? `la carte dit « pas comptée dans ta journée » mais la journée baisse de ${baisseLoyer} centimes` : null,
+    !pasComptee && baisseLoyer <= 0 && b3.etat !== 'mois-depasse' ? `la journée ne bouge pas mais la carte dit : ${carteLoyer.slice(0, 80)}` : null,
+    b3.etat === 'mois-depasse' && !/déjà utilisée/.test(carteLoyer) ? `mois dépassé, mais la carte dit : ${carteLoyer.slice(0, 80)}` : null,
+    /[-−]\s?\d/.test(carteLoyer) ? `chiffre négatif sur la carte : ${carteLoyer.slice(0, 80)}` : null, ...viderErreurs(page)]);
   await page.evaluate(async () => {
     const { etat } = await import('/js/store.js'); const { supprimerTransaction } = await import('/js/actions.js');
     for (const t of etat.transactions.filter((x) => x.categorie === 'logement' && x.montantCentimes === 23000 && x.source === 'manuel')) await supprimerTransaction(t);

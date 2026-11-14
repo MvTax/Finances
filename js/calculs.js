@@ -223,7 +223,7 @@ export function prixRepas(etat, dateIso = aujourdhui()) {
  * Repas à la maison, épargnés automatiquement (réglage profil.repasAuto, 2 repas par jour par défaut).
  * Pour chaque jour terminé depuis l'activation : repas non pris dehors = repas par jour − repas dehors notés
  * (dépenses fast-food, livraison, resto, ou « Je me suis privé » déjà saisi). Chacun met le prix d'un repas
- * de côté, sans jamais dépasser ce qui reste de la part du jour (le budget ne peut pas passer en négatif à cause de ça).
+ * (menu habituel calculé jusqu'à la veille) de côté, sans jamais dépasser ce qui reste de la part du jour (le budget ne peut pas passer en négatif à cause de ça).
  * Calcul dynamique : une dépense dehors ajoutée après coup réduit le montant du jour. Un jour déjà viré est figé.
  */
 export function privationsAuto(etat, periode, dateIso, partDuJourCentimes) {
@@ -234,7 +234,9 @@ export function privationsAuto(etat, periode, dateIso, partDuJourCentimes) {
   const fin = veille < periode.fin ? veille : periode.fin;
   if (fin < debut) return [];
   const nbRepas = Math.max(1, Math.min(3, Number(reg.repasParJour) || 2));
-  const prix = prixRepas(etat, dateIso);
+  // Prix d'un repas d'après l'historique jusqu'à la veille : une dépense notée aujourd'hui ne change pas
+  // ce que les jours passés ont mis de côté (sinon « Tu peux encore dépenser » bougerait de quelques centimes de trop).
+  const prix = prixRepas(etat, veille);
   const figes = new Set((etat.privations || []).filter((p) => p.auto).map((p) => p.jour || p.date));
   const res = [];
   for (let d = debut; d <= fin; d = ajouterJours(d, 1)) {

@@ -27,6 +27,50 @@ export function bulleDuJour(etat, auj) {
   return { etat: 'ok', montantCentimes: dispo, part, parJourCentimes: j.parJourCentimes, jauge: j };
 }
 
+/**
+ * Les mots de la bulle, doux et justes. Mois dépassé : pas de gros chiffre rouge, mais le montant exact dans la phrase.
+ * @param fmt mise en forme d'un montant (eur, ou « ••• » quand les montants sont masqués)
+ * @returns {{ titre: string|null, avant: string|null, montant: string|null, apres: string|null, suite: string|null }}
+ */
+export function texteBulle(b, fmt = eur) {
+  const dernierJour = (b.jauge?.joursRestants ?? 2) <= 1;
+  if (b.etat === 'ok') return { titre: null, avant: 'Tu peux encore dépenser', montant: fmt(b.montantCentimes), apres: 'aujourd’hui', suite: null };
+  if (b.etat === 'jour-depasse') {
+    return { titre: null, avant: 'Aujourd’hui, tu as dépassé de', montant: fmt(b.montantCentimes), apres: null,
+      suite: dernierJour ? 'Demain, un nouveau mois commence.' : 'Demain, c’est une nouvelle journée.' };
+  }
+  if (b.etat === 'mois-depasse') {
+    return { titre: 'Ta part du mois est déjà utilisée', avant: null, montant: null, apres: null,
+      suite: `${fmt(b.montantCentimes)} de plus que prévu. Vise zéro dépense aujourd’hui${dernierJour ? ' : demain, un nouveau mois commence' : ''}.` };
+  }
+  return { titre: null, avant: null, montant: null, apres: null, suite: null };
+}
+
+/** La ligne « ta journée » de la carte après une saisie : { texte, ton: ''|'attention' }. */
+export function ligneDuJour(b, fmt = eur) {
+  if (b.etat === 'mois-depasse') return { texte: `Ta part du mois est déjà utilisée : ${fmt(b.montantCentimes)} de plus que prévu.`, ton: 'attention' };
+  if (b.etat === 'jour-depasse') return { texte: `Tu as dépassé de ${fmt(b.montantCentimes)} aujourd’hui.`, ton: 'attention' };
+  return { texte: `Il te reste ${fmt(b.montantCentimes)} aujourd’hui.`, ton: '' };
+}
+
+/**
+ * Après une dépense obligatoire (charge du mois, hors part du jour) : ce qu'elle change vraiment pour la journée.
+ * Elle compte dans le mois ; d'habitude c'est l'épargne visée qui baisse, mais quand le mois n'a plus de marge elle est
+ * répartie sur les jours qui restent (et le dernier jour avant le salaire, elle compte en entier).
+ * @param txId la dépense déjà enregistrée dans etat
+ * @returns {{ texte: string, baisseCentimes: number }}
+ */
+export function ligneCharge(etat, txId, auj, fmt = eur) {
+  const sans = { ...etat, transactions: (etat.transactions || []).filter((t) => t.id !== txId) };
+  const b0 = bulleDuJour(sans, auj); const b1 = bulleDuJour(etat, auj);
+  const baisse = b0.jauge.restantAujourdhuiCentimes - b1.jauge.restantAujourdhuiCentimes;
+  const jr = b1.jauge.joursRestants;
+  if (b1.etat === 'mois-depasse') return { texte: `Charge du mois. Ta part du mois est déjà utilisée : ${fmt(b1.montantCentimes)} de plus que prévu.`, baisseCentimes: baisse };
+  if (baisse <= 0) return { texte: 'Charge du mois, pas comptée dans ta journée.', baisseCentimes: 0 };
+  if (jr <= 1) return { texte: 'Charge du mois. C’est le dernier jour avant ton salaire : elle compte aussi aujourd’hui.', baisseCentimes: baisse };
+  return { texte: `Charge du mois, répartie sur les ${jr} jours qui restent : ${fmt(baisse)} de moins aujourd’hui.`, baisseCentimes: baisse };
+}
+
 /** Une dépense notée à la main ou une privation aujourd'hui (ce qui allume la flamme du jour). */
 export function noteAujourdhui(etat, auj) {
   return (etat.transactions || []).some((t) => t.date === auj && estSaisie(t))

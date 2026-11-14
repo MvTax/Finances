@@ -228,7 +228,7 @@ Bouton + → « Je me suis privé → épargne », ou carte « Je me suis privé
 
 Activé par défaut, à partir du jour où l'app est mise à jour (rien de rétroactif). Réglages → Épargne et arrondis → « Repas à la maison → épargne » : interrupteur, et 1, 2 ou 3 repas par jour (2 par défaut).
 
-- Chaque jour terminé sans repas dehors noté (fast-food, livraison, resto, ou « Je me suis privé » déjà saisi), chaque repas manquant met de côté le prix de ton menu habituel.
+- Chaque jour terminé sans repas dehors noté (fast-food, livraison, resto, ou « Je me suis privé » déjà saisi), chaque repas manquant met de côté le prix de ton menu habituel (calculé jusqu'à la veille : une dépense notée aujourd'hui ne change pas les jours passés).
 - Le montant ne dépasse jamais ce qui reste de la part prévue du jour, donc le budget ne peut pas passer en négatif à cause de ça.
 - Tu as mangé dehors sans le noter ? Ajoute la dépense (même après coup) : le montant du jour s'ajuste. Une fois le montant viré (« C'est viré »), le jour est figé.
 - L'accueil affiche chaque matin ce qui a été mis de côté la veille, avec un bouton « J'ai mangé dehors hier ».
@@ -397,6 +397,7 @@ compte pour la veille, et l'Accueil affiche encore la veille jusqu'à 5 h. Les d
 **Flammes 🔥** (style Joyeux) : un jour où tu notes une dépense à la main (ou un « Je me suis privé »). Ouvrir l'app ne suffit plus.
 **Super flamme** (flamme bleue) : une journée close sans aucune dépense du quotidien (les prélèvements et abonnements ne comptent pas).
 Elle garde la série, rapporte 40 XP et remplit l'envie en cours. Le détail des 14 derniers jours est dans « Mes points ».
+Avant le premier jour où l'app sait quelque chose (première opération, privation ou journée « sans dépense » annoncée), « rien noté » ne veut pas dire « rien dépensé » : pas de super flamme. Une app vide affiche donc 0 jour d'affilée.
 
 **Mes envies** (Réglages → Mes envies, ou la carte de l'Accueil dans l'app d'origine ; en v100, c'est une ligne « Ton envie » sur l'Accueil qui ouvre une fiche avec la carte) : un plaisir à mériter, par exemple un jeu à 80 €.
 - La carte montre l'argent de côté, ce qu'il reste à mettre, une barre en euros, et un décor selon le type (coucher de soleil néon pour un jeu vidéo).

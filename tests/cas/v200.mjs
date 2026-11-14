@@ -7,7 +7,8 @@ import { categoriesFavorites, montantsRapides, montantDepart, CATEGORIES_REPLI }
 import { risqueDuMois, chargesAvantSalaire } from '../../js/v200/calculs/risques.js';
 import { resumeMois, resumeAnnee, preventions } from '../../js/v200/calculs/resume.js';
 import { eur, arrondi10 } from '../../js/v200/calculs/commun.js';
-import { bulleDuJour, phraseDuJour, noteAujourdhui } from '../../js/v200/calculs/jour.js';
+import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, ligneCharge } from '../../js/v200/calculs/jour.js';
+import { serieJours, flammesDesJours } from '../../js/jeu.js';
 import { montantParle } from '../../js/v200/ui/molette.js';
 import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX } from '../../js/v200/calculs/depenses.js';
 import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis } from '../../js/v200/calculs/pots.js';
@@ -444,5 +445,72 @@ export default [
       const pa = phrasesAnnee(resumeAnnee(c, d)); Object.values(pa).filter(Boolean).forEach((x) => phraseOk(x.texte, d));
       const mt = meteoDuMois(risqueDuMois(c, d)); phraseOk(mt.titre, d); phraseOk(mt.phrase, d); vrai(mt.phrase.length <= 90, mt.phrase);
     });
+  } },
+  { nom: 'Résumé : app vide (jeu commencé au salaire) → 0 jour d’affilée, pas de phrase de série ; série de la sauvegarde synthétique inchangée', fn: () => {
+    avecDate('2026-11-17', () => {
+      const vide = etat(); vide.meta = { jeu: { depuis: '2026-11-05', niveauVu: 1 } }; // ce que l'app écrit à la première ouverture
+      const m = resumeMois(vide, '2026-11-17');
+      egal(m.flammes, 0, 'pas « 12 jours notés d’affilée » sans aucune donnée');
+      egal(phrasesMois(m).serie, null);
+      vrai(m.phrases.every((x) => !/affilée/.test(x)));
+    });
+    const c = genererSauvegarde().contenu; const R = REFERENCE_DEFAUT;
+    avecDate(R, () => {
+      egal(serieJours(c, R), 2);
+      egal(flammesDesJours(c, R, 14).map((x) => x.statut).join(' '), 'rien flamme rien rien flamme super super flamme super flamme flamme rien flamme flamme');
+      egal(resumeMois(c, R).flammes, 2);
+    });
+  } },
+  { nom: 'Aujourd’hui : mots de la bulle doux et justes (reste, jour dépassé, mois dépassé, veille du salaire)', fn: () => {
+    const b = (etat, montantCentimes, joursRestants) => ({ etat, montantCentimes, jauge: { joursRestants } });
+    egalProfond(Object.values(texteBulle(b('ok', 1230, 10))).map(sp), [null, 'Tu peux encore dépenser', '12,30 €', 'aujourd’hui', null]);
+    egal(texteBulle(b('jour-depasse', 450, 10)).suite, 'Demain, c’est une nouvelle journée.');
+    egal(texteBulle(b('jour-depasse', 450, 1)).suite, 'Demain, un nouveau mois commence.');
+    const m = texteBulle(b('mois-depasse', 48100, 10));
+    egalProfond([m.titre, m.montant, sp(m.suite)], ['Ta part du mois est déjà utilisée', null, '481 € de plus que prévu. Vise zéro dépense aujourd’hui.']);
+    egal(sp(texteBulle(b('mois-depasse', 48890, 1)).suite), '488,90 € de plus que prévu. Vise zéro dépense aujourd’hui : demain, un nouveau mois commence.');
+    egal(texteBulle(b('mois-depasse', 48100, 1), () => '•••').suite.startsWith('••• de plus'), true, 'montants masqués');
+    vrai(!/-|−/.test(Object.values(m).join(' ')), 'jamais de chiffre négatif');
+    const lj = ligneDuJour(b('mois-depasse', 48100, 1));
+    egalProfond([sp(lj.texte), lj.ton], ['Ta part du mois est déjà utilisée : 481 € de plus que prévu.', 'attention']);
+    egal(sp(ligneDuJour(b('jour-depasse', 450, 3)).texte), 'Tu as dépassé de 4,50 € aujourd’hui.');
+    egal(sp(ligneDuJour(b('ok', 1500, 3)).texte), 'Il te reste 15 € aujourd’hui.');
+  } },
+  { nom: 'Aujourd’hui : veille du salaire, mois dépassé, repas automatiques et arrondi → une dépense de 7,30 € fait baisser de 8 € tout juste', fn: () => avecDate('2026-12-04', () => {
+    const A = '2026-12-04'; // dernier jour de la période du 5 novembre au 4 décembre
+    const e = etat({ revenusMensuels: [revenus('2026-11', 60000)], transactions: [
+      ...chaqueJour('2026-09-10', '2026-10-30', (d) => (Number(d.slice(8)) % 7 === 0 ? 600 + Number(d.slice(8)) * 10 : 0), 'restauration-rapide'),
+      tx({ date: '2026-11-10', montant: 90000, categorie: 'loisirs', source: 'manuel' })] });
+    e.profil.repasAuto = { actif: true, depuis: '2026-11-05', repasParJour: 1 }; // 1 repas (8,10 €) : sous le plafond de la part prévue
+    e.profil.arrondi = { ...e.profil.arrondi, actif: true, depuis: '2026-01-01' };
+    const b0 = bulleDuJour(e, A);
+    vrai(b0.jauge.reste.privationsAuto.length > 20 && b0.jauge.reste.privationsAuto.every((p) => p.montantCentimes === 810), 'repas à la maison au prix habituel');
+    egal(b0.etat, 'mois-depasse'); egal(b0.jauge.joursRestants, 1); egal(b0.montantCentimes, -b0.jauge.reste.resteCentimes);
+    e.meta.jauge = b0.jauge.instantane;
+    e.transactions.push(tx({ date: A, montant: 730, categorie: 'restauration-rapide', source: 'manuel' }));
+    const b1 = bulleDuJour(e, A);
+    egal(b1.montantCentimes - b0.montantCentimes, 800, '7,30 € + 0,70 € d’arrondi, pas un centime de plus ou de moins');
+    egal(b1.parJourCentimes, b0.parJourCentimes, 'la part figée du matin ne bouge pas');
+  }) },
+  { nom: 'carte : une charge du mois dit ce qu’elle change vraiment pour la journée', fn: () => {
+    const base = (salaire, loyer, date) => {
+      const e = etat({ revenusMensuels: [revenus('2026-11', salaire)], transactions: [tx({ date: '2026-11-06', montant: 1500, categorie: 'courses', source: 'manuel' })] });
+      e.transactions.push(tx({ id: 'loyer', date, montant: loyer, categorie: 'logement', source: 'manuel', extra: { horsPartDuJour: true } }));
+      return e;
+    };
+    // De la marge : c'est l'épargne visée qui baisse, la journée ne change pas
+    avecDate('2026-11-25', () => egalProfond(ligneCharge(base(120000, 23000, '2026-11-25'), 'loyer', '2026-11-25'), { texte: 'Charge du mois, pas comptée dans ta journée.', baisseCentimes: 0 }));
+    // Plus de marge : répartie sur les 10 jours qui restent (du 25 novembre au 4 décembre)
+    avecDate('2026-11-25', () => {
+      const l = ligneCharge(base(40000, 23000, '2026-11-25'), 'loyer', '2026-11-25');
+      egalProfond([sp(l.texte), l.baisseCentimes], ['Charge du mois, répartie sur les 10 jours qui restent : 14 € de moins aujourd’hui.', 1400]);
+    });
+    // Dernier jour avant le salaire : elle compte en entier aujourd'hui
+    avecDate('2026-12-04', () => {
+      const l = ligneCharge(base(40000, 23000, '2026-12-04'), 'loyer', '2026-12-04');
+      egalProfond([l.texte, l.baisseCentimes], ['Charge du mois. C’est le dernier jour avant ton salaire : elle compte aussi aujourd’hui.', 14000]);
+    });
+    // Mois dépassé : la phrase douce, avec le montant exact
+    avecDate('2026-11-25', () => egal(sp(ligneCharge(base(40000, 40000, '2026-11-25'), 'loyer', '2026-11-25').texte), 'Charge du mois. Ta part du mois est déjà utilisée : 15 € de plus que prévu.'));
   } },
 ];

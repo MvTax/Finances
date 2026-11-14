@@ -37,9 +37,24 @@ function joursNotes(etat) {
   return jours;
 }
 
-/** Super flammes : journées closes (avant aujourd'hui), depuis le début du jeu, sans aucune dépense du quotidien. */
+/** Premier jour où l'app sait quelque chose : la plus ancienne opération, privation ou journée « sans dépense » annoncée.
+ *  Avant ce jour, l'app ne sait rien : « rien noté » n'y veut pas dire « rien dépensé ». null si l'app est vide. */
+export function premierJourDonnees(etat) {
+  let min = null;
+  const voir = (d) => { if (typeof d === 'string' && d && (!min || d < min)) min = d; };
+  for (const t of etat.transactions || []) voir(t.date);
+  for (const p of etat.privations || []) if (!p.auto) voir(p.date);
+  for (const d of Object.keys(etat.meta?.sansDepense?.jours || {})) voir(d);
+  return min;
+}
+
+/** Super flammes : journées closes (avant aujourd'hui), depuis le début du jeu ET depuis le premier jour connu,
+ *  sans aucune dépense du quotidien. Une app vide n'a donc aucune super flamme. */
 export function superFlammes(etat, aujourdhuiIso) {
-  const depuis = etat.meta?.jeu?.depuis || aujourdhuiIso;
+  const premier = premierJourDonnees(etat);
+  if (!premier) return new Set();
+  const jeu = etat.meta?.jeu?.depuis || aujourdhuiIso;
+  const depuis = premier > jeu ? premier : jeu;
   const res = new Set();
   for (let d = depuis, n = 0; d < aujourdhuiIso && n < 400; d = ajouterJours(d, 1), n += 1) if (estSuperFlamme(etat, d)) res.add(d);
   return res;

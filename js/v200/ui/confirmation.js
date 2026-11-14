@@ -13,7 +13,7 @@ import { arrondiDeLaDepense } from '../../v100/strategie/explications.js';
 import { confirmerObligatoire } from '../../actions.js';
 import { serieJours } from '../../jeu.js';
 import { eur } from '../calculs/commun.js';
-import { bulleDuJour, noteAujourdhui } from '../calculs/jour.js';
+import { bulleDuJour, noteAujourdhui, ligneDuJour, ligneCharge } from '../calculs/jour.js';
 
 export const DUREE = 6000;
 const DUREE_QUESTION = 10000;
@@ -77,10 +77,8 @@ const ligne = (texte, classe = '') => h('p', { class: `v2-conf-ligne ${classe}`.
 
 /** « Il te reste 15 € aujourd'hui. » (ou le dépassement) */
 function ligneJour(auj) {
-  const b = bulleDuJour(etat, auj);
-  if (b.etat === 'mois-depasse') return ligne(`Ce mois-ci est dépassé de ${montant(b.montantCentimes)}.`, 'alerte');
-  if (b.etat === 'jour-depasse') return ligne(`Tu as dépassé de ${montant(b.montantCentimes)} aujourd’hui.`, 'attention');
-  return ligne(`Il te reste ${montant(b.montantCentimes)} aujourd’hui.`);
+  const l = ligneDuJour(bulleDuJour(etat, auj), montant);
+  return ligne(l.texte, l.ton);
 }
 
 /** La flamme du jour vient de s'allumer (première dépense notée ou première privation aujourd'hui). */
@@ -90,7 +88,8 @@ function flammeAllumee(auj, etaitNote) {
   return n > 1 ? `+1 · ${n} jours de suite` : '+1 · ta première flamme';
 }
 
-const CHARGE = 'Charge du mois, pas comptée dans ta journée.';
+/** « Charge du mois… » : ce que la dépense obligatoire change vraiment pour la journée (voir ligneCharge). */
+const ligneChargeDe = (tx, auj) => ligne(ligneCharge(etat, tx.id, auj, montant).texte);
 
 /**
  * Après une dépense (enregistrée avec ajouterTransaction, qui a déjà reconnu une éventuelle dépense obligatoire).
@@ -112,9 +111,9 @@ export function confirmerDepense(tx, { annuler = null, etaitNote = null } = {}) 
     lignes = [];
     question = {
       texte: 'C’est une dépense obligatoire du mois ?',
-      repondre: async (oui) => { await confirmerObligatoire(tx.id, oui); return oui ? [ligne(CHARGE)] : lignesQuotidiennes(); },
+      repondre: async (oui) => { await confirmerObligatoire(tx.id, oui); return oui ? [ligneChargeDe(tx, auj)] : lignesQuotidiennes(); },
     };
-  } else if (depense && (tx.chargeFixeId || tx.horsPartDuJour || !estDepenseQuotidienne(tx))) lignes = [ligne(CHARGE)];
+  } else if (depense && (tx.chargeFixeId || tx.horsPartDuJour || !estDepenseQuotidienne(tx))) lignes = [ligneChargeDe(tx, auj)];
   else lignes = lignesQuotidiennes();
   return carte({ titre: 'C’est noté !', sous, lignes, question, annuler, flamme: depense ? flammeAllumee(auj, avant) : null });
 }
