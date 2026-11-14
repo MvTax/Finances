@@ -8,7 +8,9 @@ PWA statique (HTML, CSS, JavaScript en modules ES, sans build ni framework), ser
 index.html               coquille de l'app (barre d'onglets, conteneurs de pages, sprite d'icônes)
 manifest.webmanifest     start_url "./", scope "./", id, icônes 192/512/maskable
 sw.js                    cache versionné de la coquille (cache-first), pdf.js mis en cache à la demande
-css/                     variables.css (thèmes clair/sombre), base.css, composants.css, pages.css ; cockpit.css (v100, toutes les règles sous :root[data-app="v100"])
+css/                     variables.css (thèmes clair/sombre), base.css, composants.css, pages.css, joyeux.css, envies.css ;
+                         v200.css (la nouvelle app, toutes les règles sous :root[data-app="v200"], y compris l'habillage des pages héritées)
+fonts/                   nunito.woff2, fredoka.woff2 (v200) et leurs licences OFL
 js/
   app.js                 démarrage : base, PIN, onboarding, routeur, bandeaux, SW, retour au premier plan
   router.js              navigation par hash (#accueil, #depenses, #epargne, #reglages, #historique…)
@@ -32,14 +34,17 @@ js/
   ui/                    sheet.js (feuille modale), toast.js, composants.js, icones.js
   pages/                 accueil, depenses, budgets, epargne, historique, reglages, onboarding, saisie, import
   v2/                    interfaces documentées des fonctionnalités V2 (aucune interface utilisateur)
-  aiguillage.js          script classique chargé en premier : choisit l'app (origine ou v100) avant le premier affichage
-  v100/                  l'app « Cockpit » : bascule.js, ui/ (graphes SVG, blocs), pages/ (cockpit, strategie, s-*),
-                         strategie/ (moteurs purs : pret, projection, rythmes, enveloppes, tresorerie, score, repartition, brief)
-    pages/fiches.js      les fiches « ? » (schéma, calcul, statistiques) ouvertes depuis l'Accueil
-    pages/s-score.js     Stratégie → Score Budget ; pages/s-habitudes.js : Stratégie → Mes habitudes (statistiques)
-    ui/confirmation.js   la petite carte après une dépense ou une privation (se ferme seule après 9 s)
-    strategie/stats.js   statistiques des dépenses du quotidien (moyenne, médiane, tendance, prévision de fin de mois)
-    strategie/explications.js  calculs ligne par ligne des fiches (mêmes fonctions que l'app)
+  aiguillage.js          script classique chargé en premier : choisit l'app avant le premier affichage (v200 par défaut ;
+                         « origine » si tu l'as choisie ; l'ancien choix « v100 » est réécrit en v200). choixApp testé dans v200.mjs
+  habillage.js           appCourante(), estV200(), basculer('v200' | 'origine') (Réglages : « Revenir à l'ancienne app » / « Ouvrir la nouvelle app »)
+  obligatoires.js        dépense obligatoire reconnue à la saisie (charge fixe, abonnement, ou « probable »)
+  v200/                  la nouvelle app joyeuse (Aujourd'hui | Dépenses | + | Épargne | Résumé), mêmes données que l'origine
+    pages/               aujourdhui, saisie (tuiles, molettes, glisser), privation, depenses, epargne (trois pots), resume
+    ui/                  soleil (jauge), molette, glisser-valider, tuiles, confirmation (« C'est noté ! »), dessins
+    calculs/             fonctions pures testées : commun, jour, habitudes, depenses, pots, resume, risques,
+                         stats (moyenne, médiane, tendance, prévision de fin de mois), explications (partage du reste, arrondi d'une dépense)
+                         Les Réglages, la modification d'une dépense, le virement, les mois passés, l'import et la rentrée d'argent
+                         sont les pages d'origine (js/pages/), habillées par css/v200.css.
 vendor/pdfjs/            pdf.js « legacy » (ES module) embarqué, chargé uniquement pour l'import PDF
 icons/                   PNG 180, 192, 512, maskable 512 + SVG source
 tools/                   icones.html (régénère les PNG), verif-confidentialite.mjs, verif-statique.mjs, ecrans.mjs (écrans dans Chromium, sauvegarde synthétique)

@@ -1,7 +1,7 @@
 // envies.mjs — « Mes envies » : part des restes du jour, super flammes, achat en avance (exception) et reprise.
-import { egal, vrai } from '../outils/assert.mjs';
+import { egal, vrai, egalProfond } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
-import { fluxEnvies, retenueAvance, estimationDuJour, journeesPourFinir, estSuperFlamme, repartirReste } from '../../js/envies.js';
+import { fluxEnvies, retenueAvance, estimationDuJour, journeesPourFinir, estSuperFlamme, repartirReste, partsReste, partsDepuisChoix, PARTS_RESTE } from '../../js/envies.js';
 import { aVirerEpargne } from '../../js/virements.js';
 import { depensesVariables } from '../../js/calculs.js';
 
@@ -17,6 +17,17 @@ const etat = ({ transactions = [], privations = [], liste = [] } = {}) => {
 const gta = (o = {}) => ({ id: 'gta', nom: 'GTA 6', type: 'jeu', montantCentimes: 8000, creeLe: '2026-11-07', ...o });
 
 export default [
+  { nom: 'partage du reste : choix des Réglages (prêt, sécurité, le reste à l’envie), réglage gardé ou 40/30/30', fn: () => {
+    egalProfond(partsDepuisChoix(40, 30), { pret: 40, securite: 30, envie: 30 });
+    egalProfond(partsDepuisChoix('50', '50'), { pret: 50, securite: 50, envie: 0 }, 'valeurs d’un menu (texte)');
+    egalProfond(partsDepuisChoix(0, 0), { pret: 0, securite: 0, envie: 100 });
+    egal(partsDepuisChoix(60, 50), null, 'plus de 100 %');
+    egal(partsDepuisChoix(-5, 30), null); egal(partsDepuisChoix(12.5, 30), null); egal(partsDepuisChoix('x', 30), null);
+    const e = etatBase({});
+    egalProfond(partsReste(e), PARTS_RESTE, 'sans réglage : 40/30/30');
+    e.profil.partsReste = partsDepuisChoix(50, 20);
+    egalProfond(partsReste(e), { pret: 50, securite: 20, envie: 30 });
+  } },
   { nom: 'envies : 30 % du reste de la journée pour l’envie, dépense ou pas ; l’épargne reçoit le reste', fn: () => {
     const e = etat({ transactions: [tx({ date: '2026-11-06', montant: 846 })], privations: [reste('2026-11-05', 1346), reste('2026-11-06', 500)], liste: [gta()] });
     vrai(estSuperFlamme(e, '2026-11-05')); vrai(!estSuperFlamme(e, '2026-11-06'));

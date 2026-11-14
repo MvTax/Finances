@@ -5,7 +5,7 @@ description: Vérifier les écrans de l'app Budget dans Chromium (Playwright) en
 # Vérifier les écrans
 Playwright (Node) et Chromium sont déjà installés dans l'environnement : `require('playwright')` marche partout. Ne rien ajouter à `package.json`.
 1. Serveur : `python3 -m http.server 8765` (en arrière-plan) à la racine du dépôt.
-2. Lancer `node tools/ecrans.mjs` (v100), puis `node tools/ecrans.mjs --origine` (styles Classique puis Joyeux), puis `node tools/ecrans.mjs --aller-retour`.
+2. Lancer `node tools/ecrans.mjs` (app joyeuse v200, par défaut ; `--aujourdhui AAAA-MM-JJ` pour tester la veille du salaire), puis `node tools/ecrans.mjs --origine` (styles Classique puis Joyeux), puis `node tools/ecrans.mjs --aller-retour`.
    L'outil génère lui-même la sauvegarde synthétique (dans le dossier temporaire du système), la restaure dans une app vide par le vrai flux (Réglages → Importer → Remplacer), fige l'horloge sur la date du générateur, bloque le service worker (code toujours frais).
    Options : `--capture <écran>[,<écran>…]` (ex. `accueil`, `fiche-jour`, `carte-depense`, `habitudes`, `tout`), `--aujourdhui AAAA-MM-JJ`, `--url`.
 3. Contrôles, pour chaque écran : erreurs console et exceptions ; débordement horizontal ; texte caché par un cadre (sans ellipse voulue) ou qui déborde ; schéma SVG déformé par le CSS ; bouton sans texte ni `aria-label` ; « ? » sans `aria-label` explicite.

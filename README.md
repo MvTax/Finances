@@ -160,7 +160,7 @@ npm test                                  # n'affiche que les échecs, puis le t
 npm run test:detail                       # le détail de chaque test
 npm run verif                             # contrôles statiques + confidentialité (avant chaque commit)
 node tests/outils/generer-sauvegarde.mjs sortie.json   # fabrique une sauvegarde SYNTHÉTIQUE complète (options --aujourdhui, --graine)
-node tools/ecrans.mjs                     # vérifie les écrans v100 dans Chromium, en largeur iPhone
+node tools/ecrans.mjs                     # vérifie les écrans de la nouvelle app (v200) dans Chromium, en largeur iPhone
 node tools/ecrans.mjs --origine           # idem pour l'app d'origine (Classique puis Joyeux)
 node tools/ecrans.mjs --aller-retour      # restaurer → tout exporter → comparer au fichier d'origine
 node tools/ecrans.mjs --capture <écran>   # enregistre une image PNG de l'écran
@@ -228,7 +228,7 @@ Bouton + → « Je me suis privé → épargne », ou carte « Je me suis privé
 
 Activé par défaut, à partir du jour où l'app est mise à jour (rien de rétroactif). Réglages → Épargne et arrondis → « Repas à la maison → épargne » : interrupteur, et 1, 2 ou 3 repas par jour (2 par défaut).
 
-- Chaque jour terminé sans repas dehors noté (fast-food, livraison, resto, ou « Je me suis privé » déjà saisi), chaque repas manquant met de côté le prix de ton menu habituel.
+- Chaque jour terminé sans repas dehors noté (fast-food, livraison, resto, ou « Je me suis privé » déjà saisi), chaque repas manquant met de côté le prix de ton menu habituel (calculé jusqu'à la veille : une dépense notée aujourd'hui ne change pas les jours passés).
 - Le montant ne dépasse jamais ce qui reste de la part prévue du jour, donc le budget ne peut pas passer en négatif à cause de ça.
 - Tu as mangé dehors sans le noter ? Ajoute la dépense (même après coup) : le montant du jour s'ajuste. Une fois le montant viré (« C'est viré »), le jour est figé.
 - L'accueil affiche chaque matin ce qui a été mis de côté la veille, avec un bouton « J'ai mangé dehors hier ».
@@ -277,37 +277,56 @@ Les cartes des poches, sous « Mon système d'épargne », affichent le même mo
 
 Toucher « Reste à virer vers l'épargne » (ou « Historique », ou « d'où ça vient » sur une poche) ouvre **l'historique de la cagnotte** du mois : chaque ajout avec sa source (arrondi de telle sortie, « 12,07 € arrondi à 13,00 € » ; repas à la maison ; privation ; épargne du mois), sa date, et « à virer » ou « viré le … ». Filtres par source et totaux par source en haut.
 
-## v100 simplifié (1.40)
+## La nouvelle app joyeuse (1.41–1.42)
 
-**Le principe** : à la surface, un chiffre et une phrase. Rien d'autre. Derrière chaque « ? » ou chaque « Plus d'explications »,
-tu trouves le détail : un schéma, le calcul ligne par ligne, les statistiques, et un lien vers l'outil complet (onglet Stratégie).
-Tu lis vite si tu es pressé, tu creuses si tu veux comprendre.
+Depuis la 1.42, c'est **l'app qui s'ouvre** : claire, chaleureuse, et pensée pour noter une dépense en deux gestes.
+Mêmes données que l'ancienne app : rien à réimporter, tes dépenses, ton épargne, tes flammes et tes envies sont là.
 
-**À la surface de l'Accueil**
-- Ton **solde**, en haut, à côté de ton prénom (touche-le pour le détail).
-- Le cadran **« Reste aujourd'hui »** : ce qu'il te reste à dépenser aujourd'hui, sur ta part du jour. Si le mois est dépassé, il le dit.
-- Deux boutons : **« J'ai dépensé »** et **« Je me suis privé »**.
-- **Une seule chose à faire**, et seulement si elle est urgente ou importante. Sinon, rien.
-- Quatre lignes, chacune avec son « ? » : **Ton épargne**, **Ce mois-ci**, **Ta série**, **Ton envie**. Chacune ouvre une fiche.
-- « **Tout comprendre** » : ouvre l'onglet Stratégie.
+**Les couleurs** : un fond crème, des cartes blanches, un **corail** pour tout ce qui se touche (boutons, onglet actif),
+un **jaune soleil** seulement pour le soleil, les pièces et les flammes. Le vert, l'orange et le rouge disent un état
+(ça va, attention, dépassé), jamais une décoration. Les trois pots ont chacun leur couleur : bleu (Sécurité), violet (Prêt), rose (Envie).
 
-**La carte après une dépense ou une privation** : une petite carte apparaît avec « C'est noté », ce qu'il reste aujourd'hui et où
-en est l'épargne. Deux boutons : **Annuler** (pour défaire la saisie) et **Plus d'explications** (la fiche de la dépense). Elle se ferme
-toute seule après 9 secondes, ou dès que tu changes de page. Si tu poses le doigt dessus, elle attend.
+**Quatre onglets, et le « + » au milieu**
+- **Aujourd'hui** : un soleil qui se vide au fil de la journée, la phrase « Tu peux encore dépenser X », deux gros boutons
+  « J'ai dépensé » et « Je me suis privé », et une phrase du jour.
+- **Dépenses** : « Depuis le salaire : X », puis la liste par jour (« Aujourd'hui », « Hier », « mardi 10 »). Une charge du mois
+  porte l'étiquette « du mois ». Toucher une ligne la modifie. En bas : « Voir le mois d'avant » et « Ajouter une rentrée d'argent ».
+- **Épargne** : trois pots dessinés qui se remplissent (Sécurité, Prêt, Envie). Toucher un pot donne 2 ou 3 phrases
+  (combien, ce qui manque, à quel rythme). « À virer : X » ouvre le virement à faire depuis ton appli bancaire.
+- **Résumé** : la météo du mois (soleil, nuage ou orage), puis « Ce mois-ci » ou « Cette année » : où part l'argent,
+  la comparaison avec le mois d'avant, ta série, ton épargne, et jusqu'à 3 conseils pour éviter un coup dur.
+  « Voir le détail » ouvre les mois passés.
 
-**Ce que montre chaque fiche**
-- **Ce que tu peux dépenser aujourd'hui** : d'où vient ta part du jour (tes revenus, moins les charges, les crédits, l'épargne et ce
-  que tu as déjà dépensé, divisé par les jours jusqu'au salaire), puis tes habitudes (moyenne, jour normal, jours sous ta part, jours sans dépense).
-- **Ton mois** : où tu finiras à ton rythme actuel, avec une fourchette, et le calcul ligne par ligne.
-- **Ton épargne** : où elle est (sécurité, prêt), ce que la journée d'aujourd'hui peut lui ajouter, ce qui attend d'être viré, et la trajectoire sur 12 mois.
-- **Ton envie** : la carte complète de l'envie en cours (barre, rythme).
-- **Cette dépense, en détail** (« Plus d'explications » de la carte) : l'effet sur ta journée, sur ton épargne (l'arrondi), sur ton enveloppe, sur ta fin de mois, et la place de cette dépense dans tes habitudes.
+**Noter une dépense sans clavier**
+- **7,30 € de restauration rapide** : « J'ai dépensé » → touche la tuile « Restauration rapide ». Le montant part de ton
+  montant habituel. Fais glisser la molette des euros jusqu'à 7 et celle des centimes jusqu'à 30 (elle avance de 0,10 €),
+  ou touche une des puces de tes montants fréquents. Puis fais glisser le rond « Glisse pour valider » (ou touche « Valider »).
+- **230 € de loyer** : « J'ai dépensé » → tuile « Logement » (si elle n'est pas dans tes favorites : « Autre catégorie », puis « Logement »). Garde le doigt sur le « + » des euros : ça va de plus en plus vite.
+  Lâche vers 230, ajuste avec + et −, puis glisse pour valider.
+- La carte « C'est noté ! » apparaît : la pièce tombe dans le pot, ta flamme, et un bouton **Annuler** si tu t'es trompé.
+  « Aujourd'hui » ou « Hier » se choisit avant de valider ; « Ajouter un mot » est facultatif.
 
-**L'onglet Stratégie, en liste** : chaque ligne donne son résultat en quelques mots ; la toucher ouvre l'outil complet.
-Score, Brief du jour, Plan du prêt, Projection, Mes habitudes, Catégories, Répartition, Trésorerie. En dessous, quatre petits
-outils : Abonnements, Mois passés, Recalcul complet, « Et si j'achète ? ».
+**Les dépenses obligatoires sont reconnues** : un loyer, une facture ou un abonnement noté à la main compte dans le mois,
+pas dans ta part du jour. Il est réparti sur les jours qui restent jusqu'au salaire (« 4,83 € de moins aujourd'hui »), au lieu
+de te dire « dépassé ». S'il ressemble à une de tes charges fixes (même montant à 10 % près, à 7 jours près), il est rattaché
+tout seul. Si l'app n'est pas sûre (une grosse dépense de logement, d'énergie, d'abonnement…), elle te pose la question :
+« Dépense obligatoire ? Oui / Non », sur la carte ou sur la ligne dans Dépenses.
 
-### Les statistiques expliquées simplement
+**Réglages** : la **sauvegarde en premier** (Sauvegarder, Restaurer un fichier), puis « Mon argent » (revenus, épargne automatique
+avec le partage du reste du jour, envies), « L'app », et le reste replié dans « Avancé ».
+
+**Revenir à l'ancienne app** : Réglages → L'app → « Revenir à l'ancienne app » (styles Classique et Joyeux). Le choix est gardé
+sur l'iPhone. Pour revenir ici : dans l'ancienne app, Réglages → L'app → « Ouvrir la nouvelle app ».
+`?app=origine` ou `?app=v200` dans l'adresse force l'une ou l'autre.
+
+## v100 simplifié (1.40) — remplacé
+
+Remplacé en 1.42 par la nouvelle app joyeuse (voir plus haut). L'Accueil sombre, les fiches « ? », l'onglet Stratégie et la
+carte de confirmation de v100 ont été retirés. Les statistiques sont gardées (section suivante).
+
+## Les statistiques expliquées simplement
+
+Elles servent au Résumé de la nouvelle app (la météo du mois : chance de finir sans dépasser) et au code `js/v200/calculs/stats.js`.
 
 Elles partent d'une liste : ce que tu as dépensé chaque jour terminé, sur 90 jours au plus. Un jour sans dépense compte pour 0 €.
 Le jour en cours n'en fait pas partie. Exemple inventé : sur 4 jours, tu dépenses 0 €, 10 €, 10 €, 60 €.
@@ -329,47 +348,11 @@ Le jour en cours n'en fait pas partie. Exemple inventé : sur 4 jours, tu dépen
 dépense prévue ou un changement d'habitude ne sont pas vus. Sous 7 jours de données, l'app te prévient que les chiffres sont peu fiables.
 Prends-les comme un ordre de grandeur, pas comme une promesse. Les choix de calcul sont détaillés dans `HYPOTHESES.md`.
 
-## v100, le Cockpit (1.39)
+## v100, le Cockpit (1.39) — remplacé
 
-Une deuxième app dans la même page : mêmes données, autre habillage, et un onglet **Stratégie** en plus. L'app d'origine
-(styles Classique et Joyeux) reste telle quelle.
-
-**L'ouvrir** : la bannière « Nouveau : v100 » sur l'Accueil, ou Réglages → L'app → « Ouvrir v100, le Cockpit ».
-**Revenir** : Réglages → L'app → « Revenir à l'app d'origine ». Le choix est gardé sur l'appareil ; tes dépenses, ton épargne,
-tes flammes et tes envies sont les mêmes des deux côtés (une seule base, aucun réimport). `?app=v100` ou `?app=origine`
-dans l'adresse force l'un ou l'autre.
-
-**L'Accueil (cockpit)** : un cadran gradué pour ce qu'il reste aujourd'hui, trois instruments (reste du mois, score,
-série de flammes), six voyants (budget du jour, compte, virement d'épargne, catégories, prélèvements, fin de mois :
-vert, ambre ou rouge, toucher pour aller à la page concernée), le brief du jour, l'envie en cours, l'épargne et la trajectoire sur 12 mois.
-
-**Stratégie**, six outils :
-- **Score Budget** sur 100, cinq cadrans de 20 points. Budget du jour : mois pas dépassé (10) + part des jours finis sous
-  ta part (10). Épargne : part des revenus mise de côté, 10 % donne le maximum. Sécurité : coussin par rapport à son objectif.
-  Dettes : crédits et remboursements dans les revenus, 10 % ou moins donne 20, 40 % ou plus donne 0, moins 5 tant qu'un crédit
-  instantané court. Régularité : 7 jours de flamme (10), soldes vérifiés (5), sauvegarde récente (5). Chaque cadran dit quoi faire pour gagner des points.
-- **Plan du prêt** : capital restant, coût restant, date de fin, et quatre plans comparés mois par mois (ne rien faire,
-  rembourser par paliers, rembourser chaque mois, tout garder puis solder d'un coup), avec le gain en euros et en mois.
-  « 100 € remboursés aujourd'hui » dit ce qu'un remboursement fait gagner. Avant le début des mensualités : garder la
-  mensualité et finir plus tôt, ou garder la durée et payer moins. Tant que la sécurité n'est pas pleine, le conseil est
-  de la remplir d'abord (ton épargne ne rapporte pas d'intérêts : la comparaison ne compte que le coût du prêt).
-- **Projection** 12 ou 24 mois : chaque mois, disponible = revenus − charges − crédits ; vie courante = ton plancher ;
-  l'épargne prend le reste ; le reste des journées est partagé prêt / sécurité / envie. Des réglettes « et si » (vivre
-  avec plus ou moins par jour, part non dépensée, charges en moins, salaire, grosse dépense, mois difficile) et l'écart avec le plan de base.
-  Les dettes envers tes proches et les crédits s'arrêtent aux dates enregistrées.
-- **Brief du jour** : priorités classées, voyants détaillés, économies possibles par mois et par an, abonnements, raisonnement du mois.
-- **Catégories** : chaque enveloppe face au jour du mois (le trait blanc = où tu devrais en être), ce qu'il reste par
-  jour, ta moyenne sur 3 mois, et le « levier » : ce que tenir le plafond te fait gagner par mois. Toucher une enveloppe change son plafond.
-- **Répartition** : quatre préréglages (Sécurité d'abord, Équilibre, Prêt à fond, Plaisir) et un réglage à la main, chacun
-  simulé sur 24 mois (sécurité pleine, prêt soldé, envie débloquée). « Appliquer » change le partage du reste des journées
-  (40 / 30 / 30 par défaut) et celui de l'épargne du mois.
-- **Trésorerie** : le solde du compte jour par jour jusqu'au salaire, en dépensant ta part du jour et à ton rythme réel,
-  le point le plus bas et les prélèvements à venir.
-
-Limites : une projection répète tes revenus, tes charges et tes habitudes d'aujourd'hui, elle montre une direction.
-Le plan du prêt simule le taux, la mensualité et l'assurance enregistrés ; les règles d'un remboursement anticipé
-(frais, recalcul de la mensualité) sont celles de ton contrat, à confirmer auprès de ta banque. Tout est calculé sur
-l'iPhone, par règles, sans envoi de données.
+Le Cockpit sombre (score, plan du prêt, projection 12 mois, trésorerie, répartition) a été retiré en 1.42. Un ancien choix
+« v100 » ouvre la nouvelle app. Le partage du reste du jour (40 / 30 / 30 par défaut) se règle maintenant dans
+Réglages → Épargne automatique → « Partage du reste du jour ».
 
 ## Recalcul complet (1.38)
 
@@ -397,8 +380,9 @@ compte pour la veille, et l'Accueil affiche encore la veille jusqu'à 5 h. Les d
 **Flammes 🔥** (style Joyeux) : un jour où tu notes une dépense à la main (ou un « Je me suis privé »). Ouvrir l'app ne suffit plus.
 **Super flamme** (flamme bleue) : une journée close sans aucune dépense du quotidien (les prélèvements et abonnements ne comptent pas).
 Elle garde la série, rapporte 40 XP et remplit l'envie en cours. Le détail des 14 derniers jours est dans « Mes points ».
+Avant le premier jour où l'app sait quelque chose (première opération, privation ou journée « sans dépense » annoncée), « rien noté » ne veut pas dire « rien dépensé » : pas de super flamme. Une app vide affiche donc 0 jour d'affilée.
 
-**Mes envies** (Réglages → Mes envies, ou la carte de l'Accueil dans l'app d'origine ; en v100, c'est une ligne « Ton envie » sur l'Accueil qui ouvre une fiche avec la carte) : un plaisir à mériter, par exemple un jeu à 80 €.
+**Mes envies** (Réglages → Mes envies, ou la carte de l'Accueil dans l'app d'origine ; dans la nouvelle app, le pot « Envie » de l'onglet Épargne) : un plaisir à mériter, par exemple un jeu à 80 €.
 - La carte montre l'argent de côté, ce qu'il reste à mettre, une barre en euros, et un décor selon le type (coucher de soleil néon pour un jeu vidéo).
 - **Reste de la journée** (1.37) : ce que tu avais le droit de dépenser moins ce que tu as dépensé, compté à 5 h du matin
   (reste du jour, repas à la maison, « Je me suis privé »). Il est partagé : **40 % épargne du prêt (8000), 30 % épargne sécurité,

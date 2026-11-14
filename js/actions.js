@@ -8,6 +8,7 @@ import { categoriser, empreinte, traiterImport, detecterChargesFixes, rattacherC
 import { aujourdhui, dateDuMois, ajouterJours, moisDe } from './dates.js';
 import { cagnotteEnAttente, repartirVersement, soldePoche, recalculerPlan } from './epargne.js';
 import { revenusDuMois, chargesFixesPeriode, dettesPeriode, periodeBudget, cagnotteArrondis } from './calculs.js';
+import { reconnaitreObligatoire, appliquerObligatoire, reponseObligatoire } from './obligatoires.js';
 
 const M = () => new Date().toISOString();
 
@@ -42,12 +43,23 @@ export function categoriesFrequentes(sens = 'debit', toutes) {
   return [...toutes].sort((a, b) => (n.get(b) || 0) - (n.get(a) || 0));
 }
 
-export async function ajouterTransaction(tx) {
+export async function ajouterTransaction(tx, { auj = aujourdhui() } = {}) {
   // Rattachement à une charge fixe connue (ex. abonnement saisi à la main)
   const cf = etat.chargesFixes.find((c) => c.actif && c.motifDetection === normaliserTexte(tx.marchand) && (!c.montantDetection || c.montantDetection === tx.montantCentimes));
   if (cf && tx.sens === 'debit') tx.chargeFixeId = cf.id;
+  // Dépense obligatoire (loyer, facture, abonnement) : comptée dans le mois, pas dans la part du jour (obligatoires.js)
+  if (tx.sens === 'debit' && !tx.chargeFixeId) appliquerObligatoire(tx, reconnaitreObligatoire(etat, tx, auj));
   await enregistrer('transactions', tx);
   return tx;
+}
+
+/** Réponse à « C'est une dépense obligatoire ? » : oui → hors part du jour ; non → dépense du quotidien. */
+export async function confirmerObligatoire(txId, oui) {
+  const tx = etat.transactions.find((t) => t.id === txId);
+  if (!tx) return null;
+  const maj = { ...reponseObligatoire(tx, oui), modifieLe: M() };
+  await enregistrer('transactions', maj);
+  return maj;
 }
 
 export async function supprimerTransaction(tx) {

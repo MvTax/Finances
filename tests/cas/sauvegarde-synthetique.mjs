@@ -7,7 +7,7 @@ import { lireSauvegarde, construireExport, COLLECTIONS, META_HISTORIQUE, FORMAT 
 import { SCHEMA_VERSION } from '../../js/migrations.js';
 import { datesDeSalaire } from '../../js/calculs.js';
 import { forcerAujourdhui, jourSemaine } from '../../js/dates.js';
-import { serieQuotidienne, resumer } from '../../js/v100/strategie/stats.js';
+import { serieQuotidienne, resumer } from '../../js/v200/calculs/stats.js';
 
 const R = REFERENCE_DEFAUT;
 const copie = (x) => JSON.parse(JSON.stringify(x));

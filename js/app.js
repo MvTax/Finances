@@ -14,11 +14,13 @@ import { versionApp } from './version.js';
 import { cloturerJoursPasses } from './actions.js';
 import { prochaineCloture } from './restes.js';
 import { formatEuros } from './money.js';
+import { appCourante } from './habillage.js';
 
 installerJournal();
 
-/** v100 (Cockpit) : même moteur et mêmes données, autre accueil, un onglet Stratégie en plus (voir js/v100/). */
-const V100 = document.documentElement.dataset.app === 'v100';
+/** v200 (la nouvelle app, par défaut) : ses propres écrans Aujourd'hui, Dépenses, Épargne et un onglet Résumé (voir js/v200/) ;
+ *  les Réglages et quelques feuilles restent ceux de l'app d'origine, habillés par css/v200.css. */
+const V200 = appCourante() === 'v200';
 
 const PAGES = {
   accueil: () => import('./pages/accueil.js'),
@@ -34,12 +36,13 @@ const PAGES = {
 };
 const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'depenses', historique: 'depenses', statistiques: 'depenses', avenir: 'depenses', abonnements: 'accueil', epargne: 'epargne', reglages: null };
 /** Ordre des pages pour le balayage gauche / droite (les Réglages se trouvent « avant » l'Accueil). */
-const ORDRE_BALAYAGE = V100 ? ['reglages', 'accueil', 'depenses', 'strategie', 'epargne'] : ['reglages', 'accueil', 'depenses', 'epargne'];
-if (V100) {
-  PAGES.accueil = () => import('./v100/pages/cockpit.js');
-  PAGES.strategie = () => import('./v100/pages/strategie.js');
-  ONGLET.strategie = 'strategie';
-  ONGLET.abonnements = 'strategie';
+const ORDRE_BALAYAGE = V200 ? ['reglages', 'accueil', 'depenses', 'epargne', 'resume'] : ['reglages', 'accueil', 'depenses', 'epargne'];
+if (V200) {
+  PAGES.accueil = () => import('./v200/pages/aujourdhui.js');
+  PAGES.depenses = () => import('./v200/pages/depenses.js');
+  PAGES.epargne = () => import('./v200/pages/epargne.js');
+  PAGES.resume = () => import('./v200/pages/resume.js'); // « Voir le détail » y ouvre l'ancienne page des mois passés (historique)
+  Object.assign(ONGLET, { resume: 'resume', statistiques: 'resume', historique: 'resume' });
 }
 
 /**
@@ -67,7 +70,7 @@ function installerBalayage() {
     if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy) || dt > 700) return;
     const r = routeActuelle();
     const groupe = r.nom === 'reglages' ? 'reglages' : (ONGLET[r.nom] || 'accueil');
-    if ((r.nom === 'reglages' || r.nom === 'strategie') && r.params?.length) return; // dans une section des réglages ou une page de stratégie : pas de saut de page
+    if (r.nom === 'reglages' && r.params?.length) return; // dans une section des réglages : pas de saut de page
     const i = ORDRE_BALAYAGE.indexOf(groupe);
     const cible = ORDRE_BALAYAGE[i + (dx < 0 ? 1 : -1)];
     if (!cible) return;
@@ -101,7 +104,7 @@ async function afficher(route) {
       b.classList.toggle('actif', actif);
       if (actif) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     }
-    document.title = `${mod.titre || 'Budget'} · Budget${V100 ? ' v100' : ''}`;
+    document.title = `${mod.titre || 'Budget'} · Budget`;
     mod.rendre(vue, route.params);
     vue.scrollTop = 0; window.scrollTo(0, 0);
     vue.focus({ preventScroll: true });

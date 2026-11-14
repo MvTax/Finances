@@ -53,6 +53,7 @@ export function ouvrirFeuille(o) {
   // Glisser vers le bas pour fermer (depuis l'en-tête ou quand le contenu est en haut)
   let y0 = null; let dy = 0; let t0 = 0;
   const debut = (e) => {
+    if (e.target.closest('[data-glisse]')) return; // molettes, « glisser pour valider » : leur propre geste
     if (e.target.closest('input, textarea, select, button:not(.feuille-poignee)') && !e.target.closest('.feuille-entete')) return;
     if (corps.scrollTop > 0 && !e.target.closest('.feuille-entete')) return;
     y0 = e.touches[0].clientY; dy = 0; t0 = performance.now();

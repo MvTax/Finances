@@ -9,18 +9,18 @@ import { aujourdhui } from '../dates.js';
 import { periodeBudget } from '../calculs.js';
 import { toast } from './toast.js';
 import { appliquerTheme } from '../app-theme.js';
+import { estV200 } from '../habillage.js';
 
 const COULEURS = ['#FFC531', '#FF4F79', '#6C4CF1', '#12C784', '#FF8A1F', '#3EC5FF'];
 let derniereFete = 0;
 
-const estV100 = () => document.documentElement.dataset.app === 'v100';
-/** Le côté « jeu » (confettis, +XP) est actif en style Joyeux, et toujours dans v100. */
-export const estJoyeux = () => estV100() || (etat.parametres?.style || 'classique') === 'joyeux';
+/** Le côté « jeu » (confettis, +XP) est actif en style Joyeux. v200 a sa propre fête, plus sobre. */
+export const estJoyeux = () => !estV200() && (etat.parametres?.style || 'classique') === 'joyeux';
 
 /** Pose data-style sur <html> (les feuilles de style Joyeux s'y accrochent). */
 export function appliquerStyle(style = etat.parametres?.style) {
   const racine = document.documentElement;
-  if (estV100()) delete racine.dataset.style; // v100 a son propre habillage (css/cockpit.css)
+  if (estV200()) delete racine.dataset.style; // v200 a son propre habillage (css/v200.css)
   else if (style === 'joyeux') racine.dataset.style = 'joyeux';
   else delete racine.dataset.style;
   appliquerTheme(etat.parametres?.theme);
