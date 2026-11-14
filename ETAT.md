@@ -13,6 +13,8 @@
 - Mise en place : CLAUDE.md, skills du projet, agents (chef de projet).
 - 1.41.0 : dépenses obligatoires reconnues à la saisie (`js/obligatoires.js`) : un loyer, une facture ou un abonnement noté à la main compte dans le mois, pas dans la part du jour (rattaché à la charge fixe, ou `horsPartDuJour`) ; cas « probable » prêt pour une question oui/non (`confirmerObligatoire`). Branche `v100-simple`, pas encore en ligne.
 - 1.41.1 : calculs de v200 sans écran (`js/v200/calculs/`) : catégories et montants habituels, risque du mois, résumé du mois et de l'année, préventions du jour. Branche `v100-simple`, pas encore en ligne.
+- 1.41.2 : squelette de v200, la nouvelle app claire (`?app=v200`, Réglages → « Essayer la nouvelle app » / « Revenir à… ») : `js/habillage.js` (`appCourante`), `css/v200.css` (crème, corail, Nunito), onglets Aujourd'hui | Dépenses | + | Épargne | Résumé (Dépenses, Épargne, Résumé = pages d'origine pour l'instant), écran Aujourd'hui (soleil-jauge, deux gros boutons, une phrase du jour : `js/v200/calculs/jour.js`). Branche `v100-simple`, pas encore en ligne.
+- 1.41.3 : v200, saisie et privation sans clavier : tuiles des catégories favorites, molettes euros / centimes (glisser, + / − avec appui long, VoiceOver), « Glisse pour valider » (+ bouton Valider), carte « C'est noté ! » (pièce dans le pot, flamme, Annuler, question « dépense obligatoire ? »). `node tools/ecrans.mjs --v200` vérifie tout le parcours. Branche `v100-simple`, pas encore en ligne.
 
 ## Prochaine étape
 Attendre le retour de l'utilisateur sur l'iPhone ; idées possibles dans `IDEES.md` (seulement sur demande).

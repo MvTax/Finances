@@ -2,7 +2,7 @@
 // pdf.js (vendor/pdfjs) et Tesseract (vendor/tesseract) sont mis en cache à la première utilisation. Les appels Gemini ne sont JAMAIS mis en cache.
 // Mise à jour : changer VERSION (doit égaler versionApp dans js/version.js), puis publier.
 
-const VERSION = '1.41.1';
+const VERSION = '1.41.3';
 const CACHE_COQUILLE = `budget-coquille-${VERSION}`;
 const CACHE_PDFJS = `budget-pdfjs-${VERSION}`;
 // Tesseract (lecture des captures, ~5 Mo) : gardé d'une version de l'app à l'autre, change seulement avec la bibliothèque
@@ -18,9 +18,11 @@ const COQUILLE = [
   './css/joyeux.css',
   './css/envies.css',
   './css/cockpit.css',
+  './css/v200.css',
   './fonts/saira.woff2',
   './fonts/saira-italique.woff2',
   './js/aiguillage.js',
+  './js/habillage.js',
   './fonts/fredoka.woff2',
   './fonts/nunito.woff2',
   './css/variables.css',
@@ -100,6 +102,15 @@ const COQUILLE = [
   './js/v200/calculs/habitudes.js',
   './js/v200/calculs/risques.js',
   './js/v200/calculs/resume.js',
+  './js/v200/calculs/jour.js',
+  './js/v200/pages/aujourdhui.js',
+  './js/v200/ui/soleil.js',
+  './js/v200/ui/molette.js',
+  './js/v200/ui/glisser-valider.js',
+  './js/v200/ui/tuiles.js',
+  './js/v200/ui/confirmation.js',
+  './js/v200/pages/saisie.js',
+  './js/v200/pages/privation.js',
   './js/pages/recalcul.js',
   './js/pages/envies.js',
   './js/ui/fete.js',

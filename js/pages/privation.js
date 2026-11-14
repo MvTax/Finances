@@ -13,9 +13,12 @@ import { formatEuros, versChamp } from '../money.js';
 import { categorie } from '../categories.js';
 import { feter, estJoyeux } from '../ui/fete.js';
 import { POINTS } from '../jeu.js';
+import { appCourante } from '../habillage.js';
 
 /** Feuille « Je me suis privé ». */
 export function feuillePrivation() {
+  // v200 : la feuille par gestes (tuiles, molettes, glisser pour valider)
+  if (appCourante() === 'v200') { import('../v200/pages/privation.js').then((m) => m.feuillePrivationV200()).catch((e) => console.error(e)); return null; }
   const options = montantsHabituels(etat);
   let choix = options[0];
   let montant = choix.montantCentimes;
@@ -42,7 +45,7 @@ export function feuillePrivation() {
     vibrer(20); f.fermer();
     const b = bilanPrivations(etat, periodeBudget(aujourdhui(), etat.profil), resteADepenser(etat, aujourdhui()).privationsAuto || []);
     feter('privation', { xp: POINTS.privation, texte: 'pièce mise de côté' });
-    if (document.documentElement.dataset.app === 'v100') { import('../v100/ui/confirmation.js').then((m) => m.confirmerPrivation(montant)).catch(() => {}); return; }
+    if (appCourante() === 'v100') { import('../v100/ui/confirmation.js').then((m) => m.confirmerPrivation(montant)).catch(() => {}); return; }
     toast(`${estJoyeux() ? '🐷 ' : ''}Bravo : ${formatEuros(montant)} mis de côté. À virer sur ton compte épargne : ${formatEuros(b.aVirerCentimes)}.`, { type: 'succes', duree: 5000 });
   });
   const f = ouvrirFeuille({

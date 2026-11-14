@@ -14,11 +14,15 @@ import { versionApp } from './version.js';
 import { cloturerJoursPasses } from './actions.js';
 import { prochaineCloture } from './restes.js';
 import { formatEuros } from './money.js';
+import { appCourante } from './habillage.js';
 
 installerJournal();
 
-/** v100 (Cockpit) : même moteur et mêmes données, autre accueil, un onglet Stratégie en plus (voir js/v100/). */
-const V100 = document.documentElement.dataset.app === 'v100';
+/** v100 (Cockpit) : même moteur et mêmes données, autre accueil, un onglet Stratégie en plus (voir js/v100/).
+ *  v200 (nouvelle app) : l'écran Aujourd'hui et un onglet Résumé (voir js/v200/) ; le reste réutilise pour l'instant les pages d'origine. */
+const APP = appCourante();
+const V100 = APP === 'v100';
+const V200 = APP === 'v200';
 
 const PAGES = {
   accueil: () => import('./pages/accueil.js'),
@@ -34,12 +38,18 @@ const PAGES = {
 };
 const ONGLET = { accueil: 'accueil', depenses: 'depenses', budgets: 'depenses', historique: 'depenses', statistiques: 'depenses', avenir: 'depenses', abonnements: 'accueil', epargne: 'epargne', reglages: null };
 /** Ordre des pages pour le balayage gauche / droite (les Réglages se trouvent « avant » l'Accueil). */
-const ORDRE_BALAYAGE = V100 ? ['reglages', 'accueil', 'depenses', 'strategie', 'epargne'] : ['reglages', 'accueil', 'depenses', 'epargne'];
+const ORDRE_BALAYAGE = V100 ? ['reglages', 'accueil', 'depenses', 'strategie', 'epargne']
+  : V200 ? ['reglages', 'accueil', 'depenses', 'epargne', 'resume'] : ['reglages', 'accueil', 'depenses', 'epargne'];
 if (V100) {
   PAGES.accueil = () => import('./v100/pages/cockpit.js');
   PAGES.strategie = () => import('./v100/pages/strategie.js');
   ONGLET.strategie = 'strategie';
   ONGLET.abonnements = 'strategie';
+}
+if (V200) {
+  PAGES.accueil = () => import('./v200/pages/aujourdhui.js');
+  PAGES.resume = () => import('./pages/historique.js'); // provisoire : les mois passés, en attendant le Résumé v200
+  Object.assign(ONGLET, { resume: 'resume', statistiques: 'resume', historique: 'resume' });
 }
 
 /**

@@ -7,6 +7,8 @@ import { categoriesFavorites, montantsRapides, montantDepart, CATEGORIES_REPLI }
 import { risqueDuMois, chargesAvantSalaire } from '../../js/v200/calculs/risques.js';
 import { resumeMois, resumeAnnee, preventions } from '../../js/v200/calculs/resume.js';
 import { eur, arrondi10 } from '../../js/v200/calculs/commun.js';
+import { bulleDuJour, phraseDuJour, noteAujourdhui } from '../../js/v200/calculs/jour.js';
+import { montantParle } from '../../js/v200/ui/molette.js';
 import { jourBudgetaire } from '../../js/restes.js';
 import { forcerAujourdhui, ajouterJours, jourSemaine } from '../../js/dates.js';
 import { genererSauvegarde, REFERENCE_DEFAUT } from '../outils/generer-sauvegarde.mjs';
@@ -40,6 +42,8 @@ export default [
   { nom: 'outils : montants lisibles et arrondi aux 10 centimes', fn: () => {
     egal(eur(1200), '12 €'); egal(eur(-1230), '12,30 €');
     egal(arrondi10(455), 460); egal(arrondi10(404), 400); egal(arrondi10(1000), 1000);
+    // La molette dit le montant à VoiceOver
+    egal(montantParle(730), '7 euros 30'); egal(montantParle(100), '1 euro'); egal(montantParle(50), '0 euro 50'); egal(montantParle(23000), '230 euros'); egal(montantParle(1205), '12 euros 05');
   } },
   { nom: 'aucune donnée : listes de repli, rien d’inventé, « pas assez », phrases simples', fn: () => avecDate('2026-11-09', () => {
     const e = etat();
@@ -215,6 +219,68 @@ export default [
       a.phrases.forEach((p) => phraseOk(p, d));
       const pv = preventions(c, d);
       vrai(pv.length <= 3); pv.forEach((x) => phraseOk(x.phrase, d));
+      const b = bulleDuJour(c, d);
+      vrai(['ok', 'jour-depasse', 'mois-depasse'].includes(b.etat)); vrai(b.montantCentimes >= 0 && b.part >= 0 && b.part <= 1);
+      const ph = phraseDuJour(c, d);
+      vrai(ph && ph.emoji); phraseOk(ph.phrase, d);
     });
   } },
+  { nom: 'Aujourd’hui : bulle vide sans données, puis reste du jour, dépassement du jour et du mois', fn: () => avecDate('2026-11-09', () => {
+    const A = '2026-11-09'; // période du 5 novembre au 4 décembre : 26 jours avec aujourd'hui
+    const vide = etat();
+    egalProfond([bulleDuJour(vide, A).etat, bulleDuJour(vide, A).part], ['vide', 1]);
+    egal(phraseDuJour(vide, A), null, 'sans données : pas de phrase, seulement « Note ta première dépense »');
+    // Rien dépensé aujourd'hui : toute la part du jour, soleil plein
+    const e = etat({ revenusMensuels: [revenus('2026-11')], transactions: [tx({ date: '2026-11-08', montant: 1500, categorie: 'courses', source: 'manuel' })] });
+    const b0 = bulleDuJour(e, A);
+    const P = b0.parJourCentimes;
+    vrai(P > 1000, `part du jour ${P}`);
+    egal(b0.etat, 'ok'); egal(b0.montantCentimes, P); egal(b0.part, 1);
+    // Une dépense de 7,30 € aujourd'hui : la part figée du matin ne bouge pas, le reste baisse d'autant
+    e.meta.jauge = b0.jauge.instantane;
+    e.transactions.push(tx({ date: A, montant: 730, categorie: 'restauration-rapide', source: 'manuel' }));
+    const b1 = bulleDuJour(e, A);
+    egal(b1.parJourCentimes, P); egal(b1.montantCentimes, P - 730); vrai(Math.abs(b1.part - (P - 730) / P) < 1e-9);
+    // Avec l'arrondi actif : 7,30 € + 0,70 € d'arrondi = 8 €
+    const ea = etat({ revenusMensuels: [revenus('2026-11')], transactions: [tx({ date: '2026-11-08', montant: 1500, categorie: 'courses', source: 'manuel' })] });
+    ea.profil.arrondi = { ...ea.profil.arrondi, actif: true, depuis: '2026-01-01' };
+    const a0 = bulleDuJour(ea, A); ea.meta.jauge = a0.jauge.instantane;
+    ea.transactions.push(tx({ date: A, montant: 730, categorie: 'restauration-rapide', source: 'manuel' }));
+    egal(bulleDuJour(ea, A).montantCentimes, a0.montantCentimes - 800);
+    // Dépassé aujourd'hui
+    e.transactions.push(tx({ date: A, montant: P, categorie: 'loisirs', source: 'manuel' }));
+    const b2 = bulleDuJour(e, A);
+    egalProfond([b2.etat, b2.montantCentimes, b2.part], ['jour-depasse', 730, 0]);
+    // Mois dépassé
+    e.transactions.push(tx({ date: A, montant: 200000, categorie: 'loisirs', source: 'manuel' }));
+    egal(bulleDuJour(e, A).etat, 'mois-depasse');
+  }) },
+  { nom: 'phrase du jour : série à garder, puis ce soir vers les pots, puis la série ; prévention urgente d’abord', fn: () => avecDate('2026-11-09', () => {
+    const A = '2026-11-09';
+    const poches = [
+      { id: 'p-secu', nom: 'Sécurité', type: 'coussin', cibleCentimes: 100000, priorite: 2, partRepartition: 50, soldeInitialCentimes: 0, mouvements: [], actif: true },
+      { id: 'p-pret', nom: 'Prêt', type: 'remboursementAnticipe', cibleCentimes: 300000, priorite: 1, partRepartition: 50, soldeInitialCentimes: 0, mouvements: [], actif: true },
+    ];
+    const e = etat({ revenusMensuels: [revenus('2026-11')], poches, transactions: [
+      tx({ date: '2026-11-07', montant: 500, categorie: 'courses', source: 'manuel' }), tx({ date: '2026-11-08', montant: 600, categorie: 'courses', source: 'manuel' }),
+    ] });
+    // Hier et avant-hier notés, rien aujourd'hui : la série est à garder
+    egal(noteAujourdhui(e, A), false);
+    const p1 = phraseDuJour(e, A);
+    egal(p1.type, 'serie-a-garder'); egal(p1.emoji, '🔥'); egal(p1.phrase, '2 jours de suite : note une dépense aujourd’hui pour garder ta série.');
+    // Noté aujourd'hui : ce qui reste de la journée partira ce soir vers les pots (ici Sécurité et Prêt, sans envie)
+    e.transactions.push(tx({ date: A, montant: 300, categorie: 'courses', source: 'manuel' }));
+    egal(noteAujourdhui(e, A), true);
+    const p2 = phraseDuJour(e, A);
+    egal(p2.type, 'ce-soir'); phraseOk(p2.phrase);
+    vrai(/^Ce soir, .+ iront à Sécurité et Prêt, si tu ne dépenses plus rien\.$/.test(p2.phrase), p2.phrase);
+    // Plus rien à dépenser : la série, simplement
+    e.transactions.push(tx({ date: A, montant: 10000, categorie: 'loisirs', source: 'manuel' }));
+    const p3 = phraseDuJour(e, A);
+    egal(p3.type, 'serie'); vrai(/^3 jours de suite\. Continue comme ça/.test(p3.phrase), p3.phrase);
+    // Une charge qui passe dans 2 jours passe avant tout
+    e.chargesFixes = [{ id: 'cf-exemple', libelle: 'Abonnement exemple', montantCentimes: 1500, jourPrelevement: 11, actif: true, compteId: 'courant', categorie: 'abonnements' }];
+    const p4 = phraseDuJour(e, A);
+    vrai(['charge-proche', 'prelevement-non-couvert'].includes(p4.type), p4.type); vrai(['📅', '⚠️'].includes(p4.emoji)); vrai(/Abonnement exemple/.test(p4.phrase), p4.phrase);
+  }) },
 ];

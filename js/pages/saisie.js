@@ -26,6 +26,7 @@ import { estAnnoncee } from '../sansdepense.js';
 import { estDepenseQuotidienne } from '../calculs.js';
 import { feter, estJoyeux } from '../ui/fete.js';
 import { estSaisie, POINTS } from '../jeu.js';
+import { appCourante } from '../habillage.js';
 
 /**
  * Plusieurs opérations dites ou tapées en une phrase : une seule vérification, puis tout est ajouté d'un coup.
@@ -93,8 +94,13 @@ function toastAjout(tx, { annuler = true } = {}) {
     const xp = n > POINTS.saisiesMaxJour ? 0 : POINTS.saisie + (n === 1 ? POINTS.jourNote : 0);
     feter('saisie', { xp, texte: n === 1 ? 'première du jour' : 'dépense notée' });
   }
+  // v200 : sa propre carte (pièce dans le pot, Annuler, question « obligatoire ? »)
+  if (appCourante() === 'v200') {
+    import('../v200/ui/confirmation.js').then((m) => m.confirmerDepense(tx, { annuler: annuler ? () => supprimerTransaction(tx) : null })).catch(() => {});
+    return;
+  }
   // v100 : une carte courte (reste du jour, épargne) avec « Plus d'explications », à la place du message
-  if (document.documentElement.dataset.app === 'v100') {
+  if (appCourante() === 'v100') {
     import('../v100/ui/confirmation.js').then((m) => m.confirmerAjout(tx, { annuler: annuler ? () => supprimerTransaction(tx) : null })).catch(() => {});
     return;
   }
@@ -106,6 +112,8 @@ function toastAjout(tx, { annuler = true } = {}) {
 
 /** Ouvre la feuille de saisie. vueInitiale : 'voix' | 'clavier' | 'photo'. */
 export function ouvrirSaisie(vueInitiale, donneesInitiales = null) {
+  // v200 : « J'ai dépensé » par gestes (tuiles, molettes, glisser) ; la voix et les saisies préremplies gardent la feuille habituelle
+  if (appCourante() === 'v200' && !vueInitiale && !donneesInitiales) { import('../v200/pages/saisie.js').then((m) => m.ouvrirSaisieV200()).catch((e) => console.error(e)); return null; }
   const ia = iaDisponible();
   const corps = h('div', { class: 'saisie-vues' });
   const f = ouvrirFeuille({ titre: 'Nouvelle opération', contenu: corps, plein: true, onFermer: () => enreg?.annuler?.() });

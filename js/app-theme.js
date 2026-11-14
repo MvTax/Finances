@@ -1,13 +1,22 @@
 // app-theme.js — thème clair / sombre / automatique et couleur de barre d'état (selon le style Classique ou Joyeux).
 
+import { appCourante } from './habillage.js';
+
 const COULEURS = { classique: { clair: '#f2f3ef', sombre: '#0e1412' }, joyeux: { clair: '#e8f8f1', sombre: '#15112b' } };
 
 export function appliquerTheme(theme = 'auto') {
   const racine = document.documentElement;
   // v100 (Cockpit) : un seul habillage, sombre ; le réglage clair / sombre ne s'applique qu'à l'app d'origine
-  if (racine.dataset.app === 'v100') {
+  const app = appCourante();
+  if (app === 'v100') {
     racine.dataset.theme = 'sombre';
     for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.setAttribute('content', '#070b16');
+    return;
+  }
+  // v200 : un seul habillage, clair (crème) ; barre d'état crème
+  if (app === 'v200') {
+    racine.dataset.theme = 'clair';
+    for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.setAttribute('content', '#FBF6EC');
     return;
   }
   if (theme === 'clair') racine.dataset.theme = 'clair';

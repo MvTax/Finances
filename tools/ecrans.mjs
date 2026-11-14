@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ecrans.mjs — vérifie les écrans de l'app dans Chromium (Playwright), en largeur iPhone (390 × 844, thème sombre),
+// ecrans.mjs — vérifie les écrans de l'app dans Chromium (Playwright), en largeur iPhone (390 × 844, thème sombre ; clair pour v200),
 // avec la sauvegarde SYNTHÉTIQUE (tests/outils/generer-sauvegarde.mjs), jamais de vraies données.
 // Outil de développement : n'est pas chargé par l'app. Aucune dépendance du projet (Playwright installé globalement).
 //
@@ -7,6 +7,8 @@
 // Usage :
 //   node tools/ecrans.mjs                      écrans v100 (?app=v100)
 //   node tools/ecrans.mjs --origine            app d'origine, styles Classique puis Joyeux
+//   node tools/ecrans.mjs --v200               v200 (?app=v200, thème clair) : écrans, saisie par la molette et le glisser
+//                                              (captures de l'écran Aujourd'hui et de la feuille de saisie toujours faites)
 //   node tools/ecrans.mjs --aller-retour       restaurer → « Tout exporter » → comparer au fichier d'origine
 //   options : --capture <écran>[,<écran>…] (capture PNG dans le dossier temporaire), --url http://localhost:8765/,
 //             --aujourdhui AAAA-MM-JJ (date du générateur et de l'horloge figée)
@@ -27,11 +29,13 @@ const args = process.argv.slice(2);
 const valeur = (nom, defaut = null) => (args.includes(nom) ? args[args.indexOf(nom) + 1] : defaut);
 const ORIGINE = args.includes('--origine');
 const ALLER_RETOUR = args.includes('--aller-retour');
+const V200 = args.includes('--v200');
 const BASE = valeur('--url', 'http://localhost:8765/');
 const { REFERENCE_DEFAUT } = await import(path.join(RACINE, 'tests/outils/generer-sauvegarde.mjs'));
 const AUJ = valeur('--aujourdhui', REFERENCE_DEFAUT);
 const simplifier = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const CAPTURES = new Set(args.flatMap((a, i) => (args[i - 1] === '--capture' ? a.split(',') : [])).map(simplifier));
+if (V200) for (const c of ['v200-aujourdhui', 'v200-saisie', 'v200-saisie-montant', 'v200-confirmation', 'v200-vide', 'v200-privation', 'v200-toutes', 'v200-question', 'v200-privation-montant']) CAPTURES.add(c);
 const DOSSIER = mkdtempSync(path.join(os.tmpdir(), 'ecrans-'));
 const LARGEUR = 390; const HAUTEUR = 844;
 
@@ -58,7 +62,7 @@ const attendre = (page, ms) => page.waitForTimeout(ms);
 
 async function nouveauContexte() {
   const contexte = await navigateur.newContext({
-    viewport: { width: LARGEUR, height: HAUTEUR }, deviceScaleFactor: 1, colorScheme: 'dark', isMobile: true, hasTouch: true,
+    viewport: { width: LARGEUR, height: HAUTEUR }, deviceScaleFactor: V200 ? 2 : 1, colorScheme: V200 ? 'light' : 'dark', isMobile: true, hasTouch: true,
     locale: 'fr-FR', timezoneId: 'Europe/Paris', serviceWorkers: 'block', acceptDownloads: true,
   });
   const page = await contexte.newPage();
@@ -199,9 +203,9 @@ async function capturer(page, id, { pleine = false } = {}) {
 }
 
 /** Contrôle d'une page entière. */
-async function verifierPage(page, id, libelle, extra = async () => []) {
+async function verifierPage(page, id, libelle, extra = async () => [], { pleine = !V200 } = {}) {
   const p = [...await controler(page, '#app'), ...await extra()];
-  await capturer(page, id, { pleine: true });
+  await capturer(page, id, { pleine });
   rapport(libelle, [...p, ...viderErreurs(page)]);
 }
 
@@ -435,8 +439,8 @@ async function ecransOrigine() {
     await page.goto(`${BASE}?app=origine#accueil`);
     await page.reload();
     await stable(page, 600);
-    const st = await page.evaluate(() => ({ app: document.documentElement.dataset.app || 'origine', style: document.documentElement.dataset.style || 'classique', strat: getComputedStyle(document.querySelector('.onglet-v100')).display }));
-    rapport(`Origine ${style} : habillage`, [st.app !== 'origine' ? `app « ${st.app} » au lieu de l’origine` : null, st.style !== style ? `style « ${st.style} »` : null, st.strat !== 'none' ? 'onglet Stratégie visible' : null]);
+    const st = await page.evaluate(() => ({ app: document.documentElement.dataset.app || 'origine', style: document.documentElement.dataset.style || 'classique', strat: getComputedStyle(document.querySelector('.onglet-v100')).display, v200: [...document.querySelectorAll('.onglet-v200')].some((e) => getComputedStyle(e).display !== 'none') }));
+    rapport(`Origine ${style} : habillage`, [st.app !== 'origine' ? `app « ${st.app} » au lieu de l’origine` : null, st.style !== style ? `style « ${st.style} »` : null, st.strat !== 'none' ? 'onglet Stratégie visible' : null, st.v200 ? 'onglet de v200 visible' : null]);
     viderErreurs(page);
     for (const [hash, nom] of [['accueil', 'Accueil'], ['depenses', 'Dépenses'], ['budgets', 'Budgets'], ['historique', 'Historique'], ['avenir', 'Avenir'], ['abonnements', 'Abonnements'], ['epargne', 'Épargne'], ['reglages', 'Réglages'], ['reglages/sauvegarde', 'Sauvegarde et export']]) {
       await aller(page, `#${hash}`);
@@ -531,9 +535,279 @@ async function allerRetour() {
   await c2.contexte.close();
 }
 
+// ---------------------------------------------------------------- v200
+
+async function ecransV200() {
+  // Sans aucune donnée : « Note ta première dépense »
+  {
+    const { contexte, page } = await nouveauContexte();
+    await page.goto(`${BASE}?app=v200#accueil`);
+    await page.waitForFunction(async () => !!(await import('/js/store.js')).etat.parametres, null, { timeout: 8000 });
+    await page.evaluate(async () => (await import('/js/store.js')).majParametres({ onboarding: { termine: true, etape: 4 } }));
+    await attendre(page, 400);
+    await page.goto(`${BASE}?app=v200#accueil`); await page.reload(); await stable(page, 600);
+    await page.waitForSelector('.v2-bulle', { timeout: 8000 }).catch(() => {});
+    const t = await page.locator('.v2-bulle').textContent().catch(() => '');
+    await verifierPage(page, 'v200-vide', 'v200 sans données : Aujourd’hui', async () => [/Note ta première dépense/.test(t || '') ? null : `texte « Note ta première dépense » absent (${(t || '').slice(0, 60)})`,
+      await page.locator('.v2-phrase').count() ? 'phrase du jour affichée sans données' : null]);
+    await contexte.close();
+  }
+
+  const { contexte, page } = await nouveauContexte();
+  await restaurer(page, 'v200');
+  await aller(page, '#accueil');
+  await page.waitForSelector('.v2-jour', { timeout: 6000 });
+
+  // Habillage : app, thème clair, barre d'état crème, cinq places dans la barre d'onglets
+  const hab = await page.evaluate(() => {
+    const r = document.documentElement;
+    const visibles = [...document.querySelectorAll('.barre-onglets > *')].filter((e) => getComputedStyle(e).display !== 'none').map((e) => (e.textContent.trim() || e.getAttribute('aria-label') || '').replace(/\s+/g, ' '));
+    return { app: r.dataset.app, theme: r.dataset.theme, style: r.dataset.style || null, metas: [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => m.getAttribute('content')), fond: getComputedStyle(document.body).backgroundColor, visibles };
+  });
+  rapport('v200 : habillage', [hab.app !== 'v200' ? `app « ${hab.app} »` : null, hab.theme !== 'clair' ? `thème « ${hab.theme} »` : null, hab.style ? `style « ${hab.style} » posé` : null,
+    hab.metas.some((m) => m.toUpperCase() !== '#FBF6EC') ? `barre d’état ${hab.metas.join(', ')}` : null, hab.fond !== 'rgb(251, 246, 236)' ? `fond ${hab.fond}` : null,
+    JSON.stringify(hab.visibles) !== JSON.stringify(['Aujourd’hui', 'Dépenses', 'Ajouter une dépense ou une entrée', 'Épargne', 'Résumé']) ? `onglets : ${hab.visibles.join(' | ')}` : null]);
+
+  await verifierPage(page, 'v200-aujourdhui', 'v200 → Aujourd’hui', async () => page.evaluate((H) => {
+    const q = [];
+    const blocs = [...document.querySelector('.v2-jour').children].map((e) => e.className.split(' ')[0]);
+    const attendus = ['v2-tete', 'v2-bulle', 'v2-actions', 'v2-phrase'];
+    if (JSON.stringify(blocs) !== JSON.stringify(attendus)) q.push(`blocs de l’écran : ${blocs.join(', ')} (attendu ${attendus.join(', ')})`);
+    const barre = document.querySelector('.barre-onglets').getBoundingClientRect().top;
+    const bas = document.querySelector('.v2-jour').getBoundingClientRect().bottom;
+    if (bas > barre + 1) q.push(`l’écran Aujourd’hui dépasse l’écran (${Math.round(bas - barre)} px sous la barre d’onglets)`);
+    for (const b of document.querySelectorAll('.v2-jour button, .v2-jour a, .barre-onglets a, .barre-onglets button')) {
+      const r = b.getBoundingClientRect();
+      if (getComputedStyle(b).display !== 'none' && (r.width < 44 || r.height < 44)) q.push(`zone de toucher trop petite : ${b.textContent.trim() || b.getAttribute('aria-label')} (${Math.round(r.width)} × ${Math.round(r.height)})`);
+    }
+    if (!/Tu peux encore dépenser|dépassé/.test(document.querySelector('.v2-bulle').textContent)) q.push('phrase de la bulle absente');
+    return q;
+  }, HAUTEUR));
+
+  for (const [hash, nom] of [['depenses', 'Dépenses'], ['epargne', 'Épargne'], ['resume', 'Résumé'], ['reglages', 'Réglages'], ['reglages/confidentialite', 'Réglages → apparence']]) {
+    await aller(page, `#${hash}`);
+    await verifierPage(page, `v200-${simplifier(nom)}`, `v200 → ${nom}`, async () => {
+      const q = [];
+      if (hash === 'reglages' && !await page.locator('#vue .ligne-lien', { hasText: 'Revenir à' }).count()) q.push('lien « Revenir à… » absent');
+      if (hash === 'resume' && !await page.locator('.barre-onglets .onglet.actif[data-onglet="resume"]').count()) q.push('onglet Résumé pas actif');
+      return q;
+    });
+  }
+  await aller(page, '#accueil');
+  await parcoursV200(page);
+  await contexte.close();
+}
+
+/** Ce que l'écran Aujourd'hui calcule (centimes) et ce qu'il affiche. */
+const bulleV200 = (page) => page.evaluate(async () => {
+  const { etat } = await import('/js/store.js'); const { aujourdhui } = await import('/js/dates.js');
+  const { bulleDuJour } = await import('/js/v200/calculs/jour.js'); const { eur } = await import('/js/v200/calculs/commun.js');
+  const b = bulleDuJour(etat, aujourdhui());
+  const el = document.querySelector('.v2-bulle');
+  return { etat: b.etat, restant: b.jauge.restantAujourdhuiCentimes, attendu: eur(b.montantCentimes), texte: (el?.textContent || '').replace(/\s+/g, ' ').trim(), classe: el?.className || '' };
+});
+
+/** Molette : glisse verticalement de n crans (vers le haut = +) avec de vrais événements de pointeur. */
+async function glisserMolette(page, fenetre, n) {
+  const PAS = 16;
+  while (n) {
+    const k = Math.max(-20, Math.min(20, n));
+    const b = await fenetre.boundingBox();
+    const x = b.x + b.width / 2; const y = b.y + b.height / 2;
+    await page.mouse.move(x, y); await page.mouse.down();
+    const d = k * PAS + Math.sign(k) * 5;
+    for (let i = 1; i <= 8; i += 1) await page.mouse.move(x, y - (d * i) / 8);
+    await page.mouse.up();
+    n -= k;
+    await attendre(page, 60);
+  }
+}
+const valeurRoue = (loc) => loc.getAttribute('aria-valuenow').then(Number);
+
+/** Règle les deux molettes sur un montant (centimes, multiple de 10) : d'abord les centimes, puis les euros. */
+async function reglerMolettes(page, centimes) {
+  const fe = page.locator('.feuille.visible .v2-roue-euros .v2-roue-fenetre'); const fc = page.locator('.feuille.visible .v2-roue-centimes .v2-roue-fenetre');
+  await glisserMolette(page, fc, (centimes % 100) / 10 - (await valeurRoue(fc)) / 10);
+  await glisserMolette(page, fe, Math.floor(centimes / 100) - await valeurRoue(fe));
+  return { euros: await valeurRoue(fe), centimes: await valeurRoue(fc), texte: await fe.getAttribute('aria-valuetext') };
+}
+
+/** Glisser pour valider : le rond poussé jusqu'au bout du rail, avec la souris (événements de pointeur). */
+async function glisserValider(page) {
+  const rond = await page.locator('.feuille.visible .v2-glisser-rond').boundingBox();
+  const rail = await page.locator('.feuille.visible .v2-glisser').boundingBox();
+  const x = rond.x + rond.width / 2; const y = rond.y + rond.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down();
+  for (let i = 1; i <= 10; i += 1) await page.mouse.move(x + ((rail.x + rail.width - 30 - x) * i) / 10, y + (i % 2));
+  await page.mouse.up();
+}
+
+async function choisirCategorie(page, id) {
+  await page.waitForSelector('.feuille.visible .v2-tuiles', { timeout: 4000 });
+  let t = page.locator(`.feuille.visible .v2-tuile[data-categorie="${id}"]`);
+  if (!await t.count()) {
+    await page.locator('.feuille.visible .v2-tuile[data-categorie="autre"]').click(); await attendre(page, 350);
+    await capturer(page, 'v200-toutes');
+    t = page.locator(`.feuille.visible .v2-tuile[data-categorie="${id}"]`);
+  }
+  await t.first().click();
+  await page.waitForSelector('.feuille.visible .v2-roue-euros .v2-roue-fenetre', { timeout: 4000 });
+  await attendre(page, 350);
+}
+const txV200 = (page, categorie, montant) => page.evaluate(async ({ c, m }) => {
+  const { etat } = await import('/js/store.js'); const { aujourdhui } = await import('/js/dates.js');
+  return etat.transactions.filter((t) => t.categorie === c && t.montantCentimes === m && t.date === aujourdhui() && t.source === 'manuel').map((t) => ({ id: t.id, hors: !!t.horsPartDuJour, charge: t.chargeFixeId || null, probable: !!t.obligatoireProbable }));
+}, { c: categorie, m: montant });
+
+async function parcoursV200(page) {
+  // Une journée avec de la marge : les dépenses du quotidien du jour et des 4 jours d'avant (sauvegarde synthétique) sont retirées
+  await page.evaluate(async () => {
+    const { etat } = await import('/js/store.js'); const { aujourdhui, ajouterJours } = await import('/js/dates.js'); const { supprimerTransaction } = await import('/js/actions.js');
+    const { estQuotidienne } = await import('/js/v200/calculs/commun.js');
+    const auj = aujourdhui();
+    for (const t of etat.transactions.filter((x) => x.date >= ajouterJours(auj, -4) && x.date <= auj && estQuotidienne(x))) await supprimerTransaction(t);
+  });
+  await aller(page, '#accueil');
+  const avant = await bulleV200(page);
+  const arrondiActif = await page.evaluate(async () => !!(await import('/js/store.js')).etat.profil.arrondi?.actif);
+  console.log(`  part du jour restante avant la saisie : ${(avant.restant / 100).toFixed(2)} €`);
+  rapport('v200 → Aujourd’hui avant la saisie', [avant.etat !== 'ok' ? `état « ${avant.etat} »` : null, !avant.texte.includes('Tu peux encore dépenser') ? `texte : ${avant.texte}` : null,
+    !avant.texte.replace(/[\u00a0\u202f]/g, ' ').includes(avant.attendu.replace(/[\u00a0\u202f]/g, ' ')) ? `montant affiché ≠ ${avant.attendu}` : null, ...viderErreurs(page)]);
+  await capturer(page, 'v200-aujourdhui');
+
+  // 1. J'ai dépensé : les tuiles
+  await page.locator('.v2-action-depense').click();
+  await verifierFeuille(page, 'v200-saisie', 'v200 → « J’ai dépensé » : tuiles', { fermer: null, extra: async () => page.evaluate(() => {
+    const q = [];
+    const t = [...document.querySelectorAll('.feuille.visible .v2-tuile')];
+    if (t.length !== 7) q.push(`${t.length} tuiles (attendu 6 favorites + « Autre »)`);
+    for (const b of t) { const r = b.getBoundingClientRect(); if (r.width < 44 || r.height < 44) q.push(`tuile trop petite : ${b.textContent}`); }
+    if (document.querySelector('.feuille.visible input')) q.push('un champ de saisie est visible d’emblée');
+    return q;
+  }) });
+
+  // 2. 7,30 € en restauration rapide : molettes (pointeur) + glisser
+  const t0 = Date.now();
+  await choisirCategorie(page, 'restauration-rapide');
+  const r = await reglerMolettes(page, 730);
+  const geste = await page.evaluate(() => {
+    const f = document.querySelector('.feuille.visible');
+    return { visible: !!f, transform: f?.style.transform || '', defile: f?.querySelector('.feuille-corps').scrollTop || 0 };
+  });
+  const ctrl = await controler(page, '.feuille-racine:last-of-type');
+  const cibles = await page.evaluate(() => [...document.querySelectorAll('.feuille.visible button, .feuille.visible [role="spinbutton"]')].filter((b) => b.getClientRects().length)
+    .map((b) => { const x = b.getBoundingClientRect(); return x.width < 44 || x.height < 44 ? `${(b.getAttribute('aria-label') || b.textContent).trim()} (${Math.round(x.width)} × ${Math.round(x.height)})` : null; }).filter(Boolean));
+  const bords = await page.evaluate(() => { const x = document.querySelector('.feuille.visible .v2-glisser').getBoundingClientRect(); return [Math.round(x.left), Math.round(innerWidth - x.right)]; });
+  await capturer(page, 'v200-saisie-montant');
+  rapport('v200 → molettes : 7,30 €', [r.euros !== 7 || r.centimes !== 30 ? `molettes sur ${r.euros},${r.centimes}` : null, r.texte !== '7 euros 30' ? `aria-valuetext « ${r.texte} »` : null,
+    !geste.visible || geste.transform ? 'la feuille a bougé pendant le glisser de la molette' : null, geste.defile ? 'la feuille a défilé pendant le glisser de la molette' : null,
+    ...cibles.map((c) => `zone de toucher trop petite : ${c}`), bords.some((b) => b < 24) ? `rail « Glisse pour valider » à ${bords.join(' / ')} px des bords (< 24)` : null, ...ctrl, ...viderErreurs(page)]);
+  await glisserValider(page);
+  await page.waitForFunction(() => !document.querySelector('.feuille.visible'), null, { timeout: 4000 }).catch(() => {});
+  console.log(`  saisie de 7,30 € (tuile → molettes → glisser) : ${((Date.now() - t0) / 1000).toFixed(1)} s avec les attentes de l’outil`);
+  const tx = await txV200(page, 'restauration-rapide', 730);
+  await stable(page, 1500); // laisse le soleil se vider
+  const apres = await bulleV200(page);
+  const baisse = avant.restant - apres.restant; const attendue = arrondiActif ? 800 : 730;
+  rapport('v200 → dépense de 7,30 € enregistrée', [tx.length !== 1 ? `${tx.length} dépense(s) trouvée(s)` : null, baisse !== attendue ? `« Tu peux encore dépenser » baisse de ${baisse} centimes au lieu de ${attendue}${arrondiActif ? ' (arrondi actif)' : ''}` : null,
+    !apres.texte.includes('Tu peux encore dépenser') ? `après la saisie : « ${apres.texte.slice(0, 50)} »` : null,
+    !apres.texte.replace(/[\u00a0\u202f]/g, ' ').includes(apres.attendu.replace(/[\u00a0\u202f]/g, ' ')) ? `montant affiché ≠ ${apres.attendu} (${apres.texte})` : null, ...viderErreurs(page)]);
+  console.log(`  arrondi ${arrondiActif ? 'actif' : 'inactif'} : la journée baisse de ${(baisse / 100).toFixed(2)} €`);
+  if (await verifierCarte(page, 'v200-confirmation', 'v200 → carte après la dépense')) {
+    const txt = (await page.locator('.confirmation.visible').textContent()).replace(/\s+/g, ' ');
+    await page.locator('.confirmation.visible .v2-conf-annuler').click();
+    await attendre(page, 600);
+    const reste = await txV200(page, 'restauration-rapide', 730);
+    const fin = await bulleV200(page);
+    rapport('v200 → carte : « Annuler »', [!/C’est noté/.test(txt) ? `texte de la carte : ${txt.slice(0, 80)}` : null, reste.length ? 'la dépense est toujours dans les données' : null,
+      fin.restant !== avant.restant ? `le reste du jour ne revient pas (${fin.restant} au lieu de ${avant.restant})` : null, await page.locator('.confirmation').count() ? 'la carte reste affichée' : null, ...viderErreurs(page)]);
+  }
+
+  // 3. Un loyer de 230 € en logement : appui long sur « + », puis flèches ; dépense obligatoire → pas de « dépassé »
+  await page.locator('.v2-action-depense').click();
+  await choisirCategorie(page, 'logement');
+  const plus = await page.locator('.feuille.visible .v2-roue-euros .v2-roue-btn.plus').boundingBox();
+  await page.mouse.move(plus.x + plus.width / 2, plus.y + plus.height / 2); await page.mouse.down(); await attendre(page, 3200); await page.mouse.up();
+  const fe = page.locator('.feuille.visible .v2-roue-euros .v2-roue-fenetre'); const fc = page.locator('.feuille.visible .v2-roue-centimes .v2-roue-fenetre');
+  const apresAppui = await valeurRoue(fe);
+  await fc.focus(); await page.keyboard.press('Home');
+  await fe.focus();
+  for (let i = 0; i < 60 && await valeurRoue(fe) !== 230; i += 1) {
+    const v = await valeurRoue(fe);
+    await page.keyboard.press(Math.abs(230 - v) >= 10 ? (v < 230 ? 'PageUp' : 'PageDown') : (v < 230 ? 'ArrowUp' : 'ArrowDown'));
+  }
+  const loyerOk = (await valeurRoue(fe)) === 230 && (await valeurRoue(fc)) === 0;
+  await glisserValider(page);
+  await page.waitForSelector('.confirmation.visible', { timeout: 4000 }).catch(() => {});
+  await attendre(page, 400);
+  const q = page.locator('.confirmation.visible .v2-conf-oui-non button', { hasText: 'Oui' });
+  const question = await q.count();
+  if (question) { await capturer(page, 'v200-question'); await q.click(); await attendre(page, 500); }
+  const carteLoyer = (await page.locator('.confirmation').textContent().catch(() => '')).replace(/\s+/g, ' ');
+  const loyer = await txV200(page, 'logement', 23000);
+  await stable(page, 400);
+  const b3 = await bulleV200(page);
+  console.log(`  appui long de 3,2 s sur « + » : ${apresAppui} € ; question « obligatoire ? » : ${question ? 'oui (répondu Oui)' : 'non (reconnue sûre)'}`);
+  rapport('v200 → loyer de 230 € (logement)', [!loyerOk ? 'les molettes ne sont pas sur 230,00 €' : null, apresAppui < 60 ? `l’appui long n’accélère pas assez (${apresAppui} € en 3,2 s)` : null,
+    loyer.length !== 1 ? `${loyer.length} loyer(s) trouvé(s)` : null, loyer[0] && !(loyer[0].hors || loyer[0].charge) ? 'le loyer compte dans la journée' : null, loyer[0]?.probable ? 'la réponse « Oui » n’est pas enregistrée' : null,
+    /dépassé/i.test(b3.texte) || b3.etat !== 'ok' ? `Aujourd’hui affiche « ${b3.texte.slice(0, 60)} »` : null, /dépassé/i.test(carteLoyer) ? `la carte parle de dépassement : ${carteLoyer.slice(0, 80)}` : null,
+    question && !/Charge du mois/.test(carteLoyer) ? `après « Oui », la carte dit : ${carteLoyer.slice(0, 80)}` : null, ...viderErreurs(page)]);
+  await page.evaluate(async () => {
+    const { etat } = await import('/js/store.js'); const { supprimerTransaction } = await import('/js/actions.js');
+    for (const t of etat.transactions.filter((x) => x.categorie === 'logement' && x.montantCentimes === 23000 && x.source === 'manuel')) await supprimerTransaction(t);
+  });
+  await page.locator('.confirmation .v2-conf-fermer').click().catch(() => {});
+
+  // 4. La carte se ferme seule (~6 s) : petite dépense, horloge avancée
+  await aller(page, '#accueil');
+  await page.locator('.v2-action-depense').click();
+  await choisirCategorie(page, 'courses');
+  await reglerMolettes(page, 120);
+  await page.locator('.feuille.visible .v2-glisser-ok').click(); // le bouton « Valider » (VoiceOver), sans glisser
+  await page.waitForSelector('.confirmation.visible', { timeout: 4000 }).catch(() => {});
+  await page.clock.runFor(5000);
+  const encore = await page.locator('.confirmation.visible').count();
+  await page.clock.runFor(1500); await attendre(page, 500);
+  rapport('v200 → carte : bouton « Valider » et fermeture seule après ~6 s', [(await txV200(page, 'courses', 120)).length !== 1 ? 'le bouton « Valider » n’enregistre pas' : null,
+    !encore ? 'la carte disparaît avant 5 s' : null, await page.locator('.confirmation').count() ? 'la carte est encore là après 6,5 s' : null, ...viderErreurs(page)]);
+  await page.evaluate(async () => {
+    const { etat } = await import('/js/store.js'); const { supprimerTransaction } = await import('/js/actions.js');
+    for (const t of etat.transactions.filter((x) => x.categorie === 'courses' && x.montantCentimes === 120 && x.source === 'manuel')) await supprimerTransaction(t);
+  });
+
+  // 5. Je me suis privé : tuile → glisser → carte → Annuler
+  await stable(page);
+  const nPriv = () => page.evaluate(async () => (await import('/js/store.js')).etat.privations.length);
+  const n0 = await nPriv();
+  await page.locator('.v2-action-privation').click();
+  await verifierFeuille(page, 'v200-privation', 'v200 → « Je me suis privé » : tuiles', { fermer: null });
+  await page.locator('.feuille.visible .v2-tuile').first().click();
+  await page.waitForSelector('.feuille.visible .v2-glisser', { timeout: 4000 });
+  await attendre(page, 300);
+  await capturer(page, 'v200-privation-montant');
+  await glisserValider(page);
+  await page.waitForSelector('.confirmation.visible', { timeout: 4000 }).catch(() => {});
+  const n1 = await nPriv();
+  const txtP = (await page.locator('.confirmation.visible').textContent().catch(() => '')).replace(/\s+/g, ' ');
+  await page.locator('.confirmation.visible .v2-conf-annuler').click().catch(() => {});
+  await attendre(page, 500);
+  rapport('v200 → privation et « Annuler »', [n1 !== n0 + 1 ? 'la privation n’est pas enregistrée' : null, !/mis de côté/.test(txtP) ? `carte : ${txtP.slice(0, 80)}` : null,
+    (await nPriv()) !== n0 ? 'la privation est toujours là après « Annuler »' : null, ...viderErreurs(page)]);
+
+  // 6. La carte se ferme au changement de page
+  await page.locator('.v2-action-privation').click();
+  await page.locator('.feuille.visible .v2-tuile').first().click();
+  await page.locator('.feuille.visible .v2-glisser-ok').click();
+  await page.waitForSelector('.confirmation.visible', { timeout: 4000 }).catch(() => {});
+  await page.locator('.barre-onglets .onglet[data-onglet="epargne"]').click();
+  await attendre(page, 600);
+  rapport('v200 → carte : changement de page', [await page.locator('.confirmation').count() ? 'la carte reste affichée sur la page Épargne' : null, ...viderErreurs(page)]);
+}
+
 // ---------------------------------------------------------------- Lancement
 try {
   if (ALLER_RETOUR) await allerRetour();
+  else if (V200) await ecransV200();
   else if (ORIGINE) await ecransOrigine();
   else await ecransV100();
 } catch (e) {
