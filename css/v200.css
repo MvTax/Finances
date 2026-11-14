@@ -293,7 +293,195 @@
 @keyframes v2-piece { 0% { transform: translateY(-22px); opacity: 0; } 25% { opacity: 1; } 75% { transform: translateY(8px); opacity: 1; } 100% { transform: translateY(14px); opacity: 0; } }
 @keyframes v2-pot { 50% { transform: scale(1.08, .94); } }
 
+/* ---------- Petits éléments partagés par Dépenses, Épargne, Résumé ---------- */
+:root[data-app="v200"] .v2-dep, :root[data-app="v200"] .v2-ep, :root[data-app="v200"] .v2-res { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; }
+:root[data-app="v200"] .v2-lien-doux {
+  align-self: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 0 20px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--accent); font-family: var(--police); font-size: 16px; font-weight: 800; text-decoration: none; cursor: pointer;
+}
+:root[data-app="v200"] .v2-lien-doux .ic { width: 18px; height: 18px; stroke-width: 2.6; }
+:root[data-app="v200"] .v2-lien-doux:active { background: var(--accent-doux); }
+
+/* ---------- Dépenses ---------- */
+:root[data-app="v200"] .v2-dep-tete { display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 0; }
+:root[data-app="v200"] .v2-dep-resume {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 2px; padding: 16px 18px; border-radius: 24px;
+  background: var(--surface); box-shadow: var(--ombre);
+}
+:root[data-app="v200"] .v2-dep-resume-avant { font-size: 16px; font-weight: 700; color: var(--texte-2); }
+:root[data-app="v200"] .v2-dep-resume-montant { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 800; letter-spacing: -.5px; color: var(--texte); }
+:root[data-app="v200"] .v2-dep-resume-dont { flex-basis: 100%; font-size: 14.5px; font-weight: 700; color: var(--texte-2); }
+
+:root[data-app="v200"] .v2-dep-jours { display: flex; flex-direction: column; gap: 14px; }
+:root[data-app="v200"] .v2-dep-jour-titre { font-family: var(--police-titres); font-weight: 600; font-size: 17px; color: var(--texte-2); margin: 0 6px 6px; }
+:root[data-app="v200"] .v2-dep-liste { list-style: none; margin: 0; padding: 4px; border-radius: 22px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-dep-item + .v2-dep-item { border-top: 1px solid #F1E9DA; }
+:root[data-app="v200"] .v2-dep-ligne {
+  width: 100%; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 7px 12px 7px 8px; border: 0; border-radius: 18px;
+  background: transparent; color: var(--texte); font-family: var(--police); text-align: left; cursor: pointer; transition: background-color .15s ease;
+}
+:root[data-app="v200"] .v2-dep-ligne:active { background: var(--fond); }
+:root[data-app="v200"] .v2-dep-emoji { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 21px; line-height: 1; background: var(--fond); }
+:root[data-app="v200"] .v2-dep-nom { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-app="v200"] .v2-dep-etiquette {
+  flex: none; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--texte-2);
+  font-size: 12.5px; font-weight: 800; line-height: 1.2; white-space: nowrap;
+}
+:root[data-app="v200"] .v2-dep-etiquette-envie { background: #F8E2EC; color: var(--pot-envie); }
+:root[data-app="v200"] .v2-dep-etiquette-probable { background: var(--laiton-doux); color: var(--laiton); }
+:root[data-app="v200"] .v2-dep-montant { flex: none; font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; font-size: 16.5px; font-weight: 800; color: var(--texte); }
+:root[data-app="v200"] .v2-dep-montant-du-mois { color: var(--texte-2); }
+:root[data-app="v200"] .v2-dep-montant-entree { color: var(--vert); }
+:root[data-app="v200"] .v2-dep-question { display: flex; align-items: center; gap: 8px; margin: -2px 8px 10px 62px; }
+:root[data-app="v200"] .v2-dep-question-texte { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 800; color: var(--texte-2); }
+:root[data-app="v200"] .v2-dep-question .v2-puce { min-width: 62px; background: var(--fond); }
+:root[data-app="v200"] .v2-dep-question .v2-puce:disabled { opacity: .5; }
+:root[data-app="v200"] .v2-dep-sentinelle { height: 1px; }
+:root[data-app="v200"] .v2-dep-pied { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 4px; }
+:root[data-app="v200"] .v2-dep-plus {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 50px; padding: 0 22px; border: 0; border-radius: 999px;
+  background: var(--surface-2); color: var(--texte); font-family: var(--police); font-size: 16px; font-weight: 800; cursor: pointer;
+}
+:root[data-app="v200"] .v2-dep-plus .ic { width: 20px; height: 20px; }
+:root[data-app="v200"] .v2-dep-rentree {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--texte-2); font-family: var(--police); font-size: 15px; font-weight: 800; cursor: pointer;
+}
+:root[data-app="v200"] .v2-dep-rentree:active, :root[data-app="v200"] .v2-dep-plus:active { transform: scale(.97); }
+:root[data-app="v200"] .v2-dep-vide { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 30px 20px; border-radius: 26px; background: var(--surface); box-shadow: var(--ombre); text-align: center; font-size: 17px; font-weight: 800; }
+:root[data-app="v200"] .v2-dep-vide-emoji { font-size: 40px; }
+:root[data-app="v200"] .v2-dep-vide-aide { font-size: 15px; font-weight: 700; color: var(--texte-2); }
+
+/* ---------- Épargne : trois pots ---------- */
+:root[data-app="v200"] .v2-ep-tete { padding: 2px 2px 0; }
+:root[data-app="v200"] .v2-pot-securite { --pot: var(--pot-securite); --pot-clair: #8FAEDC; --pot-doux: #E3EBF7; }
+:root[data-app="v200"] .v2-pot-pret { --pot: var(--pot-pret); --pot-clair: #B394D6; --pot-doux: #EEE5F7; }
+:root[data-app="v200"] .v2-pot-envie { --pot: var(--pot-envie); --pot-clair: #E58DB0; --pot-doux: #F8E2EC; }
+:root[data-app="v200"] .v2-pots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+:root[data-app="v200"] .v2-pot-item { display: flex; }
+:root[data-app="v200"] .v2-pot-carte {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 6px 14px; border: 0; border-radius: 26px;
+  background: linear-gradient(180deg, var(--pot-doux) 0%, var(--surface) 58%); box-shadow: var(--ombre); color: var(--texte); font-family: var(--police); cursor: pointer;
+  transition: transform .15s ease;
+}
+:root[data-app="v200"] .v2-pot-carte:active { transform: scale(.96); }
+:root[data-app="v200"] .v2-pot-carte .v2-bocal { width: 92px; height: 113px; margin-bottom: 6px; }
+:root[data-app="v200"] .v2-pot-nom { font-family: var(--police-titres); font-weight: 600; font-size: 17px; color: var(--pot); }
+:root[data-app="v200"] .v2-pot-montant { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; font-size: 21px; font-weight: 800; letter-spacing: -.3px; }
+:root[data-app="v200"] .v2-pot-sous { font-size: 12.5px; font-weight: 700; color: var(--texte-2); text-align: center; line-height: 1.25; min-height: 16px; }
+:root[data-app="v200"] .v2-pot-envie-nom { max-width: 100%; padding: 2px 8px; margin-top: 4px; border-radius: 999px; background: var(--pot-doux); color: var(--pot); font-size: 12.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Le bocal (dessins.js) */
+:root[data-app="v200"] .v2-bocal { overflow: visible; }
+:root[data-app="v200"] .v2-bocal-verre { fill: var(--pot-doux); }
+:root[data-app="v200"] .v2-bocal-bord { fill: none; stroke: var(--pot); stroke-width: 3; stroke-linejoin: round; opacity: .9; }
+:root[data-app="v200"] .v2-bocal-liquide { fill: var(--pot); }
+:root[data-app="v200"] .v2-bocal-vague { fill: var(--pot-clair); }
+:root[data-app="v200"] .v2-bocal-piece { fill: var(--soleil); stroke: #D3952A; stroke-width: 1.4; }
+:root[data-app="v200"] .v2-bocal-reflet { fill: none; stroke: #FFFFFF; stroke-width: 4; stroke-linecap: round; opacity: .55; }
+:root[data-app="v200"] .v2-bocal-couvercle { fill: var(--pot); }
+:root[data-app="v200"] .v2-bocal-couvercle-ombre { fill: rgb(0 0 0 / 14%); }
+:root[data-app="v200"] .v2-bocal-niveau { animation: v2-monte 1.3s cubic-bezier(.25, .8, .25, 1) .1s both; }
+@keyframes v2-monte { from { transform: translateY(var(--monte)); } }
+
+/* « À virer : X » */
+:root[data-app="v200"] .v2-virer {
+  display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 12px 18px 12px 12px; border: 0; border-radius: 26px; cursor: pointer;
+  background: var(--accent); color: #FFFFFF; box-shadow: 0 10px 24px rgb(196 71 29 / 26%); font-family: var(--police); text-align: left;
+}
+:root[data-app="v200"] .v2-virer:active { transform: scale(.98); }
+:root[data-app="v200"] .v2-virer-icone { flex: none; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: rgb(255 255 255 / 20%); }
+:root[data-app="v200"] .v2-virer-textes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:root[data-app="v200"] .v2-virer-titre { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+:root[data-app="v200"] .v2-virer-quand { font-size: 14.5px; font-weight: 700; color: #FBE3D8; }
+:root[data-app="v200"] .v2-virer > .ic { flex: none; width: 22px; height: 22px; stroke-width: 2.6; }
+
+/* Feuille d'un pot */
+:root[data-app="v200"] .v2-pot-fiche { display: flex; flex-direction: column; gap: 16px; padding-bottom: 6px; }
+:root[data-app="v200"] .v2-pot-fiche-dessin {
+  display: flex; flex-direction: column; align-items: center; padding: 18px 12px 16px; border-radius: 28px;
+  background: linear-gradient(180deg, var(--pot-doux) 0%, var(--surface) 70%); box-shadow: var(--ombre);
+}
+:root[data-app="v200"] .v2-pot-fiche-dessin .v2-bocal { width: 104px; height: 127px; margin-bottom: 8px; }
+:root[data-app="v200"] .v2-pot-fiche-montant { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; font-size: 38px; font-weight: 800; letter-spacing: -.8px; color: var(--texte); }
+:root[data-app="v200"] .v2-pot-fiche-cible { font-size: 15px; font-weight: 700; color: var(--texte-2); }
+:root[data-app="v200"] .v2-pot-fiche-phrases { display: flex; flex-direction: column; gap: 10px; padding: 0 4px; }
+:root[data-app="v200"] .v2-pot-fiche-phrases p { font-size: 17px; font-weight: 700; line-height: 1.4; }
+:root[data-app="v200"] .v2-pot-fiche-phrases p:first-child { font-weight: 800; }
+
+/* ---------- Résumé ---------- */
+:root[data-app="v200"] .v2-meteo-carte {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 10px 20px 22px; border-radius: 32px;
+  background: radial-gradient(120% 75% at 50% 0%, #FFF1D2 0%, #FFFFFF 64%); box-shadow: var(--ombre-forte);
+}
+:root[data-app="v200"] .v2-meteo-carte.v2-ciel-nuage, :root[data-app="v200"] .v2-meteo-carte.v2-ciel-voile { background: radial-gradient(120% 75% at 50% 0%, #EEF1F4 0%, #FFFFFF 64%); }
+:root[data-app="v200"] .v2-meteo-carte.v2-ciel-orage { background: radial-gradient(120% 75% at 50% 0%, #E9E6EF 0%, #FFFFFF 64%); }
+:root[data-app="v200"] .v2-meteo { width: 132px; height: 99px; overflow: visible; margin-top: 4px; }
+:root[data-app="v200"] .v2-meteo-titre { font-family: var(--police-titres); font-weight: 600; font-size: 24px; line-height: 1.2; color: var(--texte); }
+:root[data-app="v200"] .v2-meteo-phrase { font-size: 15.5px; font-weight: 700; line-height: 1.4; color: var(--texte-2); max-width: 34ch; }
+:root[data-app="v200"] .v2-m-soleil { fill: var(--soleil); }
+:root[data-app="v200"] .v2-m-reflet { fill: #FFE3A3; }
+:root[data-app="v200"] .v2-m-rayons line { stroke: var(--soleil); stroke-width: 6; }
+:root[data-app="v200"] .v2-m-rayons { animation: v2-tourne 40s linear infinite; }
+:root[data-app="v200"] .v2-m-nuage { fill: #FFFFFF; stroke: #D9DEE5; stroke-width: 2.5; stroke-linejoin: round; }
+:root[data-app="v200"] .v2-m-nuage.sombre { fill: #8E8AA0; stroke: #77738A; }
+:root[data-app="v200"] .v2-m-eclair { fill: var(--soleil); stroke: #D3952A; stroke-width: 1.5; stroke-linejoin: round; }
+:root[data-app="v200"] .v2-m-pluie line { stroke: #7FA3D6; stroke-width: 4; }
+:root[data-app="v200"] .v2-meteo.pale .v2-m-soleil, :root[data-app="v200"] .v2-meteo.pale .v2-m-rayons line { opacity: .45; }
+:root[data-app="v200"] .v2-m-flotte { animation: v2-flotte 6s ease-in-out infinite; }
+:root[data-app="v200"] .v2-m-pluie { animation: v2-pluie 1.6s linear infinite; }
+@keyframes v2-flotte { 50% { transform: translateX(6px); } }
+@keyframes v2-pluie { from { transform: translateY(-4px); opacity: .4; } 50% { opacity: 1; } to { transform: translateY(6px); opacity: .3; } }
+
+:root[data-app="v200"] .v2-res-zone { display: flex; flex-direction: column; gap: 12px; }
+:root[data-app="v200"] .v2-bascule { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 999px; background: var(--surface-2); }
+:root[data-app="v200"] .v2-bascule-btn {
+  min-height: 46px; border: 0; border-radius: 999px; background: transparent; color: var(--texte-2); cursor: pointer;
+  font-family: var(--police); font-size: 16px; font-weight: 800; transition: background-color .2s ease, color .2s ease;
+}
+:root[data-app="v200"] .v2-bascule-btn.actif { background: var(--surface); color: var(--texte); box-shadow: var(--ombre); }
+
+:root[data-app="v200"] .v2-res-phrase { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-res-phrase .v2-phrase-emoji { background: var(--fond); }
+:root[data-app="v200"] .v2-res-phrase-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 6px; }
+:root[data-app="v200"] .v2-res-phrase-corps > p { font-size: 16.5px; font-weight: 700; line-height: 1.38; }
+:root[data-app="v200"] .v2-res-barres { list-style: none; margin: 0 0 2px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v200"] .v2-res-barre { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 5px; }
+:root[data-app="v200"] .v2-res-barre-emoji { font-size: 19px; line-height: 1; text-align: center; }
+:root[data-app="v200"] .v2-res-barre-nom { font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-app="v200"] .v2-res-barre-montant { font-size: 15px; font-weight: 800; color: var(--texte-2); font-variant-numeric: tabular-nums; }
+:root[data-app="v200"] .v2-res-barre-piste { grid-column: 2 / -1; height: 12px; border-radius: 999px; background: var(--fond); overflow: hidden; }
+:root[data-app="v200"] .v2-res-barre-plein { display: block; height: 100%; width: var(--l); border-radius: 999px; background: linear-gradient(90deg, #E88A62, var(--accent)); transform-origin: left; animation: v2-pousse .9s cubic-bezier(.25, .8, .25, 1) both; }
+:root[data-app="v200"] .v2-res-barre:nth-child(2) .v2-res-barre-plein { background: linear-gradient(90deg, #F2C470, #E39A2E); animation-delay: .1s; }
+:root[data-app="v200"] .v2-res-barre:nth-child(3) .v2-res-barre-plein { background: linear-gradient(90deg, #9DBCE6, var(--pot-securite)); animation-delay: .2s; }
+@keyframes v2-pousse { from { transform: scaleX(0); } }
+
+:root[data-app="v200"] .v2-res-annee { display: flex; flex-direction: column; gap: 12px; padding: 16px 12px 14px; border-radius: 24px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-res-pastilles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: 12px; column-gap: 4px; }
+:root[data-app="v200"] .v2-res-pastille { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+:root[data-app="v200"] .v2-res-pastille .v2-pastille { width: 44px; height: 44px; }
+:root[data-app="v200"] .v2-res-pastille-mois { font-size: 12.5px; font-weight: 800; color: var(--texte-2); }
+:root[data-app="v200"] .v2-pastille-fond { stroke-width: 2.5; }
+:root[data-app="v200"] .v2-pastille-calme .v2-pastille-fond { fill: #DCEFE2; stroke: #9CCBAA; }
+:root[data-app="v200"] .v2-pastille-moyen .v2-pastille-fond { fill: #FBEBC4; stroke: #EBC66E; }
+:root[data-app="v200"] .v2-pastille-charge .v2-pastille-fond { fill: #F9D9CB; stroke: #E59A7C; }
+:root[data-app="v200"] .v2-pastille-trait { fill: none; stroke: var(--texte); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-app="v200"] .v2-pastille-trait.plein { fill: var(--texte); stroke: none; }
+:root[data-app="v200"] .v2-pastille.en-cours .v2-pastille-fond { stroke: var(--accent); stroke-dasharray: 4 3; }
+:root[data-app="v200"] .v2-res-legende { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; font-weight: 800; color: var(--texte-2); }
+:root[data-app="v200"] .v2-res-legende-item { display: inline-flex; align-items: center; gap: 5px; }
+:root[data-app="v200"] .v2-res-legende .v2-pastille { width: 22px; height: 22px; }
+
+:root[data-app="v200"] .v2-res-preventions { display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v200"] .v2-res-soustitre { font-family: var(--police-titres); font-weight: 600; font-size: 19px; margin: 6px 4px 0; }
+:root[data-app="v200"] .v2-res-prev-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v200"] .v2-res-prev { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 22px; background: var(--surface-2); }
+:root[data-app="v200"] .v2-res-prev p { font-size: 15.5px; font-weight: 700; line-height: 1.38; }
+:root[data-app="v200"] .v2-res-prev.prelevement-non-couvert { background: var(--rouge-doux); }
+:root[data-app="v200"] .v2-res-prev.envie-presque, :root[data-app="v200"] .v2-res-prev.envie-prete { background: #F8E2EC; }
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-app="v200"] .v2-soleil-rayons, :root[data-app="v200"] .v2-glisser-rond, :root[data-app="v200"] .v2-pot-piece { animation: none !important; }
+  :root[data-app="v200"] .v2-bocal-niveau, :root[data-app="v200"] .v2-m-rayons, :root[data-app="v200"] .v2-m-flotte, :root[data-app="v200"] .v2-m-pluie, :root[data-app="v200"] .v2-res-barre-plein { animation: none !important; }
   :root[data-app="v200"] .v2-pot-piece { opacity: 1; }
 }

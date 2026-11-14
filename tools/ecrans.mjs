@@ -7,7 +7,9 @@
 // Usage :
 //   node tools/ecrans.mjs                      écrans v100 (?app=v100)
 //   node tools/ecrans.mjs --origine            app d'origine, styles Classique puis Joyeux
-//   node tools/ecrans.mjs --v200               v200 (?app=v200, thème clair) : écrans, saisie par la molette et le glisser
+//   node tools/ecrans.mjs --v200               v200 (?app=v200, thème clair) : écrans, saisie par la molette et le glisser,
+//                                              Dépenses (ligne → modification, question oui / non, mois d'avant, rentrée),
+//                                              Épargne (pots, feuille d'un pot, « À virer »), Résumé (météo, mois / année, détail)
 //                                              (captures de l'écran Aujourd'hui et de la feuille de saisie toujours faites)
 //   node tools/ecrans.mjs --aller-retour       restaurer → « Tout exporter » → comparer au fichier d'origine
 //   options : --capture <écran>[,<écran>…] (capture PNG dans le dossier temporaire), --url http://localhost:8765/,
@@ -35,7 +37,8 @@ const { REFERENCE_DEFAUT } = await import(path.join(RACINE, 'tests/outils/genere
 const AUJ = valeur('--aujourdhui', REFERENCE_DEFAUT);
 const simplifier = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const CAPTURES = new Set(args.flatMap((a, i) => (args[i - 1] === '--capture' ? a.split(',') : [])).map(simplifier));
-if (V200) for (const c of ['v200-aujourdhui', 'v200-saisie', 'v200-saisie-montant', 'v200-confirmation', 'v200-vide', 'v200-privation', 'v200-toutes', 'v200-question', 'v200-privation-montant']) CAPTURES.add(c);
+if (V200) for (const c of ['v200-aujourdhui', 'v200-saisie', 'v200-saisie-montant', 'v200-confirmation', 'v200-vide', 'v200-privation', 'v200-toutes', 'v200-question', 'v200-privation-montant',
+  'v200-depenses', 'v200-depenses-bas', 'v200-detail-depense', 'v200-rentree', 'v200-epargne', 'v200-pot', 'v200-virement', 'v200-resume', 'v200-resume-annee', 'v200-resume-bas']) CAPTURES.add(c);
 const DOSSIER = mkdtempSync(path.join(os.tmpdir(), 'ecrans-'));
 const LARGEUR = 390; const HAUTEUR = 844;
 
@@ -550,6 +553,12 @@ async function ecransV200() {
     const t = await page.locator('.v2-bulle').textContent().catch(() => '');
     await verifierPage(page, 'v200-vide', 'v200 sans données : Aujourd’hui', async () => [/Note ta première dépense/.test(t || '') ? null : `texte « Note ta première dépense » absent (${(t || '').slice(0, 60)})`,
       await page.locator('.v2-phrase').count() ? 'phrase du jour affichée sans données' : null]);
+    // Les autres onglets, sans données : rien de cassé, rien d'inventé
+    for (const [hash, nom, sel, attendu] of [['depenses', 'Dépenses', '.v2-dep', /Aucune dépense/], ['epargne', 'Épargne', '.v2-ep', /Choisis une envie|Pas encore d’envie|pots/], ['resume', 'Résumé', '.v2-res', /Encore un peu tôt/]]) {
+      await aller(page, `#${hash}`);
+      const txt = await page.locator(sel).textContent({ timeout: 4000 }).catch(() => '');
+      await verifierPage(page, `v200-vide-${hash}`, `v200 sans données : ${nom}`, async () => [attendu.test(txt) ? null : `texte attendu absent (${txt.slice(0, 80)})`, /NaN|undefined/.test(txt) ? 'NaN ou undefined affiché' : null]);
+    }
     await contexte.close();
   }
 
@@ -593,9 +602,138 @@ async function ecransV200() {
       return q;
     });
   }
+  await pagesV200(page);
   await aller(page, '#accueil');
   await parcoursV200(page);
   await contexte.close();
+}
+
+/** Zones de toucher d'au moins 44 × 44 px dans une zone. */
+const zonesDeToucher = (page, zone) => page.evaluate((z) => [...document.querySelectorAll(`${z} button, ${z} a[href]`)].filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden')
+  .map((b) => ({ r: b.getBoundingClientRect(), t: (b.textContent.trim() || b.getAttribute('aria-label') || '').slice(0, 30) }))
+  .filter((x) => x.r.width < 44 || x.r.height < 44).map((x) => `zone de toucher trop petite : ${x.t} (${Math.round(x.r.width)} × ${Math.round(x.r.height)})`), zone);
+
+/** Dépenses, Épargne et Résumé de v200 : contenu, feuilles et gestes. */
+async function pagesV200(page) {
+  // ---- Dépenses : une phrase, une liste par jour, la feuille de modification, la question oui / non, « Voir le mois d'avant », la rentrée
+  await page.evaluate(async () => { // une dépense « peut-être obligatoire » (synthétique) pour voir la question sur la ligne
+    const { enregistrer, etat } = await import('/js/store.js'); const { aujourdhui } = await import('/js/dates.js'); const { nouvelleTransaction } = await import('/js/actions.js');
+    const t = nouvelleTransaction({ sens: 'debit', montantCentimes: 4500, libelle: 'Facture exemple', categorie: 'energie', date: aujourdhui(), source: 'manuel' });
+    await enregistrer('transactions', { ...t, id: 'tx-probable-ecrans', horsPartDuJour: true, obligatoireProbable: true });
+    return etat.transactions.length;
+  });
+  await aller(page, '#depenses');
+  await page.waitForSelector('.v2-dep', { timeout: 6000 });
+  const dep = await page.evaluate(() => {
+    const q = [];
+    const resume = document.querySelector('.v2-dep-resume')?.textContent || '';
+    if (!/^Depuis le salaire/.test(resume)) q.push(`phrase du haut : « ${resume.slice(0, 60)} »`);
+    const titres = [...document.querySelectorAll('.v2-dep-jour-titre')].map((e) => e.textContent);
+    if (titres[0] !== 'Aujourd’hui') q.push(`premier jour : « ${titres[0]} »`);
+    if (titres.some((t) => /\d{4}-\d{2}/.test(t))) q.push('date brute dans un titre de jour');
+    const lignes = [...document.querySelectorAll('.v2-dep-ligne')];
+    if (!lignes.length) q.push('aucune ligne');
+    if (lignes.some((l) => l.tagName !== 'BUTTON' || !l.getAttribute('aria-label'))) q.push('ligne qui n’est pas un <button> avec aria-label');
+    if (!document.querySelector('.v2-dep-etiquette-du-mois')) q.push('aucune étiquette « du mois »');
+    for (const m of document.querySelectorAll('.v2-dep-montant')) { const c = getComputedStyle(m).color; if (c === 'rgb(179, 38, 30)') q.push(`montant en rouge : ${m.textContent}`); }
+    if (document.querySelectorAll('.v2-dep-question').length !== 1) q.push(`${document.querySelectorAll('.v2-dep-question').length} question(s) oui / non (attendu 1)`);
+    return { q, n: lignes.length, jours: titres.length };
+  });
+  await verifierPage(page, 'v200-depenses', 'v200 → Dépenses : phrase, jours, étiquettes', async () => [...dep.q, ...await zonesDeToucher(page, '.v2-dep')]);
+  // Toucher une ligne : la feuille de modification de l'app
+  await page.locator('.v2-dep-ligne').first().click();
+  await verifierFeuille(page, 'v200-detail-depense', 'v200 → Dépenses : toucher une ligne ouvre la modification', { fermer: 'bouton', extra: async () => page.evaluate(() => {
+    const f = [...document.querySelectorAll('.feuille-racine')].pop();
+    return [f.querySelector('.feuille-actions button.btn-principal')?.textContent.includes('Enregistrer') ? null : 'bouton « Enregistrer » absent', f.querySelector('input[aria-label="Montant"], .input-montant') ? null : 'champ montant absent'];
+  }) });
+  // La question oui / non : « Non » → dépense du quotidien, la question disparaît
+  await page.locator('.v2-dep-question button', { hasText: 'Non' }).click();
+  await attendre(page, 600);
+  const reponse = await page.evaluate(async () => { const t = (await import('/js/store.js')).etat.transactions.find((x) => x.id === 'tx-probable-ecrans'); return { probable: !!t?.obligatoireProbable, hors: !!t?.horsPartDuJour, question: document.querySelectorAll('.v2-dep-question').length }; });
+  rapport('v200 → Dépenses : question « obligatoire ? » sur la ligne', [reponse.probable ? 'toujours « probable » après la réponse' : null, reponse.hors ? 'toujours hors part du jour après « Non »' : null, reponse.question ? 'la question reste affichée' : null, ...viderErreurs(page)]);
+  await page.evaluate(async () => { const { supprimerObjet } = await import('/js/store.js'); await supprimerObjet('transactions', 'tx-probable-ecrans'); });
+  await attendre(page, 300);
+  // Bas de page : « Voir le mois d'avant » ajoute des jours ; « Ajouter une rentrée d'argent » ouvre la saisie sur « Entrée »
+  const plus = page.locator('.v2-dep-plus');
+  if (await plus.count()) {
+    const avant = await page.locator('.v2-dep-jour').count();
+    await plus.click(); await attendre(page, 400);
+    for (let i = 0; i < 12; i += 1) { await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await attendre(page, 120); }
+    const apres = await page.locator('.v2-dep-jour').count();
+    rapport('v200 → Dépenses : « Voir le mois d’avant » et chargement par lots', [apres <= avant ? `toujours ${apres} jours` : null, ...viderErreurs(page)]);
+    console.log(`  jours affichés : ${avant} → ${apres}`);
+  } else rapport('v200 → Dépenses : « Voir le mois d’avant »', ['bouton absent alors que la sauvegarde couvre une année']);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await attendre(page, 300);
+  await capturer(page, 'v200-depenses-bas');
+  await page.locator('.v2-dep-rentree').click();
+  await verifierFeuille(page, 'v200-rentree', 'v200 → Dépenses : « Ajouter une rentrée d’argent »', { fermer: 'bouton', extra: async () => page.evaluate(() => {
+    const f = [...document.querySelectorAll('.feuille-racine')].pop();
+    const actif = [...f.querySelectorAll('[role="radio"][aria-checked="true"], .segment .actif, button[aria-pressed="true"]')].map((b) => b.textContent.trim());
+    return [actif.includes('Entrée') ? null : `« Entrée » pas choisi (${actif.join(', ') || 'rien'})`];
+  }) });
+
+  // ---- Épargne : trois pots, la feuille d'un pot, « À virer »
+  await aller(page, '#epargne');
+  await page.waitForSelector('.v2-ep', { timeout: 6000 });
+  await attendre(page, 1400); // le liquide monte
+  const ep = await page.evaluate(() => {
+    const q = [];
+    const noms = [...document.querySelectorAll('.v2-pot-nom')].map((e) => e.textContent);
+    if (JSON.stringify(noms) !== JSON.stringify(['Sécurité', 'Prêt', 'Envie'])) q.push(`pots : ${noms.join(', ')}`);
+    if (document.querySelectorAll('.v2-pot-carte svg.v2-bocal').length !== 3) q.push('dessin de pot manquant');
+    if (document.querySelector('#vue table')) q.push('un tableau sur la page Épargne');
+    if (!/arrondi/i.test(document.querySelector('.v2-phrase-arrondis')?.textContent || '')) q.push('phrase des arrondis absente');
+    return { q, virer: !!document.querySelector('.v2-virer') };
+  });
+  await verifierPage(page, 'v200-epargne', 'v200 → Épargne : trois pots, arrondis', async () => [...ep.q, ...await zonesDeToucher(page, '.v2-ep')]);
+  await page.locator('.v2-pot-carte').first().click();
+  await verifierFeuille(page, 'v200-pot', 'v200 → Épargne : feuille d’un pot (2 ou 3 phrases)', { fermer: 'voile', extra: async () => page.evaluate(() => {
+    const n = [...document.querySelectorAll('.feuille-racine')].pop().querySelectorAll('.v2-pot-fiche-phrases p').length;
+    return [n >= 2 && n <= 3 ? null : `${n} phrase(s)`];
+  }) });
+  if (ep.virer) {
+    await page.locator('.v2-virer').click();
+    await verifierFeuille(page, 'v200-virement', 'v200 → Épargne : « À virer » ouvre le virement', { fermer: 'bouton', extra: async () => page.evaluate(() => [[...document.querySelectorAll('.feuille-racine')].pop().textContent.includes('J’ai viré') ? null : 'bouton « J’ai viré » absent']) });
+  } else console.log('  rien à virer aujourd’hui : pas de bouton « À virer »');
+
+  // ---- Résumé : météo, bascule mois / année, préventions, « Voir le détail »
+  await aller(page, '#resume');
+  const res = await page.waitForSelector('.v2-res', { timeout: 6000 }).then(() => true).catch(() => false);
+  if (!res) { rapport('v200 → Résumé', ['page Résumé de v200 absente', ...viderErreurs(page)]); return; }
+  await attendre(page, 900);
+  const r1 = await page.evaluate(() => {
+    const q = [];
+    if (!document.querySelector('.v2-meteo-carte svg.v2-meteo')) q.push('dessin de météo absent');
+    if (!(document.querySelector('.v2-meteo-titre')?.textContent || '').trim()) q.push('titre de la météo vide');
+    const b = [...document.querySelectorAll('.v2-bascule-btn')].map((x) => `${x.textContent}:${x.getAttribute('aria-pressed')}`);
+    if (JSON.stringify(b) !== JSON.stringify(['Ce mois-ci:true', 'Cette année:false'])) q.push(`bascule : ${b.join(', ')}`);
+    const barres = document.querySelectorAll('.v2-res-barre').length;
+    if (barres < 1 || barres > 3) q.push(`${barres} catégorie(s) dans « où part l’argent »`);
+    if (document.querySelectorAll('.v2-res-prev').length > 3) q.push('plus de 3 préventions');
+    if (document.querySelectorAll('.v2-res .v2-lien-doux').length !== 1) q.push('« Voir le détail » absent ou en double');
+    return q;
+  });
+  await verifierPage(page, 'v200-resume', 'v200 → Résumé : météo et mois', async () => [...r1, ...await zonesDeToucher(page, '.v2-res')]);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await attendre(page, 300);
+  await capturer(page, 'v200-resume-bas');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator('.v2-bascule-btn', { hasText: 'Cette année' }).click();
+  await attendre(page, 500);
+  const r2 = await page.evaluate(() => {
+    const q = [];
+    const n = document.querySelectorAll('.v2-res-pastille').length;
+    if (n < 10 || n > 12) q.push(`${n} pastille(s) de mois`);
+    if (document.querySelectorAll('.v2-res-pastille .en-cours').length !== 1) q.push('mois en cours pas marqué');
+    const leg = document.querySelector('.v2-res-legende')?.textContent || '';
+    if (!/calme.*moyen.*chargé/.test(leg)) q.push(`légende : « ${leg} »`);
+    if (document.activeElement?.textContent !== 'Cette année') q.push('le focus ne reste pas sur la bascule');
+    return q;
+  });
+  await verifierPage(page, 'v200-resume-annee', 'v200 → Résumé : cette année', async () => r2);
+  await page.locator('.v2-res .v2-lien-doux', { hasText: 'Voir le détail' }).click();
+  await stable(page, 500);
+  const h = await page.evaluate(() => ({ hash: location.hash, actif: document.querySelector('.barre-onglets .onglet.actif')?.dataset.onglet }));
+  rapport('v200 → Résumé : « Voir le détail »', [h.hash !== '#historique' ? `adresse ${h.hash}` : null, h.actif !== 'resume' ? `onglet actif : ${h.actif}` : null, ...viderErreurs(page)]);
 }
 
 /** Ce que l'écran Aujourd'hui calcule (centimes) et ce qu'il affiche. */

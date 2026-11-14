@@ -9,6 +9,9 @@ import { resumeMois, resumeAnnee, preventions } from '../../js/v200/calculs/resu
 import { eur, arrondi10 } from '../../js/v200/calculs/commun.js';
 import { bulleDuJour, phraseDuJour, noteAujourdhui } from '../../js/v200/calculs/jour.js';
 import { montantParle } from '../../js/v200/ui/molette.js';
+import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX } from '../../js/v200/calculs/depenses.js';
+import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis } from '../../js/v200/calculs/pots.js';
+import { meteoDuMois, phrasesMois, phrasesAnnee, METEO } from '../../js/v200/calculs/resume.js';
 import { jourBudgetaire } from '../../js/restes.js';
 import { forcerAujourdhui, ajouterJours, jourSemaine } from '../../js/dates.js';
 import { genererSauvegarde, REFERENCE_DEFAUT } from '../outils/generer-sauvegarde.mjs';
@@ -36,6 +39,8 @@ function phraseOk(p, message = '') {
   vrai(!/[<>]/.test(p), `${message} HTML dans « ${p} »`);
   vrai(p.length <= 220, `${message} trop longue : « ${p} »`);
 }
+/** Espaces insécables des montants (« 1 000 € ») remplacées par des espaces simples, pour comparer. */
+const sp = (x) => (typeof x === 'string' ? x.replace(/[\u202f\u00a0]/g, ' ') : x);
 const avecDate = (auj, fn) => { forcerAujourdhui(auj); try { return fn(); } finally { forcerAujourdhui(null); } };
 
 export default [
@@ -283,4 +288,161 @@ export default [
     const p4 = phraseDuJour(e, A);
     vrai(['charge-proche', 'prelevement-non-couvert'].includes(p4.type), p4.type); vrai(['📅', '⚠️'].includes(p4.emoji)); vrai(/Abonnement exemple/.test(p4.phrase), p4.phrase);
   }) },
+
+  { nom: 'Dépenses : nom court, titre des jours, nature des lignes', fn: () => {
+    egal(nomCourt(tx({ date: '2026-11-10', montant: 1599, marchand: 'OPERATEUR EXEMPLE', libellePrincipal: 'PRLV SEPA OPERATEUR EXEMPLE' })), 'Operateur exemple');
+    egal(nomCourt({ ...tx({ date: '2026-11-10', montant: 500 }), marchand: '', libelle: 'CB BOULANGERIE EXEMPLE 08/11' }), 'Boulangerie exemple');
+    egal(nomCourt({ ...tx({ date: '2026-11-10', montant: 500, categorie: 'courses' }), marchand: 'Dépense', libelle: 'Dépense' }), 'Courses');
+    egal(nomCourt(tx({ date: '2026-11-10', montant: 500, marchand: 'café du coin' })), 'Café du coin');
+    const long = nomCourt(tx({ date: '2026-11-10', montant: 500, marchand: 'Un nom de commerce vraiment beaucoup trop long' }));
+    vrai(long.length <= NOM_COURT_MAX && long.endsWith('…'), long);
+    const A = '2026-11-12'; // un jeudi
+    egalProfond(['2026-11-12', '2026-11-11', '2026-11-10', '2026-11-01', '2026-10-27', '2025-12-30'].map((d) => titreJour(d, A)),
+      ['Aujourd’hui', 'Hier', 'mardi 10', 'dimanche 1er', 'mardi 27 octobre', 'mardi 30 décembre 2025']);
+    const base = { date: '2026-11-10', montant: 1000 };
+    egal(natureLigne(tx(base)), 'quotidien');
+    egal(natureLigne(tx({ ...base, chargeFixeId: 'cf-1', categorie: 'logement' })), 'du-mois');
+    egal(natureLigne(tx({ ...base, categorie: 'abonnements' })), 'du-mois');
+    egal(natureLigne(tx({ ...base, extra: { horsPartDuJour: true } })), 'du-mois');
+    egal(natureLigne(tx({ ...base, extra: { horsPartDuJour: true, obligatoireProbable: true } })), 'probable');
+    egal(natureLigne(tx({ ...base, extra: { envieId: 'envie-1' } })), 'envie');
+    egal(natureLigne(tx({ ...base, sens: 'credit', categorie: 'salaire' })), 'entree');
+    egal(natureLigne(tx({ ...base, sens: 'credit', categorie: 'courses', remboursementDe: 't-x' })), 'quotidien');
+    vrai(!estVisible(tx({ ...base, interne: true, categorie: 'virements-internes' })), 'virement entre comptes caché');
+    vrai(!estVisible(tx({ ...base, epargne: true, categorie: 'epargne' })), 'virement vers l’épargne caché');
+    vrai(!estVisible(tx({ ...base, ajustement: true })), 'ajustement caché');
+  } },
+  { nom: 'Dépenses : « Depuis le salaire » et liste par jour, période après période', fn: () => avecDate('2026-11-12', () => {
+    const A = '2026-11-12'; // période du 5 novembre au 4 décembre
+    const vide = etat();
+    egal(depuisSalaire(vide, A).phrase, 'Depuis le salaire : rien de dépensé pour l’instant.');
+    egalProfond(joursDepenses(vide, '2026-11-05', A, A), []); egal(premiereDate(vide), null);
+    const e = etat({ revenusMensuels: [revenus('2026-11')], transactions: [
+      tx({ id: 'a', date: '2026-11-03', montant: 999, categorie: 'courses' }), // avant le salaire
+      tx({ id: 'b', date: '2026-11-06', montant: 1000, categorie: 'courses' }),
+      tx({ id: 'c', date: '2026-11-08', montant: 50000, categorie: 'logement', chargeFixeId: 'cf-loyer' }),
+      tx({ id: 'd', date: '2026-11-11', montant: 2000, categorie: 'virements-internes', interne: true }),
+      tx({ id: 'e', date: '2026-11-11', montant: 120000, sens: 'credit', categorie: 'salaire' }),
+      tx({ id: 'f', date: '2026-11-11', montant: 250, sens: 'credit', categorie: 'courses', remboursementDe: 'b' }),
+      tx({ id: 'g', date: A, montant: 730, categorie: 'restauration-rapide', extra: { creeLe: '2026-11-12T09:00:00Z' } }),
+      tx({ id: 'h', date: A, montant: 420, categorie: 'restaurants', extra: { creeLe: '2026-11-12T12:00:00Z' } }),
+    ] });
+    const r = depuisSalaire(e, A);
+    egalProfond([r.totalCentimes, r.duMoisCentimes, r.quotidienCentimes], [1000 + 50000 - 250 + 730 + 420, 50000, 1000 - 250 + 730 + 420]);
+    egal(sp(r.phrase), 'Depuis le salaire : 519 €, dont 500 € du mois.');
+    egal(r.periode.debut, '2026-11-05');
+    const jours = joursDepenses(e, r.periode.debut, '9999-12-31', A);
+    egalProfond(jours.map((j) => j.titre), ['Aujourd’hui', 'Hier', 'dimanche 8', 'vendredi 6']);
+    egalProfond(jours[0].lignes.map((l) => l.tx.id), ['h', 'g'], 'la plus récente en premier');
+    egalProfond(jours[1].lignes.map((l) => [l.tx.id, l.nature]), [['e', 'entree'], ['f', 'quotidien']], 'virement entre comptes absent');
+    egal(jours[2].lignes[0].nature, 'du-mois');
+    const avant = periodePrecedente(e, r.periode, A);
+    egalProfond([avant.debut, avant.fin], ['2026-10-05', '2026-11-04']);
+    egalProfond(joursDepenses(e, avant.debut, avant.fin, A).map((j) => j.titre), ['mardi 3']);
+    egal(premiereDate(e), '2026-11-03');
+    // Seulement des charges du mois
+    const loyer = etat({ revenusMensuels: [revenus('2026-11')], transactions: [tx({ date: '2026-11-08', montant: 50000, categorie: 'logement', chargeFixeId: 'cf-loyer' })] });
+    egal(sp(depuisSalaire(loyer, A).phrase), 'Depuis le salaire : 500 €, seulement des charges du mois.');
+  }) },
+  { nom: 'Épargne : pots Sécurité, Prêt, Envie, rythme et date estimée', fn: () => avecDate('2026-11-12', () => {
+    const A = '2026-11-12';
+    const v = (date, montant, sens = 'versement') => ({ id: `mv-${date}-${montant}`, date, montantCentimes: montant, sens });
+    const secu = { id: 'p-secu', nom: 'Sécurité', type: 'coussin', cibleCentimes: 100000, priorite: 2, partRepartition: 50, soldeInitialCentimes: 0, actif: true,
+      mouvements: [v('2026-09-01', 10000), v('2026-10-01', 10000), v('2026-11-01', 12000), v('2026-11-05', 2000, 'reprise')] };
+    const pret = { id: 'p-pret', nom: 'Prêt exemple', type: 'remboursementAnticipe', cibleCentimes: 300000, priorite: 1, partRepartition: 50, soldeInitialCentimes: 0, mouvements: [], actif: true };
+    // Rythme : 30 000 nets du 1er septembre au 12 novembre (73 jours), ramenés à 30 jours
+    egal(rythmePoche(secu, A), Math.round((30000 * 30) / 73));
+    egal(rythmePoche(pret, A), null, 'rien de versé');
+    egal(rythmePoche({ mouvements: [v('2026-11-01', 5000)] }, A), null, 'moins de 21 jours d’historique');
+    egal(rythmePoche({ mouvements: [v('2026-09-01', 5000), v('2026-10-01', 6000, 'reprise')] }, A), null, 'plus repris que versé');
+    egal(finEstimee(70000, 0, A), null); egal(finEstimee(0, 1000, A), null); egal(finEstimee(10000000, 1000, A), null, 'trop loin');
+    egal(finEstimee(30000, 10000, A), '2027-02');
+    const e = etat({ revenusMensuels: [revenus('2026-11')], poches: [secu, pret], transactions: [tx({ date: '2026-11-08', montant: 1500, categorie: 'courses' })] });
+    const { pots, virement, arrondis } = potsEpargne(e, A);
+    egalProfond(pots.map((p) => p.id), ['securite', 'pret', 'envie']);
+    const s = pots[0];
+    vrai(s.soldeCentimes >= 30000 && s.soldeCentimes === s.vireCentimes + s.enAttenteCentimes, `solde ${s.soldeCentimes}`);
+    egal(s.resteCentimes, 100000 - s.soldeCentimes); egal(s.pourcent, Math.floor((s.soldeCentimes * 100) / 100000));
+    vrai(/^Il y a .+ dans ton pot Sécurité/.test(s.phrases[0]), s.phrases[0]);
+    vrai(/^Encore .+ pour atteindre 1 000 €\.$/.test(sp(s.phrases[1])), s.phrases[1]);
+    vrai(/^À ton rythme \(environ .+ par mois\), il sera plein vers .+ 20\d\d\.$/.test(s.phrases[2]), s.phrases[2]);
+    const p = pots[1];
+    if (p.soldeCentimes === 0) egal(p.phrases[0], 'Ton pot Prêt est encore vide : il se remplit à chaque virement.');
+    egal(p.phrases[p.phrases.length - 1], 'Chaque virement vers l’épargne le fait grandir.');
+    egalProfond([pots[2].envie, pots[2].cibleCentimes, pots[2].phrases[0]], [null, null, 'Pas encore d’envie en cours.']);
+    pots.forEach((x) => x.phrases.forEach((ph) => phraseOk(ph, x.id)));
+    vrai(typeof virement.aFaire === 'boolean'); phraseOk(virement.phrase);
+    egalProfond([arrondis.actif, arrondis.phrase], [false, 'Les arrondis sont éteints. Tu peux les allumer dans les réglages.']);
+    // Objectif atteint
+    const plein = potsEpargne(etat({ revenusMensuels: [revenus('2026-11')], poches: [{ ...secu, mouvements: [v('2026-09-01', 120000)] }] }), A).pots[0];
+    egal(plein.complet, true); egal(plein.pourcent, 100); egal(sp(plein.phrases[1]), 'Objectif atteint : 1 000 € 🎉'); egal(plein.phrases.length, 2);
+    // Une envie : rythme par semaine, sur les 4 dernières semaines
+    egal(rythmeEnvie({ contributions: [{ date: '2026-11-01', montantCentimes: 600 }, { date: '2026-11-08', montantCentimes: 600 }] }, A), Math.round((1200 * 7) / 12));
+    egal(rythmeEnvie({ contributions: [{ date: '2026-11-10', montantCentimes: 600 }] }, A), null, 'moins d’une semaine');
+    egal(rythmeEnvie({ contributions: [] }, A), null);
+  }) },
+  { nom: 'Épargne : virement à faire ou à jour, arrondis du mois', fn: () => avecDate('2026-11-12', () => {
+    const A = '2026-11-12';
+    egal(virementDuJour({}, A, { semaineCentimes: 1200, dateVirement: A, enRetard: false }).phrase, 'À faire aujourd’hui.');
+    egal(virementDuJour({}, A, { semaineCentimes: 1200, dateVirement: A, enRetard: true }).phrase, 'À faire aujourd’hui (il a pris un peu de retard).');
+    egal(virementDuJour({}, A, { semaineCentimes: 1200, dateVirement: '2026-11-13' }).phrase, 'À faire demain.');
+    const ajour = virementDuJour({}, A, { semaineCentimes: 0, dateVirement: '2026-11-14' });
+    egalProfond([ajour.aFaire, ajour.phrase], [false, 'Tout est viré ✨ Prochain virement le samedi 14 novembre.']);
+    const e = etat({ revenusMensuels: [revenus('2026-11')], transactions: [tx({ date: '2026-11-10', montant: 730, categorie: 'courses' }), tx({ date: '2026-11-03', montant: 250, categorie: 'courses' })] });
+    e.profil.arrondi = { ...e.profil.arrondi, actif: true, depuis: '2026-01-01' };
+    const ar = phraseArrondis(e, A);
+    egalProfond([ar.actif, ar.centimes, sp(ar.phrase)], [true, 70, 'Tes arrondis ce mois-ci : 0,70 € mis de côté sans y penser.'], 'seulement depuis le salaire');
+    e.transactions = [];
+    egal(phraseArrondis(e, A).phrase, 'Pas encore d’arrondi ce mois-ci : il viendra avec tes prochaines dépenses.');
+  }) },
+  { nom: 'Résumé : météo et phrases courtes du mois et de l’année', fn: () => {
+    egalProfond(['calme', 'attention', 'risque', 'pas-assez'].map((n) => meteoDuMois({ niveau: n, phrase: 'x' }).dessin), ['soleil', 'nuage', 'orage', 'voile']);
+    egal(meteoDuMois({ niveau: 'calme', phrase: 'x' }).titre, 'Tu devrais tenir jusqu’au salaire');
+    egal(meteoDuMois(null).dessin, 'voile');
+    // Sous la météo : une phrase courte et douce, sans la liste des charges (dites par les préventions)
+    const det = (o) => ({ probaTenir: 0.9, fiable: true, joursRestants: 10, attenduCentimes: 4000, rythmeCentimes: 900, rythmeMaxCentimes: 1300, charges: { nb: 2, totalCentimes: 5000 }, decouvert: null, ...o });
+    egal(sp(meteoDuMois({ niveau: 'calme', phrase: 'x', details: det() }).phrase), 'À ton rythme, il te resterait environ 40 € le jour du salaire.');
+    egal(sp(meteoDuMois({ niveau: 'attention', phrase: 'x', details: det() }).phrase), 'Garde au plus 13 € par jour jusqu’au salaire.');
+    egal(sp(meteoDuMois({ niveau: 'risque', phrase: 'x', details: det({ rythmeMaxCentimes: 290 }) }).phrase), 'Pour tenir, vise 2,90 € par jour jusqu’au salaire.');
+    egal(meteoDuMois({ niveau: 'risque', phrase: 'x', details: det({ rythmeMaxCentimes: 0 }) }).phrase, 'Le mois est serré : chaque jour sans dépense aide.');
+    egal(sp(meteoDuMois({ niveau: 'risque', phrase: 'x', details: det({ decouvert: { date: '2026-11-20', libelle: 'Loyer exemple', manqueCentimes: 4500 } }) }).phrase), 'Ton compte ne couvre pas « Loyer exemple » : il manquera 45 €.');
+    egal(sp(meteoDuMois({ niveau: 'calme', phrase: 'Dernier jour avant le salaire : il te reste 12 €. Encore « Abonnement exemple » à payer avant le salaire : 9 €.', details: det({ joursRestants: 0 }) }).phrase), 'Dernier jour avant le salaire : il te reste 12 €.');
+    egal(meteoDuMois({ niveau: 'pas-assez', phrase: 'x', details: det({ fiable: false }) }).phrase, 'Note tes dépenses quelques jours de plus : la prévision arrivera.');
+    Object.values(METEO).forEach((m) => phraseOk(m.titre));
+    const m = { totalCentimes: 30000, top: [{ nom: 'Courses', categorie: 'courses', montantCentimes: 15000 }, { nom: 'Restauration rapide', categorie: 'restauration-rapide', montantCentimes: 9000 }, { nom: 'VTC', categorie: 'vtc', montantCentimes: 6000 }],
+      comparaison: { precedentCentimes: 34000, ecartCentimes: -4000 }, flammes: 5, joursSansDepense: 3, epargne: { misDeCoteCentimes: 8500, repriseCentimes: 0 } };
+    const p = phrasesMois(m);
+    egal(p.ouPart.texte, 'Ton argent part surtout en courses.', 'la première ; les trois sont dessinées en barres');
+    egal(phrasesMois({ ...m, top: [m.top[2]] }).ouPart.texte, 'Ton argent part surtout en VTC.', 'les sigles gardent leurs majuscules');
+    egalProfond([p.comparaison.emoji, sp(p.comparaison.texte)], ['🎉', '40 € de moins que le mois dernier à la même date.']);
+    egal(p.serie.texte, '5 jours notés d’affilée et 3 jours sans dépense.');
+    egal(sp(p.epargne.texte), 'Tu as mis 85 € de côté depuis le salaire.');
+    const p2 = phrasesMois({ ...m, top: [], totalCentimes: 0, comparaison: null, flammes: 1, joursSansDepense: 1, epargne: { misDeCoteCentimes: 0, repriseCentimes: 0 } });
+    egalProfond([p2.ouPart.texte, p2.comparaison, p2.serie.texte, p2.epargne], ['Rien de dépensé au quotidien depuis le salaire.', null, '1 jour sans dépense.', null]);
+    egal(sp(phrasesMois({ ...m, comparaison: { precedentCentimes: 26000, ecartCentimes: 4000 } }).comparaison.texte), '40 € de plus que le mois dernier à la même date.');
+    egal(phrasesAnnee({ periodes: [] }).epargne.texte, 'Ton année se remplira au fil des mois.');
+    const per = (mois, complete, parJour) => ({ mois, nom: mois, complete, parJourCentimes: parJour });
+    const a = phrasesAnnee({ periodes: [per('a', true, 900), per('b', true, 700), per('c', false, 800)], totalVerseCentimes: 24000, totalReprisCentimes: 3000, plusCalme: { nom: 'octobre 2026', parJourCentimes: 700 } });
+    egal(sp(a.epargne.texte), 'Sur 3 mois, tu as mis 240 € de côté (et repris 30 €).');
+    egal(sp(a.calme.texte), 'Ton mois le plus calme : octobre 2026 (7 € par jour).');
+  } },
+  { nom: 'sauvegarde synthétique : Dépenses, Épargne et Résumé sans trou ni phrase bancale', fn: () => {
+    const c = genererSauvegarde().contenu;
+    const R = REFERENCE_DEFAUT;
+    for (const d of [R, ajouterJours(R, -9), ajouterJours(R, -40)]) avecDate(d, () => {
+      const r = depuisSalaire(c, d); phraseOk(r.phrase, d);
+      vrai(r.totalCentimes >= r.duMoisCentimes && r.duMoisCentimes >= 0);
+      const jours = joursDepenses(c, r.periode.debut, '9999-12-31', d);
+      vrai(jours.every((j, i) => i === 0 || jours[i - 1].date > j.date), 'jours du plus récent au plus ancien');
+      vrai(jours.every((j) => j.lignes.every((l) => l.nom && !/undefined|null/.test(l.nom) && l.nom.length <= NOM_COURT_MAX)), 'noms courts');
+      vrai(jours.every((j) => j.lignes.every((l) => estVisible(l.tx))));
+      const { pots, virement, arrondis } = potsEpargne(c, d);
+      egalProfond(pots.map((p) => p.id), ['securite', 'pret', 'envie']);
+      pots.forEach((p) => { vrai(p.pourcent >= 0 && p.pourcent <= 100); vrai(p.phrases.length >= 2 && p.phrases.length <= 3, `${p.id} : ${p.phrases.length} phrases`); p.phrases.forEach((x) => phraseOk(x, `${d} ${p.id}`)); });
+      phraseOk(virement.phrase, d); phraseOk(arrondis.phrase, d);
+      const pm = phrasesMois(resumeMois(c, d)); Object.values(pm).filter(Boolean).forEach((x) => phraseOk(x.texte, d));
+      const pa = phrasesAnnee(resumeAnnee(c, d)); Object.values(pa).filter(Boolean).forEach((x) => phraseOk(x.texte, d));
+      const mt = meteoDuMois(risqueDuMois(c, d)); phraseOk(mt.titre, d); phraseOk(mt.phrase, d); vrai(mt.phrase.length <= 90, mt.phrase);
+    });
+  } },
 ];

@@ -19,7 +19,7 @@ import { appCourante } from './habillage.js';
 installerJournal();
 
 /** v100 (Cockpit) : même moteur et mêmes données, autre accueil, un onglet Stratégie en plus (voir js/v100/).
- *  v200 (nouvelle app) : l'écran Aujourd'hui et un onglet Résumé (voir js/v200/) ; le reste réutilise pour l'instant les pages d'origine. */
+ *  v200 (nouvelle app) : ses propres écrans Aujourd'hui, Dépenses, Épargne et un onglet Résumé (voir js/v200/) ; les Réglages restent ceux d'origine. */
 const APP = appCourante();
 const V100 = APP === 'v100';
 const V200 = APP === 'v200';
@@ -48,7 +48,9 @@ if (V100) {
 }
 if (V200) {
   PAGES.accueil = () => import('./v200/pages/aujourdhui.js');
-  PAGES.resume = () => import('./pages/historique.js'); // provisoire : les mois passés, en attendant le Résumé v200
+  PAGES.depenses = () => import('./v200/pages/depenses.js');
+  PAGES.epargne = () => import('./v200/pages/epargne.js');
+  PAGES.resume = () => import('./v200/pages/resume.js'); // « Voir le détail » y ouvre l'ancienne page des mois passés (historique)
   Object.assign(ONGLET, { resume: 'resume', statistiques: 'resume', historique: 'resume' });
 }
 

@@ -182,3 +182,75 @@ export function preventions(etat, auj) {
   }
   return res.slice(0, MAX_PREVENTIONS);
 }
+
+// ---------------------------------------------------------------------------
+// Pour l'écran Résumé : la météo du mois et des phrases très courtes (une idée par phrase)
+// ---------------------------------------------------------------------------
+
+/** Météo du risque : un dessin et un titre court ; la phrase détaillée reste celle de risqueDuMois. */
+export const METEO = {
+  calme: { dessin: 'soleil', titre: 'Tu devrais tenir jusqu’au salaire' },
+  attention: { dessin: 'nuage', titre: 'Ça passe, mais tout juste' },
+  risque: { dessin: 'orage', titre: 'Attention, ça risque de coincer' },
+  'pas-assez': { dessin: 'voile', titre: 'Encore un peu tôt pour prévoir' },
+};
+
+/**
+ * Une phrase courte et douce sous la météo (la phrase complète de risqueDuMois reste disponible : phraseComplete).
+ * Les charges à venir sont dites par les préventions, pas ici.
+ */
+function phraseCourte(r) {
+  const d = r?.details;
+  if (!r || !d) return '';
+  if (d.decouvert) return `Ton compte ne couvre pas « ${d.decouvert.libelle} » : il manquera ${eur(d.decouvert.manqueCentimes)}.`;
+  if (r.niveau === 'pas-assez') return 'Note tes dépenses quelques jours de plus : la prévision arrivera.';
+  if (d.joursRestants === 0) return r.phrase.split(/(?<=\.) Encore /)[0];
+  if (r.niveau === 'calme') return `À ton rythme, il te resterait environ ${eur(Math.max(0, d.attenduCentimes))} le jour du salaire.`;
+  if (r.niveau === 'attention') return `Garde au plus ${eur(d.rythmeMaxCentimes)} par jour jusqu’au salaire.`;
+  return d.rythmeMaxCentimes > 0 ? `Pour tenir, vise ${eur(d.rythmeMaxCentimes)} par jour jusqu’au salaire.` : 'Le mois est serré : chaque jour sans dépense aide.';
+}
+export const meteoDuMois = (risque) => ({ ...(METEO[risque?.niveau] || METEO['pas-assez']), niveau: risque?.niveau || 'pas-assez', phrase: phraseCourte(risque), phraseComplete: risque?.phrase || '' });
+
+/** Les niveaux d'une période, en mots (légende des pastilles de l'année). */
+export const NIVEAUX_ANNEE = [['calme', 'calme'], ['moyen', 'moyen'], ['charge', 'chargé']];
+
+/**
+ * Les phrases illustrées du mois (une idée chacune ; null quand il n'y a rien à dire).
+ * @param m résultat de resumeMois
+ * @returns {{ ouPart, comparaison, serie, epargne }} chacune { emoji, texte } | null
+ */
+export function phrasesMois(m) {
+  const noms = m.top.map((c) => (/^.[a-zà-ÿ]/.test(c.nom) ? c.nom.charAt(0).toLowerCase() + c.nom.slice(1) : c.nom)); // « VTC » reste en majuscules
+  const ouPart = m.top.length ? { emoji: '🧭', texte: `Ton argent part surtout en ${noms[0]}.` } : { emoji: '🌱', texte: 'Rien de dépensé au quotidien depuis le salaire.' };
+  let comparaison = null;
+  const c = m.comparaison;
+  if (c && (m.totalCentimes > 0 || c.precedentCentimes > 0)) {
+    const e = c.ecartCentimes;
+    comparaison = e < 0 ? { emoji: '🎉', texte: `${eur(e)} de moins que le mois dernier à la même date.` }
+      : e > 0 ? { emoji: '👀', texte: `${eur(e)} de plus que le mois dernier à la même date.` }
+        : { emoji: '🤝', texte: 'Pareil que le mois dernier à la même date.' };
+  }
+  const f = m.flammes; const s = m.joursSansDepense;
+  const morceaux = [f >= 2 ? `${f} jours notés d’affilée` : null, s > 0 ? `${s} jour${s > 1 ? 's' : ''} sans dépense` : null].filter(Boolean);
+  const serie = morceaux.length ? { emoji: f >= 2 ? '🔥' : '🌙', texte: `${morceaux.join(' et ').replace(/^./, (x) => x.toUpperCase())}.` } : null;
+  const ep = m.epargne;
+  const epargne = ep.misDeCoteCentimes > 0 ? { emoji: '🫙', texte: `Tu as mis ${eur(ep.misDeCoteCentimes)} de côté depuis le salaire.` }
+    : ep.repriseCentimes > 0 ? { emoji: '🫙', texte: `Tu as repris ${eur(ep.repriseCentimes)} sur ton épargne ce mois-ci.` } : null;
+  return { ouPart, comparaison, serie, epargne };
+}
+
+/**
+ * Les phrases de l'année.
+ * @param a résultat de resumeAnnee
+ * @returns {{ epargne, calme }} chacune { emoji, texte } | null
+ */
+export function phrasesAnnee(a) {
+  if (!a.periodes.length) return { epargne: { emoji: '🌱', texte: 'Ton année se remplira au fil des mois.' }, calme: null };
+  const n = a.periodes.length;
+  const sur = n === 1 ? 'Ce mois-ci' : `Sur ${n} mois`;
+  const epargne = a.totalVerseCentimes > 0 ? { emoji: '🫙', texte: `${sur}, tu as mis ${eur(a.totalVerseCentimes)} de côté${a.totalReprisCentimes > 0 ? ` (et repris ${eur(a.totalReprisCentimes)})` : ''}.` }
+    : { emoji: '🫙', texte: a.totalReprisCentimes > 0 ? `${sur}, tu as repris ${eur(a.totalReprisCentimes)} sur ton épargne.` : `${sur}, rien n’a encore été mis de côté.` };
+  const pc = a.plusCalme;
+  const calme = pc && a.periodes.filter((x) => x.complete).length >= 2 ? { emoji: '🌿', texte: `Ton mois le plus calme : ${pc.nom} (${eur(pc.parJourCentimes)} par jour).` } : null;
+  return { epargne, calme };
+}
