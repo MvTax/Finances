@@ -652,3 +652,26 @@
 :root[data-app="v200"] .v2-payer-payees[open] > summary::after { transform: rotate(90deg); }
 :root[data-app="v200"] .v2-payer-liste-payees { list-style: none; margin: 0; padding: 0 4px 6px; }
 :root[data-app="v200"] .v2-payer-item-payee .v2-dep-nom { color: var(--texte-2); }
+
+/* ---------- 1.45 : « Voir toutes » dans Résumé › Mois (la liste s'ouvre vers le bas) ---------- */
+:root[data-app="v200"] .v2-res-barres-bloc { display: flex; flex-direction: column; }
+:root[data-app="v200"] .v2-res-plus {
+  display: grid; grid-template-rows: 0fr; opacity: 0;
+  transition: grid-template-rows .25s ease, opacity .25s ease;
+}
+:root[data-app="v200"] .v2-res-plus.ouvert { grid-template-rows: 1fr; opacity: 1; }
+:root[data-app="v200"] .v2-res-plus-dedans { min-height: 0; overflow: hidden; }
+:root[data-app="v200"] .v2-res-plus-dedans > .v2-res-barres { padding-top: 10px; }
+:root[data-app="v200"] .v2-res-plus .v2-res-barre:nth-child(n) .v2-res-barre-plein { background: linear-gradient(90deg, #EBCDB0, #C99A72); }
+:root[data-app="v200"] .v2-res-plus:not(.ouvert) .v2-res-barre-plein { animation-play-state: paused; }
+:root[data-app="v200"] .v2-res-plus-btn {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 6px 0 -6px -10px; padding: 0 12px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--accent); font-family: var(--police); font-size: 15.5px; font-weight: 800; cursor: pointer;
+}
+:root[data-app="v200"] .v2-res-plus-btn:active { background: var(--accent-doux); }
+:root[data-app="v200"] .v2-res-plus-fleche { display: inline-grid; place-items: center; transform: rotate(90deg); transition: transform .25s ease; }
+:root[data-app="v200"] .v2-res-plus-fleche .ic { width: 17px; height: 17px; stroke-width: 2.6; }
+:root[data-app="v200"] .v2-res-plus-btn[aria-expanded="true"] .v2-res-plus-fleche { transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-app="v200"] .v2-res-plus, :root[data-app="v200"] .v2-res-plus-fleche { transition: none; }
+}

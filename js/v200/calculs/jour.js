@@ -2,7 +2,7 @@
 // Fonctions pures : l'état et la journée de budget (aujourdhui(), de 5 h à 5 h) sont passés en paramètres.
 // Les chiffres viennent des calculs communs (jaugeDuJour, preventions, partage du reste) : rien n'est recalculé autrement.
 
-import { jaugeDuJour } from '../../calculs.js';
+import { jaugeDuJour, soldes } from '../../calculs.js';
 import { ajouterJours } from '../../dates.js';
 import { risqueDuMois } from './risques.js';
 import { serieJours, estSaisie } from '../../jeu.js';
@@ -54,6 +54,21 @@ export function resteDuMois(etat, auj, jauge = null) {
   else if (epargneEntamee) { couleur = 'orange'; phrase = 'Attention : ton épargne du mois est entamée.'; }
   else if (fiable && niveau === 'attention') { couleur = 'orange'; phrase = 'Attention : ça passe juste jusqu’au salaire.'; }
   return { montantCentimes: montant, couleur, depasse, joursRestants: j.joursRestants, salaireLe, phrase };
+}
+
+/** Comptes de dépense : le compte courant et la néobanque (pas l'épargne, pas les espèces). */
+export const TYPES_COMPTES_DEPENSE = ['courant', 'neobanque'];
+
+/**
+ * Ce qu'il y a en ce moment sur tes comptes de dépense : la somme des soldes du compte courant et de la néobanque,
+ * calculés comme partout dans l'app (soldes() de calculs.js : solde de départ, opérations jusqu'au jour, ajustement
+ * de solde compris). L'épargne et les poches ne comptent pas.
+ * @returns {{ soldeCentimes: number, negatif: boolean, comptes: Array<{ compte, soldeCentimes }> }}
+ */
+export function soldeComptesDepense(etat, auj) {
+  const comptes = soldes(etat, auj).comptes.filter((c) => TYPES_COMPTES_DEPENSE.includes(c.compte.type));
+  const solde = comptes.reduce((s, c) => s + c.soldeCentimes, 0);
+  return { soldeCentimes: solde, negatif: solde < 0, comptes };
 }
 
 /**

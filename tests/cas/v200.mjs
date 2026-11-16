@@ -7,7 +7,7 @@ import { categoriesFavorites, montantsRapides, montantDepart, CATEGORIES_REPLI }
 import { risqueDuMois, chargesAvantSalaire } from '../../js/v200/calculs/risques.js';
 import { resumeMois, resumeAnnee, preventions } from '../../js/v200/calculs/resume.js';
 import { eur, arrondi10 } from '../../js/v200/calculs/commun.js';
-import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, ligneCharge, resteDuMois } from '../../js/v200/calculs/jour.js';
+import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, ligneCharge, resteDuMois, soldeComptesDepense } from '../../js/v200/calculs/jour.js';
 import { serieJours, flammesDesJours } from '../../js/jeu.js';
 import { montantParle } from '../../js/v200/ui/molette.js';
 import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX, aVerifier, joursDepuisApplePay, phraseDerniereFois, bilanApplePay, notesFichierApplePay, finApplePay, aPayerDuMois } from '../../js/v200/calculs/depenses.js';
@@ -16,6 +16,7 @@ import { meteoDuMois, phrasesMois, phrasesAnnee, METEO } from '../../js/v200/cal
 import { jourBudgetaire } from '../../js/restes.js';
 import { forcerAujourdhui, ajouterJours, jourSemaine } from '../../js/dates.js';
 import { jaugeDuJour } from '../../js/calculs.js';
+import { recalculerAjustement } from '../../js/import/pipeline.js';
 import { genererSauvegarde, REFERENCE_DEFAUT } from '../outils/generer-sauvegarde.mjs';
 
 const NIVEAUX_RISQUE = ['calme', 'attention', 'risque', 'pas-assez'];
@@ -640,5 +641,51 @@ export default [
     egal(p['cr3|2026-11-06'].transactionId, null, 'marquée payée');
     // Rien du tout : deux listes vides
     egalProfond(aPayerDuMois(etat(), A), { aPayer: [], payees: [] });
+  }) },
+  { nom: 'Aujourd’hui : « Sur mes comptes » = courant + néobanque (ajustement compris, ni épargne ni espèces, rien après le jour)', fn: () => avecDate('2026-11-16', () => {
+    const A = '2026-11-16';
+    const comptes = [
+      { id: 'courant', nom: 'Courant', type: 'courant', soldeInitialCentimes: 10000, dateSoldeInitial: '2025-12-31' },
+      { id: 'neo', nom: 'Néo', type: 'neobanque', soldeInitialCentimes: 0, dateSoldeInitial: '2025-12-31', soldeReference: { date: '2026-11-12', centimes: 18000 } },
+      { id: 'ep', nom: 'Livret', type: 'epargne', soldeInitialCentimes: 50000, dateSoldeInitial: '2025-12-31' },
+      { id: 'esp', nom: 'Espèces', type: 'especes', soldeInitialCentimes: 4000, dateSoldeInitial: '2025-12-31' },
+    ];
+    let transactions = [
+      tx({ date: '2025-12-20', montant: 99900, compteId: 'courant', marchand: 'Avant le départ' }), // avant le solde de départ : ignorée
+      tx({ date: '2026-11-10', montant: 30000, compteId: 'courant', marchand: 'Magasin Exemple' }),
+      tx({ date: '2026-11-08', montant: 15000, sens: 'credit', compteId: 'neo', categorie: 'virement', marchand: 'Virement Exemple' }),
+      tx({ date: '2026-11-20', montant: 1000, compteId: 'neo', marchand: 'Plus tard' }), // après aujourd'hui : pas encore
+      tx({ date: '2026-11-09', montant: 2000, sens: 'credit', compteId: 'ep', categorie: 'epargne', marchand: 'Livret' }),
+      tx({ date: '2026-11-09', montant: 500, compteId: 'esp', marchand: 'Marché Exemple' }),
+    ];
+    // Solde réel déclaré sur la néobanque le 12 : 180 € → une ligne d'ajustement de 30 €
+    const aj = recalculerAjustement(comptes[1], transactions, '2026-11-12T08:00:00Z');
+    egal(aj.ajustement.montantCentimes, 3000); egal(aj.ajustement.sens, 'credit');
+    transactions = aj.transactions;
+    const e = etat({ comptes, transactions });
+    const s = soldeComptesDepense(e, A);
+    egalProfond(s.comptes.map((c) => [c.compte.id, c.soldeCentimes]), [['courant', -20000], ['neo', 18000]]);
+    egal(s.soldeCentimes, -2000); egal(s.negatif, true);
+    // Le 20, la dépense de la néobanque compte ; sans la grosse dépense, le solde est positif
+    egal(soldeComptesDepense(e, '2026-11-20').soldeCentimes, -3000);
+    const ok = etat({ comptes, transactions: transactions.filter((t) => t.marchand !== 'Magasin Exemple') });
+    egal(soldeComptesDepense(ok, A).soldeCentimes, 10000 + 18000); egal(soldeComptesDepense(ok, A).negatif, false);
+    // Aucun compte de dépense : rien à montrer
+    egalProfond(soldeComptesDepense(etat({ comptes: [comptes[2]] }), A), { soldeCentimes: 0, negatif: false, comptes: [] });
+  }) },
+  { nom: 'Résumé › Mois : « toutes » donne chaque catégorie du mois, de la plus grosse à la plus petite (top = les 3 premières)', fn: () => avecDate('2026-11-12', () => {
+    const A = '2026-11-12';
+    const e = etat({ revenusMensuels: [revenus('2026-11')], transactions: [
+      tx({ date: '2026-11-06', montant: 1200, categorie: 'courses' }), tx({ date: '2026-11-07', montant: 800, categorie: 'courses' }),
+      tx({ date: '2026-11-06', montant: 3000, categorie: 'loisirs' }), tx({ date: '2026-11-08', montant: 450, categorie: 'vtc' }),
+      tx({ date: '2026-11-09', montant: 1500, categorie: 'restaurant' }), tx({ date: '2026-11-10', montant: 250, categorie: 'sante' }),
+      tx({ date: '2026-11-04', montant: 9999, categorie: 'loisirs' }), // avant le salaire : mois d'avant
+    ] });
+    const m = resumeMois(e, A);
+    egalProfond(m.toutes.map((c) => [c.categorie, c.montantCentimes]), [['loisirs', 3000], ['courses', 2000], ['restaurant', 1500], ['vtc', 450], ['sante', 250]]);
+    egalProfond(m.top, m.toutes.slice(0, 3));
+    vrai(m.toutes.every((c) => c.nom && Number.isInteger(c.part)));
+    egal(m.toutes[0].part, Math.round((3000 * 100) / 7200));
+    egalProfond(resumeMois(etat(), A).toutes, []);
   }) },
 ];

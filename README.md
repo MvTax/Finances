@@ -199,6 +199,11 @@ La journée va de 5 h à 5 h, à l'heure de Paris, même si tu voyages : un paie
 - **Jamais comptées deux fois** : une dépense du mois déjà reconnue dans tes dépenses (relevé, Apple Pay, saisie) n'est plus proposée à payer.
 - L'aide du Raccourci Apple Pay suit maintenant les écrans d'iOS récents (déclencheur « Cartes », fichier `applepay.txt` dans iCloud Drive › Raccourcis).
 
+## Version 1.45 : ce qu'il y a sur tes comptes, et toutes les catégories
+
+- **Sur mes comptes** : la pastille en haut à droite d'Aujourd'hui montre maintenant ce qu'il y a en ce moment sur ton compte courant et ta néobanque (l'épargne n'est pas comptée). Sa couleur dit toujours si le mois tient jusqu'au salaire ; elle est rouge si le total passe sous zéro. Touche-la pour voir le Résumé.
+- **Voir toutes** : dans Résumé › Ce mois-ci, les 3 plus grosses catégories restent affichées ; le bouton « Voir toutes » ouvre doucement la liste complète vers le bas, « Réduire » la referme.
+
 ## Mettre à jour l'app
 
 1. Modifie `VERSION` dans `sw.js` **et** `versionApp` dans `js/version.js`, avec la même valeur.

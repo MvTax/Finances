@@ -45,6 +45,7 @@ function parCategorie(etat, debut, fin) {
 /**
  * Le mois en cours (depuis le salaire) : où part l'argent, comparaison avec la même date du mois dernier,
  * série de jours notés et jours sans dépense, épargne.
+ * top : les 3 plus grosses catégories ; toutes : toutes les catégories du mois, de la plus grosse à la plus petite.
  */
 export function resumeMois(etat, auj) {
   const p = per(etat, auj, auj);
@@ -52,7 +53,8 @@ export function resumeMois(etat, auj) {
   const cats = parCategorie(etat, p.debut, auj);
   const totalPositif = cats.reduce((s, c) => s + c.montantCentimes, 0);
   const total = depensesVariables(etat, p.debut, auj);
-  const top = cats.slice(0, 3).map((c) => ({ ...c, part: totalPositif ? Math.round((c.montantCentimes * 100) / totalPositif) : 0 }));
+  const toutes = cats.map((c) => ({ ...c, part: totalPositif ? Math.round((c.montantCentimes * 100) / totalPositif) : 0 }));
+  const top = toutes.slice(0, 3);
 
   // Même nombre de jours depuis le salaire, le mois d'avant (seulement si l'app le connaît en entier)
   const prec = per(etat, ajouterJours(p.debut, -1), auj);
@@ -87,7 +89,7 @@ export function resumeMois(etat, auj) {
   if (epargne.misDeCoteCentimes > 0) phrases.push(`Ce mois-ci, tu as mis ${eur(epargne.misDeCoteCentimes)} de côté${epargne.repriseCentimes > 0 ? ` et repris ${eur(epargne.repriseCentimes)}` : ''}.`);
   else if (epargne.repriseCentimes > 0) phrases.push(`Ce mois-ci, tu as repris ${eur(epargne.repriseCentimes)} sur ton épargne.`);
 
-  return { periode: p, totalCentimes: total, top, comparaison, flammes, joursSansDepense: sansDepense, joursClos, epargne, phrases };
+  return { periode: p, totalCentimes: total, top, toutes, comparaison, flammes, joursSansDepense: sansDepense, joursClos, epargne, phrases };
 }
 
 /**

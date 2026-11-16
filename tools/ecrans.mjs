@@ -603,13 +603,40 @@ async function pagesV200(page) {
     if (!(document.querySelector('.v2-meteo-titre')?.textContent || '').trim()) q.push('titre de la météo vide');
     const b = [...document.querySelectorAll('.v2-bascule-btn')].map((x) => `${x.textContent}:${x.getAttribute('aria-pressed')}`);
     if (JSON.stringify(b) !== JSON.stringify(['Ce mois-ci:true', 'Cette année:false'])) q.push(`bascule : ${b.join(', ')}`);
-    const barres = document.querySelectorAll('.v2-res-barre').length;
+    const barres = document.querySelectorAll('.v2-res-barre:not(.v2-res-plus .v2-res-barre)').length;
     if (barres < 1 || barres > 3) q.push(`${barres} catégorie(s) dans « où part l’argent »`);
+    const plus = document.querySelector('.v2-res-plus');
+    if (plus && (!plus.inert || plus.getBoundingClientRect().height > 1)) q.push('« Voir toutes » : la liste n’est pas repliée au départ');
     if (document.querySelectorAll('.v2-res-prev').length > 3) q.push('plus de 3 préventions');
     if (document.querySelectorAll('.v2-res .v2-lien-doux').length !== 1) q.push('« Voir le détail » absent ou en double');
     return q;
   });
   await verifierPage(page, 'v200-resume', 'v200 → Résumé : météo et mois', async () => [...r1, ...await zonesDeToucher(page, '.v2-res')]);
+  // « Voir toutes (N) » : déplie toutes les catégories vers le bas, « Réduire » replie
+  const plusBtn = page.locator('.v2-res-plus-btn');
+  if (await plusBtn.count()) {
+    const lire = () => page.evaluate(() => {
+      const b = document.querySelector('.v2-res-plus-btn'); const z = document.querySelector('.v2-res-plus');
+      return { texte: b.textContent.trim(), ouvert: b.getAttribute('aria-expanded'), inert: z.inert, hauteur: z.getBoundingClientRect().height,
+        lignes: document.querySelectorAll('.v2-res-barre').length, controle: b.getAttribute('aria-controls') === z.id };
+    });
+    const avant = await lire();
+    await plusBtn.click(); await attendre(page, 150);
+    const pendant = await lire();
+    await attendre(page, 350);
+    const ouvert = await lire();
+    await plusBtn.scrollIntoViewIfNeeded();
+    await verifierPage(page, 'v200-resume-toutes', 'v200 → Résumé : « Voir toutes » déplie la liste', async () => [
+      !/^Voir toutes \(\d+\)$/.test(avant.texte) ? `bouton : « ${avant.texte} »` : null,
+      Number(avant.texte.match(/\d+/)?.[0]) !== avant.lignes ? `« ${avant.texte} » pour ${avant.lignes} catégorie(s)` : null,
+      !avant.controle ? 'aria-controls absent' : null,
+      ouvert.ouvert !== 'true' || ouvert.inert || ouvert.texte !== 'Réduire' ? `après le toucher : ${JSON.stringify(ouvert)}` : null,
+      !(pendant.hauteur > 0 && pendant.hauteur < ouvert.hauteur) ? `pas d’ouverture en douceur (${pendant.hauteur} → ${ouvert.hauteur} px)` : null,
+    ].filter(Boolean));
+    await plusBtn.click(); await attendre(page, 450);
+    const ferme = await lire();
+    rapport('v200 → Résumé : « Réduire » replie la liste', [ferme.ouvert !== 'false' || !ferme.inert || ferme.hauteur > 1 || ferme.texte !== avant.texte ? `après le second toucher : ${JSON.stringify(ferme)}` : null, ...viderErreurs(page)]);
+  } else console.log('  3 catégories ou moins : pas de « Voir toutes »');
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await attendre(page, 300);
   await capturer(page, 'v200-resume-bas');
   await page.evaluate(() => window.scrollTo(0, 0));
