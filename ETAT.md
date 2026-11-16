@@ -1,7 +1,6 @@
 # État du projet
 
-- **En ligne (`main`)** : 1.43.0 (nouvelle app joyeuse + paiements Apple Pay), mise en ligne le 2026-11-16
-- **Sur la branche `claude/apple-pay-icloud-automation-bka5am`** : 1.44.0 (pas encore en ligne)
+- **En ligne (`main`)** : 1.44.0 (reste du mois en couleur, bouton « Payé », plus de double comptage), mise en ligne le 2026-11-16
 - **Branche de travail** : `v100-simple` (à ramener au niveau de `main` avant la prochaine version) ; la 1.43.0 et la 1.44.0 ont été faites sur `claude/apple-pay-icloud-automation-bka5am`
 
 ## Dernières livraisons (en ligne jusqu'à la 1.43.0)
