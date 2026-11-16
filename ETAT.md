@@ -1,9 +1,9 @@
 # État du projet
 
-- **En ligne (`main`)** : 1.40.0 (v100 simplifié)
-- **Branche de travail** : `v100-simple` : 1.42.0 prête à mettre en ligne ; la 1.43.0 est sur la branche `claude/apple-pay-icloud-automation-bka5am` (basée sur la 1.42.0)
+- **En ligne (`main`)** : 1.43.0 (nouvelle app joyeuse + paiements Apple Pay), mise en ligne le 2026-11-16
+- **Branche de travail** : `v100-simple` (à ramener au niveau de `main` avant la prochaine version) ; la 1.43.0 a été faite sur `claude/apple-pay-icloud-automation-bka5am`
 
-## Dernières livraisons (branche, pas encore en ligne)
+## Dernières livraisons (toutes en ligne)
 - 1.41.0 : dépenses obligatoires reconnues à la saisie (`js/obligatoires.js`) : comptées dans le mois, pas dans la part du jour ; cas « probable » → question oui / non.
 - 1.41.1 : calculs de v200 sans écran (`js/v200/calculs/`) : catégories et montants habituels, risque du mois, résumé, préventions.
 - 1.41.2 : squelette de v200 (crème, corail, Nunito) : onglets Aujourd'hui | Dépenses | + | Épargne | Résumé, écran Aujourd'hui (soleil-jauge).
@@ -14,6 +14,6 @@
 - 1.43.0 : paiements Apple Pay récupérés depuis un fichier iCloud écrit par un Raccourci (classement, doublons, montants à vérifier).
 
 ## Reste à faire
-- Mise en ligne de la 1.42.0 (fusion dans `main`), puis retour de l'utilisateur sur l'iPhone.
+- Retour de l'utilisateur sur l'iPhone (1.42.0 et 1.43.0).
 - Essayer le Raccourci Apple Pay et le bouton « Récupérer Apple Pay » sur l'iPhone (ouverture du sélecteur de fichiers à confirmer).
 - Essayer « Remplacer ? » (montant provisoire) avec un vrai relevé.
