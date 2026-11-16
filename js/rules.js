@@ -283,3 +283,22 @@ export function libelleRegle(r) {
   const m = r.motif.match(/^\\\| (.*)\$$/);
   return m ? m[1].replace(/\\/g, '') : r.motif;
 }
+
+// Mots trop courants pour dire que deux noms désignent le même commerçant.
+const MOTS_NON_DISTINCTIFS = new Set(['CARTE', 'PAIEMENT', 'ACHAT', 'PRLV', 'SEPA', 'FACTURE', 'PARIS', 'FRANCE', 'SARL', 'SASU', 'MAGASIN', 'SERVICE', 'SERVICES', 'STORE', 'SHOP', 'EUROPE', 'APPLE', 'INTERNATIONAL']);
+const motsDistinctifs = (s) => normaliserTexte(s).replace(/[^A-Z0-9]+/g, ' ').trim();
+
+/**
+ * Deux noms de commerçant désignent-ils sans doute le même ? (« BOULANGERIE TEST » et « CB BOULANGERIE TEST 14/11 » : oui.)
+ * Lettres et chiffres seulement ; proche si l'un contient l'autre (au moins 3 caractères) ou s'ils ont un mot commun
+ * d'au moins 4 lettres (hors mots trop courants : carte, paiement, Paris…).
+ */
+export function marchandProche(a, b) {
+  const na = motsDistinctifs(a); const nb = motsDistinctifs(b);
+  if (!na || !nb) return false;
+  const ca = na.replace(/ /g, ''); const cb = nb.replace(/ /g, '');
+  const court = ca.length <= cb.length ? ca : cb; const long = court === ca ? cb : ca;
+  if (court.length >= 3 && !/^\d+$/.test(court) && long.includes(court)) return true;
+  const motsA = new Set(na.split(' ').filter((m) => m.length >= 4 && /[A-Z]/.test(m) && !MOTS_NON_DISTINCTIFS.has(m)));
+  return nb.split(' ').some((m) => motsA.has(m));
+}

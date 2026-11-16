@@ -1,5 +1,5 @@
 import { egal } from '../outils/assert.mjs';
-import { parseDateRevolut, parseDateLCL, parseDateSlash, ajouterMoisDate, jourSemaine, debutSemaine, formatDate, extraireDatePhrase, prochainJourSemaine } from '../../js/dates.js';
+import { parseDateRevolut, parseDateLCL, parseDateSlash, ajouterMoisDate, jourSemaine, debutSemaine, formatDate, extraireDatePhrase, prochainJourSemaine, jourBudgetDeHorodatage } from '../../js/dates.js';
 
 export default [
   { nom: 'dates : mois abrégés français de Revolut', fn: () => {
@@ -25,5 +25,19 @@ export default [
     egal(extraireDatePhrase('avant-hier', '2026-11-05').date, '2026-11-03');
     egal(extraireDatePhrase('samedi dernier', '2026-11-05').date, '2026-10-31');
     egal(extraireDatePhrase('le 3', '2026-11-05').date, '2026-11-03');
+  } },
+  { nom: 'dates : journée de budget d’un horodatage Apple Pay (5 h – 5 h à Paris, changements d’heure, autre fuseau)', fn: () => {
+    const j = (t) => jourBudgetDeHorodatage(t)?.date ?? null;
+    egal(j('2026-11-16T04:59:59+01:00'), '2026-11-15', 'avant 5 h : la veille');
+    egal(j('2026-11-16T05:00:00+01:00'), '2026-11-16');
+    egal(j('2026-11-16T03:00'), '2026-11-15', 'sans décalage : heure de Paris');
+    egal(jourBudgetDeHorodatage('2026-11-16T03:00').heure, '03:00');
+    egal(j('2026-03-29T04:30:00+02:00'), '2026-03-28', 'passage à l’heure d’été');
+    egal(j('2026-10-25T02:30:00+01:00'), '2026-10-24', 'retour à l’heure d’hiver');
+    egal(j('2026-11-19T23:30:00-05:00'), '2026-11-20', 'payé à l’étranger : ramené à Paris');
+    egal(jourBudgetDeHorodatage('2026-11-19T23:30:00-05:00').heure, '05:30');
+    egal(jourBudgetDeHorodatage('2026-11-16T12:34:56Z').heure, '13:34');
+    egal(jourBudgetDeHorodatage('2026-11-16T12:34+01:00').secondes, false);
+    egal(j('2026-13-01T10:00:00+01:00'), null); egal(j('2026-02-30T10:00:00+01:00'), null); egal(j('16/11/2026 10:00'), null); egal(j(''), null);
   } },
 ];

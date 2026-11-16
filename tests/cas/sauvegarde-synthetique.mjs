@@ -57,7 +57,8 @@ export default [
     vrai(tx.length > 1100 && tx.length < 1500, `${tx.length} opérations`);
     const roles = new Set(tx.map((t) => (t.role === undefined ? 'absent' : String(t.role))));
     for (const r of ['null', 'depuisLCL', 'versParticulier', 'versRevolut', 'depuisParticulier', 'revenu', 'versLCL', 'depuisRevolut', 'aideLogement']) vrai(roles.has(r), `rôle ${r}`);
-    for (const src of ['import', 'texte', 'confirmation']) vrai(tx.some((t) => t.source === src), `source ${src}`);
+    for (const src of ['import', 'texte', 'confirmation', 'applepay']) vrai(tx.some((t) => t.source === src), `source ${src}`);
+    vrai(tx.some((t) => t.applePay?.provisoire) && c.meta.applePayVues?.length && c.profil.applePay?.cartes, 'paiements Apple Pay, empreintes vues et réglages');
     for (const t of tx.filter((x) => x.virementInterne.estInterne)) vrai(tx.some((u) => u.id === t.virementInterne.transactionLieeId && u.virementInterne.transactionLieeId === t.id), 'virements internes liés deux à deux');
     vrai(tx.some((t) => t.date === R && t.source === 'texte' && t.sens === 'debit'), 'des dépenses saisies aujourd’hui');
     vrai(tx.every((t) => t.date <= R && Number.isInteger(t.montantCentimes) && t.montantCentimes > 0));

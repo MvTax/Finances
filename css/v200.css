@@ -506,3 +506,113 @@
   :root[data-app="v200"] .v2-bocal-niveau, :root[data-app="v200"] .v2-m-rayons, :root[data-app="v200"] .v2-m-flotte, :root[data-app="v200"] .v2-m-pluie, :root[data-app="v200"] .v2-res-barre-plein { animation: none !important; }
   :root[data-app="v200"] .v2-pot-piece { opacity: 1; }
 }
+
+/* ---------- Paiements Apple Pay : bouton de Dépenses, feuille de récupération, « à vérifier », réglages ---------- */
+:root[data-app="v200"] .v2-dep-ap { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+:root[data-app="v200"] .v2-dep-ap-bouton {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--texte); box-shadow: var(--ombre); font-family: var(--police); font-size: 15px; font-weight: 800;
+}
+:root[data-app="v200"] .v2-dep-ap-bouton:active { transform: scale(.97); }
+:root[data-app="v200"] .v2-dep-ap-quand { font-size: 14px; font-weight: 700; color: var(--texte-2); }
+:root[data-app="v200"] .v2-dep-etiquette-verifier { background: var(--accent-doux); color: var(--accent-fort); }
+
+:root[data-app="v200"] .v2-ap, :root[data-app="v200"] .v2-ap-accueil, :root[data-app="v200"] .v2-ap-revue { display: flex; flex-direction: column; gap: 16px; }
+:root[data-app="v200"] .v2-ap-accueil { flex: 1; }
+:root[data-app="v200"] .v2-ap-intro { font-size: 16.5px; font-weight: 700; line-height: 1.4; color: var(--texte); }
+:root[data-app="v200"] .v2-ap-sous-texte { font-size: 14.5px; font-weight: 700; line-height: 1.4; color: var(--texte-2); }
+:root[data-app="v200"] .v2-ap-centre { text-align: center; }
+:root[data-app="v200"] .v2-ap-message { padding: 12px 14px; border-radius: 18px; background: var(--laiton-doux); color: var(--texte); font-size: 15.5px; font-weight: 800; line-height: 1.4; }
+:root[data-app="v200"] .v2-ap-message[hidden] { display: none; }
+:root[data-app="v200"] .v2-ap-bouton { width: 100%; min-height: 58px; justify-content: center; font-size: 17px; }
+:root[data-app="v200"] .v2-ap-bouton:disabled { opacity: .55; }
+:root[data-app="v200"] .v2-ap-section { display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v200"] .v2-ap-titre { font-family: var(--police-titres); font-weight: 600; font-size: 18px; color: var(--texte); margin: 0 4px; }
+:root[data-app="v200"] .v2-ap-bilan { font-family: var(--police-titres); font-weight: 600; font-size: 20px; line-height: 1.3; color: var(--texte); margin: 4px 2px 0; }
+:root[data-app="v200"] .v2-ap-depuis { display: flex; flex-direction: column; gap: 8px; }
+:root[data-app="v200"] .v2-ap-depuis .v2-puces { justify-content: flex-start; }
+:root[data-app="v200"] .v2-ap-depuis .v2-puce { background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-ap-depuis .v2-puce.actif { background: var(--accent); }
+
+/* Aide du Raccourci (repliée) */
+:root[data-app="v200"] .v2-ap-aide { border-radius: 20px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-ap-aide > summary {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; cursor: pointer; list-style: none;
+  font-size: 16px; font-weight: 800; color: var(--texte);
+}
+:root[data-app="v200"] .v2-ap-aide > summary::-webkit-details-marker { display: none; }
+:root[data-app="v200"] .v2-ap-aide > summary::before { display: none; }
+:root[data-app="v200"] .v2-ap-aide > summary::after { content: "›"; margin-left: auto; font-size: 22px; color: var(--texte-2); transition: transform .2s ease; }
+:root[data-app="v200"] .v2-ap-aide[open] > summary::after { transform: rotate(90deg); }
+:root[data-app="v200"] .v2-ap-etapes { margin: 0; padding: 0 16px 16px 38px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; font-weight: 600; line-height: 1.45; }
+:root[data-app="v200"] .v2-ap-etapes li::marker { font-weight: 800; color: var(--accent); }
+:root[data-app="v200"] .v2-ap-code {
+  display: inline-block; max-width: 100%; padding: 1px 7px; border-radius: 8px; background: var(--surface-2); color: var(--texte);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; word-break: break-all;
+}
+
+/* Liste des nouveaux paiements : une case à cocher, puis la ligne (toucher = changer la catégorie) */
+:root[data-app="v200"] .v2-ap-item { display: flex; align-items: center; gap: 2px; }
+:root[data-app="v200"] .v2-ap-item + .v2-ap-item { border-top: 1px solid #F1E9DA; }
+:root[data-app="v200"] .v2-ap-coche { flex: none; width: 44px; height: 58px; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; padding: 0; }
+:root[data-app="v200"] .v2-ap-coche-rond {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 2px solid #D9CDB6; background: var(--surface); color: #FFFFFF;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+:root[data-app="v200"] .v2-ap-coche.actif .v2-ap-coche-rond { background: var(--accent); border-color: var(--accent); }
+:root[data-app="v200"] .v2-ap-coche-rond .ic { width: 17px; height: 17px; stroke-width: 3; }
+:root[data-app="v200"] .v2-ap-ligne {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 7px 10px 7px 4px; border: 0; border-radius: 18px;
+  background: transparent; color: var(--texte); font-family: var(--police); text-align: left; cursor: pointer;
+}
+:root[data-app="v200"] .v2-ap-ligne:active { background: var(--fond); }
+:root[data-app="v200"] .v2-ap-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+:root[data-app="v200"] .v2-ap-nom { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-app="v200"] .v2-ap-sous { font-size: 13.5px; font-weight: 700; color: var(--texte-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-app="v200"] .v2-ap-sous strong { color: var(--accent-fort); }
+:root[data-app="v200"] .v2-ap-item.a-classer .v2-dep-emoji { background: var(--accent-doux); }
+:root[data-app="v200"] .v2-ap-droite { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+:root[data-app="v200"] .v2-ap-droite .v2-dep-etiquette { padding: 2px 8px; font-size: 12px; }
+:root[data-app="v200"] .v2-ap-item.decoche .v2-ap-ligne { opacity: .45; }
+
+/* Questions : déjà notée ?, à compléter */
+:root[data-app="v200"] .v2-ap-questions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v200"] .v2-ap-question { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 22px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-ap-question.decoche { opacity: .6; }
+:root[data-app="v200"] .v2-ap-question-tete { display: flex; align-items: center; gap: 10px; min-width: 0; }
+:root[data-app="v200"] .v2-ap-question-texte { font-size: 15.5px; font-weight: 700; line-height: 1.4; }
+:root[data-app="v200"] .v2-ap-question .v2-puces { justify-content: flex-start; }
+:root[data-app="v200"] .v2-ap-question .v2-puce { background: var(--fond); }
+:root[data-app="v200"] .v2-ap-question .v2-puce.actif { background: var(--accent); color: #FFFFFF; }
+:root[data-app="v200"] .v2-ap-question .v2-puce:disabled { opacity: .5; }
+
+/* Carte → compte */
+:root[data-app="v200"] .v2-ap-carte { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 8px 8px 8px 14px; border-radius: 20px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-ap-carte-nom { flex: 1 1 auto; min-width: 0; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+:root[data-app="v200"] .v2-ap-carte .v2-puces { flex: 0 1 auto; }
+:root[data-app="v200"] .v2-ap-carte .v2-puces { justify-content: flex-start; }
+:root[data-app="v200"] .v2-ap-carte .v2-puce { background: var(--fond); }
+:root[data-app="v200"] .v2-ap-carte .v2-puce.actif { background: var(--accent); color: #FFFFFF; }
+
+/* Déjà dans l'app (replié) */
+:root[data-app="v200"] .v2-ap-deja { border-radius: 20px; background: var(--surface-2); }
+:root[data-app="v200"] .v2-ap-deja > summary::before { color: var(--texte-2); }
+:root[data-app="v200"] .v2-ap-deja > summary { display: flex; align-items: center; min-height: 48px; padding: 0 16px; cursor: pointer; font-size: 15.5px; font-weight: 800; color: var(--texte-2); }
+:root[data-app="v200"] .v2-ap-deja[open] { padding-bottom: 10px; }
+:root[data-app="v200"] .v2-ap-deja-liste { list-style: none; margin: 0; padding: 0 16px; display: flex; flex-direction: column; gap: 6px; }
+:root[data-app="v200"] .v2-ap-deja-liste li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; }
+:root[data-app="v200"] .v2-ap-deja-liste .v2-ap-sous { grid-column: 1; }
+:root[data-app="v200"] .v2-ap-deja-montant { grid-column: 2; grid-row: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
+:root[data-app="v200"] .v2-ap-deja > .v2-ap-sous-texte { padding: 6px 16px 0; }
+
+/* Réglages : cartes, mots à vérifier */
+:root[data-app="v200"] .v2-ap-cartes { display: flex; flex-direction: column; gap: 10px; }
+:root[data-app="v200"] .v2-ap-carte-ligne { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 20px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-ap-carte-ligne .input { min-height: 44px; }
+:root[data-app="v200"] .v2-ap-mots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+:root[data-app="v200"] .v2-ap-mots li { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding-left: 14px; border-radius: 999px; background: var(--surface); box-shadow: var(--ombre); font-weight: 800; max-width: 100%; }
+:root[data-app="v200"] .v2-ap-mots li > span { overflow-wrap: anywhere; }
+:root[data-app="v200"] .v2-ap-mot-retirer { flex: none; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--texte-2); display: grid; place-items: center; cursor: pointer; }
+:root[data-app="v200"] .v2-ap-mot-retirer .ic { width: 18px; height: 18px; }
+:root[data-app="v200"] .v2-ap-mot-ajout { display: flex; gap: 8px; align-items: center; }
+:root[data-app="v200"] .v2-ap-mot-ajout .input { flex: 1; min-width: 0; min-height: 44px; background-color: var(--surface); box-shadow: var(--ombre); }

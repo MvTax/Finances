@@ -173,6 +173,14 @@ function revueImport(resultats) {
     }, { grouper: true }) });
   };
   dessinerConfirm();
+  // Paiement Apple Pay au montant provisoire (station, péage…) : le relevé donne le vrai montant, remplacé par défaut
+  const corriges = prep.rapprochees.filter((r) => r.montantDifferent);
+  const remplacer = new Set(corriges.map((r) => r.existante.id));
+  const zoneMontants = corriges.length ? h('div', {},
+    h('h3', {}, 'Montants corrigés par le relevé'),
+    ...corriges.map((r) => interrupteur(`Le relevé dit ${formatEuros(r.importee.montantCentimes)} au lieu de ${formatEuros(r.existante.montantCentimes)}. Remplacer ?`, true,
+      (oui) => { if (oui) remplacer.add(r.existante.id); else remplacer.delete(r.existante.id); },
+      `${r.existante.marchand || r.importee.marchand} · ${formatDate(r.existante.date)}`))) : null;
   const ia = iaDisponible();
   const inconnues = prep.nouvelles.filter((t) => t.categorie === 'autres');
   const btnIA = ia.ok && inconnues.length ? h('div', { class: 'bloc-ia' }, indicationEnvoiGemini(`${new Set(inconnues.filter((t) => !t.personne).map((t) => t.marchand)).size} noms de marchands normalisés avec leur montant moyen et leur nombre de passages. Aucun libellé complet, aucune personne.`),
@@ -192,11 +200,12 @@ function revueImport(resultats) {
         h('p', {}, n(prep.rapprochees.length), ' saisies manuelles rapprochées'),
         h('p', {}, n(prep.nouvelles.filter((t) => t.regleRevolut).length), ' virements Revolut 10–18 € classés « Uber Eats via un tiers »'),
         h('p', {}, n(aConfirmer.length), ' catégories à confirmer (un geste corrige tout le marchand et crée une règle)')),
+      zoneMontants,
       btnIA,
       aConfirmer.length ? h('h3', {}, 'À confirmer') : null, zoneConfirm),
     actions: [bouton('Annuler', () => f.fermer()), bouton('Valider l’import', async () => {
       try {
-        const r = await validerImport(prep, { corrections });
+        const r = await validerImport(prep, { corrections, ...(corriges.length ? { remplacements: [...remplacer] } : {}) });
         // Une correction = une règle mémorisée par marchand
         const regles = new Map();
         for (const t of prep.nouvelles) if (corrections[t.id] && corrections[t.id] !== t.categorie) regles.set(`${t.marchand}|${t.sens}`, { t, cat: corrections[t.id] });

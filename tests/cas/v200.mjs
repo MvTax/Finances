@@ -10,7 +10,7 @@ import { eur, arrondi10 } from '../../js/v200/calculs/commun.js';
 import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, ligneCharge } from '../../js/v200/calculs/jour.js';
 import { serieJours, flammesDesJours } from '../../js/jeu.js';
 import { montantParle } from '../../js/v200/ui/molette.js';
-import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX } from '../../js/v200/calculs/depenses.js';
+import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX, aVerifier, joursDepuisApplePay, phraseDerniereFois, bilanApplePay, notesFichierApplePay, finApplePay } from '../../js/v200/calculs/depenses.js';
 import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis } from '../../js/v200/calculs/pots.js';
 import { meteoDuMois, phrasesMois, phrasesAnnee, METEO } from '../../js/v200/calculs/resume.js';
 import { jourBudgetaire } from '../../js/restes.js';
@@ -525,5 +525,45 @@ export default [
     });
     // Mois dépassé : la phrase douce, avec le montant exact
     avecDate('2026-11-25', () => egal(sp(ligneCharge(base(40000, 40000, '2026-11-25'), 'loyer', '2026-11-25').texte), 'Charge du mois. Ta part du mois est déjà utilisée : 15 € de plus que prévu.'));
+  } },
+  { nom: 'dépenses : un paiement Apple Pay au montant provisoire est « à vérifier » tant que le relevé ou toi ne l’a pas confirmé', fn: () => {
+    const A = '2026-11-16';
+    const ap = (id, applePay) => tx({ id, date: A, montant: 100, categorie: 'autres', source: 'applepay', extra: { applePay } });
+    const e = etat({ revenusMensuels: [revenus('2026-11')], transactions: [
+      ap('p', { provisoire: true, verifieLe: null }), ap('v', { provisoire: true, verifieLe: '2026-11-17T08:00:00Z' }), ap('n', { provisoire: false, verifieLe: null }),
+      tx({ id: 'm', date: A, montant: 300, categorie: 'courses' })] });
+    egal(aVerifier(e.transactions[0]), true); egal(aVerifier(e.transactions[1]), false); egal(aVerifier(e.transactions[2]), false); egal(aVerifier(e.transactions[3]), false); egal(aVerifier(null), false);
+    const lignes = joursDepenses(e, '2026-11-05', A, A)[0].lignes;
+    egalProfond(lignes.filter((l) => l.aVerifier).map((l) => l.tx.id), ['p']);
+    vrai(lignes.every((l) => typeof l.aVerifier === 'boolean'));
+  } },
+  { nom: 'Apple Pay : « dernière fois » en journées de budget (5 h – 5 h), jamais négatif', fn: () => {
+    const m = (le) => ({ applePayDernier: { le, totaux: {} } });
+    egal(joursDepuisApplePay({}, '2026-11-16'), null);
+    egal(phraseDerniereFois({}, '2026-11-16'), 'jamais encore');
+    egal(phraseDerniereFois(m('2026-11-16T10:00:00.000Z'), '2026-11-16'), 'dernière fois : aujourd’hui');
+    // 3 h 30 à Paris le 16 = encore la journée du 15
+    egal(joursDepuisApplePay(m('2026-11-16T02:30:00.000Z'), '2026-11-16'), 1);
+    egal(phraseDerniereFois(m('2026-11-16T02:30:00.000Z'), '2026-11-16'), 'dernière fois : hier');
+    egal(phraseDerniereFois(m('2026-11-12T18:00:00.000Z'), '2026-11-16'), 'dernière fois : il y a 4 jours');
+    egal(joursDepuisApplePay(m('2026-11-20T18:00:00.000Z'), '2026-11-16'), 0, 'horloge en avance : pas de « il y a -4 jours »');
+    egal(joursDepuisApplePay(m('pas une date'), '2026-11-16'), null);
+  } },
+  { nom: 'Apple Pay : bilan de lecture en une phrase, notes discrètes et carte de fin', fn: () => {
+    const x = (n) => Array.from({ length: n }, (_, i) => ({ tx: { id: `t${i}` } }));
+    const b = bilanApplePay({ aAjouter: [{}, {}, {}, {}], aConfirmer: x(1), aCompleter: [], dejaLa: x(1), ignorees: { dejaVues: 0, avantDebut: 0 } });
+    egal(b.phrase, '6 paiements lus : 4 nouveaux, 1 déjà noté ?, 1 déjà dans l’app');
+    egal(b.rienDeNouveau, false);
+    const r = bilanApplePay({ aAjouter: [], aConfirmer: [], aCompleter: [], dejaLa: x(1), ignorees: { dejaVues: 5, avantDebut: 2 } });
+    egal(r.phrase, '8 paiements lus : 6 déjà dans l’app, 2 avant ta date de départ'); egal(r.rienDeNouveau, true);
+    egal(bilanApplePay({ aAjouter: [{}], aConfirmer: x(2), aCompleter: x(1), dejaLa: [], ignorees: { dejaVues: 0, avantDebut: 0 } }).phrase, '4 paiements lus : 1 nouveau, 2 déjà notés ?, 1 à compléter');
+    egal(bilanApplePay({ aAjouter: [], aConfirmer: [], aCompleter: [], dejaLa: [], ignorees: { dejaVues: 0, avantDebut: 0 } }).phrase, 'Aucun paiement dans ce fichier.');
+    egal(bilanApplePay(null).total, 0);
+    for (const p of [b.phrase, r.phrase]) phraseOk(p);
+    egalProfond(notesFichierApplePay({ cassees: 0, formatRecent: 0 }), []);
+    egalProfond(notesFichierApplePay({ cassees: 2, formatRecent: 1 }), ['2 lignes illisibles ignorées.', '1 ligne vient d’un Raccourci plus récent : mets l’app à jour.']);
+    egalProfond(finApplePay({ ajoutees: 3, fusionnees: 1, enAttente: 2, ignorees: 1, dejaLa: 4 }), { sous: '3 paiements ajoutés', lignes: ['1 saisie complétée par Apple Pay.', '2 paiements attendent ta réponse : ils reviendront la prochaine fois.', '1 paiement laissé de côté.'] });
+    egalProfond(finApplePay({ fusionnees: 2 }), { sous: '2 saisies complétées', lignes: [] });
+    egalProfond(finApplePay({ enAttente: 1 }), { sous: 'Rien de nouveau', lignes: ['1 paiement attend ta réponse : il reviendra la prochaine fois.'] });
   } },
 ];

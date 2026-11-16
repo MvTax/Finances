@@ -62,10 +62,23 @@ PDF/CSV ──► pdf-loader (pdf.js) ──► parseur local (LCL / Revolut / C
                        → catégorisation (règles utilisateur → import → défaut → Gemini optionnel)
         ──► écran de revue ──► store (mémoire) ──► IndexedDB
 saisie (clavier / voix / photo) ──► carte de confirmation ──► store
+applepay.txt (iCloud, écrit par un Raccourci) ──► js/import/applepay.js : analyserFichier (lignes AP1) → planifierApplePay
+        ──► js/v200/pages/applepay.js (revue) ──► actions.enregistrerApplePay ──► store
 store ──► calculs.js / epargne.js / dettes.js ──► pages (Accueil, Dépenses, Épargne, Historique…)
 ```
 
 L'état complet est chargé en mémoire au démarrage (quelques milliers de transactions : < 5 Mo) ; chaque modification est écrite immédiatement dans IndexedDB, puis un évènement `change` redessine la page visible.
+
+### Paiements Apple Pay (1.43)
+
+- `js/import/applepay.js` (fonctions pures) : `analyserLigne` / `analyserFichier` (format `AP1|horodatage|montant|carte|nom|commerçant`), `empreintePaiement`, `estProvisoire`, `compteDeCarte`, `transactionDepuisPaiement`, `planifierApplePay` → `{ aAjouter, aConfirmer, dejaLa, aCompleter, ignorees }`.
+- `js/dates.js` : `jourBudgetDeHorodatage` (journée 5 h – 5 h, heure de Paris). `js/rules.js` : `marchandProche`. `js/import/pipeline.js` : `dedoublonner` laisse le relevé compléter un paiement Apple Pay (montant provisoire corrigé).
+- `js/actions.js` : `enregistrerApplePay(plan, choix)`, `corrigerMontantProvisoire`, `confirmerMontant`. Écrans : `js/v200/pages/applepay.js`.
+- Champs ajoutés, tous facultatifs, sans migration :
+  - `transactions[].applePay` : `empreinte`, `horodatage`, `heure`, `carte`, `commercant`, `montantInitialCentimes`, `devise`, `montantDevise?`, `provisoire`, `raisonProvisoire` (`mot-cle` | `verification-carte`), `verifieLe`, `classement` (`regle` | `defaut` | `historique` | `a-classer` | `choix`), `montantSaisi?`. La transaction a `source: 'applepay'`.
+  - `profil.applePay` : `cartes` (nom de carte → id de compte), `depuis` (AAAA-MM-JJ), `motsProvisoires` (liste de mots).
+  - `meta.applePayVues` : empreintes des paiements déjà lus ; exportée (listée dans `META_HISTORIQUE`), réunie à la fusion.
+  - `meta.applePayDernier` : `{ le, totaux, lues }`, date de la dernière lecture ; **non exportée**.
 
 ## Schéma IndexedDB (version 2)
 

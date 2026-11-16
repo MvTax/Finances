@@ -1,7 +1,7 @@
 # État du projet
 
 - **En ligne (`main`)** : 1.40.0 (v100 simplifié)
-- **Branche de travail** : `v100-simple` : 1.42.0 prête à mettre en ligne
+- **Branche de travail** : `v100-simple` : 1.42.0 prête à mettre en ligne ; la 1.43.0 est sur la branche `claude/apple-pay-icloud-automation-bka5am` (basée sur la 1.42.0)
 
 ## Dernières livraisons (branche, pas encore en ligne)
 - 1.41.0 : dépenses obligatoires reconnues à la saisie (`js/obligatoires.js`) : comptées dans le mois, pas dans la part du jour ; cas « probable » → question oui / non.
@@ -11,6 +11,9 @@
 - 1.41.4 : onglets Dépenses (liste par jour, « du mois », question oui / non) et Épargne (trois pots, « À virer »).
 - 1.41.5 : onglet Résumé (météo du mois, mois / année, préventions, « Voir le détail ») ; dessins faits main.
 - 1.42.0 : v200 devient l'app par défaut (ancien choix « v100 » réécrit en v200 ; « origine » gardée) ; le Cockpit v100 est retiré (pages, styles, police Saira, onglet Stratégie, moteurs) ; `stats.js` et `explications.js` déplacés dans `js/v200/calculs/` ; Réglages v200 regroupés (Sauvegarde en haut, « Revenir à l'ancienne app », partage du reste du jour) ; pages héritées harmonisées (css/v200.css) ; `tools/ecrans.mjs` en v200 par défaut.
+- 1.43.0 : paiements Apple Pay récupérés depuis un fichier iCloud écrit par un Raccourci (classement, doublons, montants à vérifier).
 
 ## Reste à faire
 - Mise en ligne de la 1.42.0 (fusion dans `main`), puis retour de l'utilisateur sur l'iPhone.
+- Essayer le Raccourci Apple Pay et le bouton « Récupérer Apple Pay » sur l'iPhone (ouverture du sélecteur de fichiers à confirmer).
+- Essayer « Remplacer ? » (montant provisoire) avec un vrai relevé.

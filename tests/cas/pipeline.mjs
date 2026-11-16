@@ -3,7 +3,7 @@ import { lireFixture } from '../outils/env.mjs';
 import { extrairePages } from '../../js/import/pdf-loader.js';
 import { parserLCL } from '../../js/import/lcl-pdf.js';
 import { parserRevolut } from '../../js/import/revolut-pdf.js';
-import { traiterImport, dedoublonner, recalculerAjustement, soldeCompte, detecterChargesFixes, jetonsTitulaire, designeTitulaire } from '../../js/import/pipeline.js';
+import { traiterImport, dedoublonner, recalculerAjustement, soldeCompte, detecterChargesFixes, jetonsTitulaire, designeTitulaire, fusionnerRapprochement, empreinte } from '../../js/import/pipeline.js';
 import { natureTransaction } from '../../js/categories.js';
 
 let res = null;
@@ -91,6 +91,43 @@ export default [
     const c = detecterChargesFixes(txs, { dateReference: '2026-10-30' });
     const loyer = c.find((x) => x.libelle === 'Logement Exemple'); vrai(loyer.actif); vrai(loyer.montantVariable); egal(loyer.jourPrelevement, 8);
     const salle = c.find((x) => x.libelle === 'Salle Exemple'); egal(salle.periodiciteJours, 28); egal(salle.montantCentimes, 4196);
+  } },
+  { nom: 'pipeline : paiement Apple Pay complété par la ligne du relevé (même sur un autre compte, en dernier recours)', fn: () => {
+    const ap = (o) => ({ id: o.id, date: o.date, dateComptable: o.date, montantCentimes: o.montant, sens: 'debit', compteId: o.compteId || 'rev', marchand: o.marchand, libellePrincipal: o.marchand.toUpperCase(),
+      source: 'applepay', applePay: { empreinte: o.id, commercant: o.marchand.toUpperCase(), provisoire: !!o.provisoire, verifieLe: null, montantInitialCentimes: o.montant } });
+    const ligne = (o) => { const t = { id: o.id, date: o.date, dateComptable: o.date, montantCentimes: o.montant, sens: 'debit', compteId: o.compteId || 'lcl', marchand: o.marchand, libellePrincipal: o.libelle, libelleBrut: o.libelle, source: 'import', importId: 'i2', modifieLe: '2026-11-20T10:00:00Z' }; t.empreinteDedoublonnage = empreinte(t); return t; };
+    const pain = ap({ id: 'a1', date: '2026-11-16', montant: 1250, marchand: 'Boulangerie Test' });
+    const r = dedoublonner([ligne({ id: 'b1', date: '2026-11-17', montant: 1250, marchand: 'Boulangerie Test', libelle: 'CB BOULANGERIE TEST 16/11' })], [pain]);
+    egal(r.rapprochees.length, 1); egal(r.nouvelles.length, 0); egal(r.doublons.length, 0); vrai(!r.rapprochees[0].montantDifferent);
+    const f = fusionnerRapprochement(r.rapprochees[0].existante, r.rapprochees[0].importee);
+    egal(f.source, 'import'); egal(f.sourceInitiale, 'applepay'); egal(f.compteId, 'lcl', 'la banque fait foi pour le compte'); egal(f.applePay.verifieLe, '2026-11-20T10:00:00Z');
+    // Relire le même relevé ensuite : simple doublon
+    egal(dedoublonner([ligne({ id: 'b1', date: '2026-11-17', montant: 1250, marchand: 'Boulangerie Test', libelle: 'CB BOULANGERIE TEST 16/11' })], [f]).doublons.length, 1);
+    // Une saisie à la main sur un autre compte n'est pas rapprochée (inchangé)
+    const main = { ...pain, id: 'm1', source: 'texte', applePay: undefined };
+    egal(dedoublonner([ligne({ id: 'b2', date: '2026-11-17', montant: 1250, marchand: 'Boulangerie Test', libelle: 'CB BOULANGERIE TEST 16/11' })], [main]).nouvelles.length, 1);
+    // Autre compte et nom sans rapport : pas le même paiement
+    egal(dedoublonner([ligne({ id: 'b3', date: '2026-11-17', montant: 1250, marchand: 'Librairie Exemple', libelle: 'CB LIBRAIRIE EXEMPLE' })], [pain]).nouvelles.length, 1);
+    // Deux cafés au relevé, un seul paiement Apple Pay : un rapproché, un nouveau
+    const cafe = ap({ id: 'a2', date: '2026-11-16', montant: 200, marchand: 'Cafe Test', compteId: 'lcl' });
+    const deux = dedoublonner([ligne({ id: 'c1', date: '2026-11-16', montant: 200, marchand: 'Cafe Test', libelle: 'CB CAFE TEST' }), ligne({ id: 'c2', date: '2026-11-16', montant: 200, marchand: 'Cafe Test', libelle: 'CB CAFE TEST' })], [cafe]);
+    egal(deux.rapprochees.length, 1); egal(deux.nouvelles.length, 1); egal(deux.doublons.length, 0);
+  } },
+  { nom: 'pipeline : paiement « à vérifier » (station) rapproché malgré un autre montant ; le montant du relevé peut le remplacer', fn: () => {
+    const station = { id: 'p1', date: '2026-11-16', dateComptable: '2026-11-16', montantCentimes: 100, sens: 'debit', compteId: 'lcl', marchand: 'Station Test', libellePrincipal: 'STATION TEST', source: 'applepay',
+      applePay: { empreinte: 'p1', commercant: 'STATION TEST', provisoire: true, raisonProvisoire: 'verification-carte', verifieLe: null, montantInitialCentimes: 100 } };
+    const l = { id: 'b1', date: '2026-11-18', dateComptable: '2026-11-18', montantCentimes: 4523, sens: 'debit', compteId: 'lcl', marchand: 'Station Test', libellePrincipal: 'CB STATION TEST 16/11', libelleBrut: 'CB STATION TEST 16/11', source: 'import', importId: 'i3', modifieLe: '2026-11-20T10:00:00Z' };
+    l.empreinteDedoublonnage = empreinte(l);
+    const r = dedoublonner([l], [station]);
+    egal(r.rapprochees.length, 1); egal(r.rapprochees[0].montantDifferent, true);
+    const garde = fusionnerRapprochement(station, l);
+    egal(garde.montantCentimes, 100); egal(garde.applePay.verifieLe, null, 'toujours à vérifier');
+    const remplace = fusionnerRapprochement(station, l, { remplacerMontant: true });
+    egal(remplace.montantCentimes, 4523); egal(remplace.applePay.verifieLe, '2026-11-20T10:00:00Z'); egal(remplace.applePay.montantInitialCentimes, 100); egal(remplace.source, 'import');
+    // Trop tard (8 jours) ou paiement normal au montant différent : pas de rapprochement
+    egal(dedoublonner([{ ...l, date: '2026-11-24' }], [station]).nouvelles.length, 1);
+    egal(dedoublonner([l], [{ ...station, applePay: { ...station.applePay, provisoire: false } }]).nouvelles.length, 1);
+    egal(dedoublonner([l], [{ ...station, applePay: { ...station.applePay, verifieLe: '2026-11-17T08:00:00Z' } }]).nouvelles.length, 1, 'déjà vérifié');
   } },
 ];
 

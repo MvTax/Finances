@@ -4,7 +4,7 @@
 // 6. Détection des charges fixes et des revenus   7. Ajustements de solde
 // Toutes les fonctions sont pures (pas d'accès au DOM ni à la base) : testables sous Node.
 
-import { normaliserMarchand, normaliserTexte, trierRegles, trouverRegle, REGLES_DEFAUT } from '../rules.js';
+import { normaliserMarchand, normaliserTexte, trierRegles, trouverRegle, REGLES_DEFAUT, marchandProche } from '../rules.js';
 import { natureTransaction, montantSigne } from '../categories.js';
 import { diffJours, moisDe, ajouterJours } from '../dates.js';
 
@@ -100,17 +100,29 @@ export function empreinte(tx) {
   return `${tx.compteId}|${tx.sens}|${tx.montantCentimes}|${normaliserTexte(tx.marchand)}`;
 }
 
+/** Un paiement Apple Pay noté avant le relevé : la ligne de banque le complète (même compte de préférence). */
+const estApplePay = (t) => t.source === 'applepay';
+/** Écart de jours accepté entre un paiement Apple Pay et sa ligne de banque (la banque passe l'opération 0 à 4 jours après). */
+const ecartApplePayOk = (paiement, banque) => { const d = diffJours(paiement.date, banque.date); return d >= -1 && d <= 4; };
+/** Nom à comparer pour un paiement Apple Pay : le commerçant lu dans Cartes, sinon le marchand. */
+const nomApplePay = (t) => t.applePay?.commercant || t.marchand || t.libelle || '';
+const procheDe = (existante, importee) => marchandProche(nomApplePay(existante), importee.libellePrincipal || '') || marchandProche(nomApplePay(existante), importee.marchand || '');
+
 /**
  * Dédoublonnage idempotent. Chaque transaction existante ne peut absorber qu'UNE nouvelle (multiensemble) :
  * trois cafés identiques le même jour restent trois cafés, mais réimporter le même relevé n'ajoute rien.
  * Les saisies manuelles (voix, texte, photo, confirmation de salaire) sont rapprochées des lignes importées
  * (même compte, sens et montant, date ±3 jours) : la ligne bancaire complète la saisie au lieu de la dupliquer.
- * @returns {{ nouvelles: Array, doublons: Array, rapprochees: Array<{ existante, importee }> }}
+ * Paiements Apple Pay (source 'applepay') : jamais écartés comme simple doublon (la ligne de banque les complète) ;
+ * en dernier recours, un autre compte est accepté (la carte a pu être rattachée au mauvais compte) ;
+ * un paiement « à vérifier » (station, péage, hôtel…) est rapproché même si le montant diffère
+ * (même sens, 0 à 7 jours après, nom proche) : { montantDifferent: true }.
+ * @returns {{ nouvelles: Array, doublons: Array, rapprochees: Array<{ existante, importee, montantDifferent? }> }}
  */
 export function dedoublonner(entrantes, existantes) {
   const parCle = new Map();
   for (const e of existantes) {
-    if (e.ajustement) continue;
+    if (e.ajustement || estApplePay(e)) continue;
     const k = e.empreinteDedoublonnage || empreinte(e);
     if (!parCle.has(k)) parCle.set(k, []);
     parCle.get(k).push(e);
@@ -120,24 +132,36 @@ export function dedoublonner(entrantes, existantes) {
   const doublons = [];
   const rapprochees = [];
   const manuelles = existantes.filter((e) => e.source !== 'import' && !e.ajustement && e.compteId);
+  const provisoires = existantes.filter((e) => estApplePay(e) && e.applePay?.provisoire && !e.applePay.verifieLe && !e.ajustement);
+  const parEcart = (t) => (a, b) => Math.abs(diffJours(a.date, t.date)) - Math.abs(diffJours(b.date, t.date));
   for (const t of entrantes) {
     const candidats = parCle.get(t.empreinteDedoublonnage || empreinte(t)) || [];
     const trouve = candidats
       .filter((c) => !utilisees.has(c.id) && Math.abs(diffJours(c.date, t.date)) <= 1)
-      .sort((a, b) => Math.abs(diffJours(a.date, t.date)) - Math.abs(diffJours(b.date, t.date)))[0];
+      .sort(parEcart(t))[0];
     if (trouve) { utilisees.add(trouve.id); doublons.push(t); continue; }
-    const manuelle = manuelles
-      .filter((m) => !utilisees.has(m.id) && m.compteId === t.compteId && m.sens === t.sens && m.montantCentimes === t.montantCentimes && Math.abs(diffJours(m.date, t.date)) <= 3)
-      .sort((a, b) => Math.abs(diffJours(a.date, t.date)) - Math.abs(diffJours(b.date, t.date)))[0];
+    const memeOperation = (m) => !utilisees.has(m.id) && m.sens === t.sens && m.montantCentimes === t.montantCentimes
+      && (estApplePay(m) ? ecartApplePayOk(m, t) : Math.abs(diffJours(m.date, t.date)) <= 3);
+    const manuelle = manuelles.filter((m) => m.compteId === t.compteId && memeOperation(m)).sort(parEcart(t))[0]
+      // Dernier recours : un paiement Apple Pay rattaché à un autre compte, au nom proche
+      || manuelles.filter((m) => estApplePay(m) && m.compteId !== t.compteId && memeOperation(m) && procheDe(m, t)).sort(parEcart(t))[0];
     if (manuelle) { utilisees.add(manuelle.id); rapprochees.push({ existante: manuelle, importee: t }); continue; }
+    const provisoire = provisoires
+      .filter((e) => !utilisees.has(e.id) && e.sens === t.sens && diffJours(e.date, t.date) >= 0 && diffJours(e.date, t.date) <= 7 && procheDe(e, t))
+      .sort(parEcart(t))[0];
+    if (provisoire) { utilisees.add(provisoire.id); rapprochees.push({ existante: provisoire, importee: t, montantDifferent: provisoire.montantCentimes !== t.montantCentimes }); continue; }
     nouvelles.push(t);
   }
   return { nouvelles, doublons, rapprochees };
 }
 
-/** Fusionne une ligne importée dans la saisie manuelle correspondante (la catégorie choisie est conservée). */
-export function fusionnerRapprochement(existante, importee) {
-  return {
+/**
+ * Fusionne une ligne importée dans la saisie manuelle correspondante (la catégorie choisie est conservée).
+ * Paiement Apple Pay : la banque fait foi pour le compte, et le paiement est marqué vérifié ;
+ * remplacerMontant : le montant du relevé remplace le montant provisoire (station, péage…).
+ */
+export function fusionnerRapprochement(existante, importee, { remplacerMontant = false } = {}) {
+  const res = {
     ...existante,
     dateComptable: importee.dateComptable,
     libellePrincipal: importee.libellePrincipal,
@@ -149,6 +173,13 @@ export function fusionnerRapprochement(existante, importee) {
     source: 'import',
     modifieLe: importee.modifieLe,
   };
+  if (existante.applePay) {
+    const verifie = remplacerMontant || existante.montantCentimes === importee.montantCentimes;
+    res.compteId = importee.compteId;
+    if (remplacerMontant) res.montantCentimes = importee.montantCentimes;
+    res.applePay = { ...existante.applePay, verifieLe: verifie ? (importee.modifieLe || existante.applePay.verifieLe || null) : (existante.applePay.verifieLe || null) };
+  }
+  return res;
 }
 
 // ---------------------------------------------------------------------------

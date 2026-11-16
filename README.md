@@ -126,6 +126,73 @@ Le bouton **Calendrier** crée un événement `.ics`, récurrent si besoin.
 
 L'adresse `…/#ajout-vocal` ouvre directement la saisie vocale. **Limite d'iOS :** un Raccourci « Ouvrir l'URL » ouvre Safari, pas l'app installée, qui a un stockage séparé. Ce raccourci n'est donc utile que si tu utilises Budget dans Safari.
 
+Pour noter tes paiements Apple Pay tout seuls, un autre Raccourci existe : voir « Paiements Apple Pay notés tout seuls (1.43) » plus bas.
+
+## Paiements Apple Pay notés tout seuls (1.43)
+
+Chaque fois que tu paies avec Apple Pay, ton iPhone écrit une ligne dans un fichier texte d'iCloud Drive. Dans l'app, un bouton lit ce fichier et note ce qui manque. Rien n'est envoyé sur Internet.
+
+### Créer le Raccourci (une seule fois)
+
+1. Ouvre **Raccourcis › Automatisation › +**, puis choisis **Transaction**.
+2. Coche **tes cartes**, puis **Exécuter immédiatement**.
+3. Choisis **Nouveau raccourci vide**, puis ajoute ces trois actions :
+   - **Formater la date** : Date actuelle, format **Personnalisé** `yyyy-MM-dd'T'HH:mm:ssZZZZZ`, Format d'heure **Aucun**.
+   - **Texte** : `AP1|Date formatée|Montant|Carte|Nom|Commerçant`. Remplace chaque mot par la variable de **Entrée du raccourci** (Montant, Carte, Nom, Commerçant), et la date par la **Date formatée**. Le commerçant reste en dernier.
+   - **Ajouter au fichier texte** : le texte ci-dessus, dans `Budget/applepay.txt`, avec **Créer une nouvelle ligne** activé.
+4. Le fichier se trouve ensuite dans **Fichiers › iCloud Drive › Raccourcis › Budget**.
+
+Ne teste pas avec le bouton ▶ : il n'y a pas de paiement, donc la ligne serait vide. Fais plutôt un petit achat.
+
+### Le format d'une ligne (AP1)
+
+`AP1|date|montant|carte|nom|commerçant`
+
+Exemples inventés :
+
+```
+AP1|2026-03-12T08:15:30+01:00|3,20 €|Carte A|Boulangerie|BOULANGERIE TEST
+AP1|2026-03-12T19:40:02+01:00|-12,00 €|Carte A|Magasin|MAGASIN TEST
+AP1|2026-03-13T07:05:00+01:00|USD 8.00|Carte B|Cafe|CAFE TEST
+```
+
+- Le commerçant est en dernier : s'il contient un `|`, ce n'est pas grave. S'il est vide, l'app prend le nom.
+- Un montant avec un tiret (`-12,00 €`) est un remboursement.
+- Une autre devise que l'euro n'est jamais convertie : l'app te demande le montant en euros.
+- Les lignes vides et celles qui commencent par `#` sont ignorées. Une ligne `AP2|…` vient d'un Raccourci plus récent : mets l'app à jour.
+
+### Le bouton « Récupérer Apple Pay »
+
+Dans **Dépenses**, touche **Récupérer Apple Pay**, puis choisis `applepay.txt`. Au premier passage, tu dis à partir de quand compter. L'app te montre :
+
+- **Nouveaux** : les paiements à ajouter (cochés). Tu peux changer la catégorie ; ton choix est retenu pour ce commerçant.
+- **Déjà notée ?** : un paiement qui ressemble à une dépense déjà là. C'est toi qui réponds.
+- **À compléter** : paiement sans montant ou en autre devise. Tu tapes le montant en euros.
+- **Déjà dans l'app** : ce que l'app connaît déjà (replié).
+
+Classement : tes règles d'abord, puis les règles de base, puis la catégorie que tu as déjà donnée à ce commerçant. Sinon, le paiement reste « à classer ».
+
+### « À vérifier »
+
+Certains paiements débitent d'abord une somme provisoire : stations, péages, parkings, hôtels, locations de voiture, et les petites sommes de 1 € ou moins (vérification de carte). Ils portent l'étiquette **à vérifier**. Tu peux ajouter tes propres mots dans **Réglages › Paiements Apple Pay**. Quand ton relevé arrive, il donne le vrai montant.
+
+### Les doublons
+
+- Une ligne déjà lue n'est jamais re-proposée.
+- Si tu as déjà noté la dépense à la main (même jour, même montant), l'app demande : « Déjà notée ? ». Rien n'est fusionné sans ta réponse.
+- Si ton relevé bancaire est déjà là, le paiement est vu comme déjà dans l'app. Pour un montant provisoire qui diffère du relevé, l'app propose de **remplacer** le montant.
+- Quand tu importes ensuite le relevé, il complète le paiement Apple Pay au lieu de le doubler.
+
+### La journée
+
+La journée va de 5 h à 5 h, à l'heure de Paris, même si tu voyages : un paiement à 2 h du matin compte pour la veille.
+
+### Les limites
+
+- Les paiements en ligne ou dans une app ne passent pas par Apple Pay en magasin : ils ne sont pas notés.
+- Le fichier ne se vide jamais, il grossit. Ce n'est pas grave : aucune ligne n'est comptée deux fois.
+- Hors réseau, le fichier iCloud peut ne pas être téléchargé : ouvre Fichiers, touche le fichier pour le télécharger, puis recommence.
+
 ## Mettre à jour l'app
 
 1. Modifie `VERSION` dans `sw.js` **et** `versionApp` dans `js/version.js`, avec la même valeur.

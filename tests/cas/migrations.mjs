@@ -87,4 +87,25 @@ export default [
     egal(lignes[2], '2026-11-05;Virement interne;-50,00;;Vers épargne;;Compte courant;Saisie');
     egal(lignes[3], '2026-11-01;Entrée;1250,50;Salaire;Salaire;Employeur;Compte courant;Relevé importé');
   } },
+  { nom: 'sauvegarde : paiements Apple Pay (trace sur l’opération, réglages, empreintes vues) gardés à l’aller-retour, schéma inchangé', fn: () => {
+    egal(SCHEMA_VERSION, 4, 'pas de nouvelle version de base'); vrai(META_HISTORIQUE.includes('applePayVues'));
+    const applePay = { empreinte: '0a1b2c3d4e5f6a', horodatage: '2026-11-16T11:34:56Z', heure: '12:34', carte: 'Carte A', commercant: 'BOULANGERIE TEST', montantInitialCentimes: 1250, devise: 'EUR', provisoire: false, raisonProvisoire: null, verifieLe: null, classement: 'defaut' };
+    const etat = { profil: { cle: 'profil', applePay: { cartes: { 'Carte A': 'courant' }, depuis: '2026-11-01', motsProvisoires: ['lavage'] } }, parametres: { cle: 'parametres' },
+      transactions: [{ id: 'a', date: '2026-11-16', montantCentimes: 1250, sens: 'debit', source: 'applepay', applePay }],
+      meta: { applePayVues: ['0a1b2c3d4e5f6a', '1f2e3d4c5b6a7f'], applePayDernier: { le: '2026-11-16T18:00:00Z', totaux: { ajoutees: 1 } } } };
+    const exp = construireExport(etat, { maintenant: '2026-11-16T18:00:00Z' });
+    egal(exp.contenu.meta.applePayDernier, undefined, 'clé technique non exportée');
+    const lu = lireSauvegarde(JSON.parse(JSON.stringify(exp)));
+    vrai(lu.ok); egal(lu.migrations.length, 0);
+    egal(JSON.stringify(lu.contenu.transactions[0].applePay), JSON.stringify(applePay));
+    egal(JSON.stringify(lu.contenu.profil.applePay), JSON.stringify(etat.profil.applePay));
+    egal(lu.contenu.meta.applePayVues.join(','), '0a1b2c3d4e5f6a,1f2e3d4c5b6a7f');
+    // Fusion : listes d'empreintes réunies et triées
+    const comp = Object.fromEntries(historiqueARestaurer({ applePayVues: ['1f2e3d4c5b6a7f', 'ffeeddccbbaa99'] }, lu.contenu.meta));
+    egal(comp.applePayVues.join(','), '0a1b2c3d4e5f6a,1f2e3d4c5b6a7f,ffeeddccbbaa99');
+    // Une vieille sauvegarde sans rien d'Apple Pay reste valable
+    const vieille = construireExport({ profil: { cle: 'profil' }, parametres: {}, transactions: [{ id: 'b', date: '2026-01-01', montantCentimes: 100, sens: 'debit' }] });
+    const lv = lireSauvegarde(JSON.parse(JSON.stringify(vieille)));
+    vrai(lv.ok); egal(lv.contenu.meta.applePayVues, undefined); egal(lv.contenu.profil.applePay, undefined);
+  } },
 ];

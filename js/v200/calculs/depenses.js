@@ -4,7 +4,7 @@
 
 import { periodeBudget, estDepenseQuotidienne } from '../../calculs.js';
 import { natureTransaction, contributionDepense, nomCategorie } from '../../categories.js';
-import { diffJours, jourSemaine, ajouterJours, JOURS_LONGS, MOIS_LONGS } from '../../dates.js';
+import { diffJours, jourSemaine, ajouterJours, jourBudgetDeHorodatage, JOURS_LONGS, MOIS_LONGS } from '../../dates.js';
 import { eur } from './commun.js';
 
 /** Longueur maximale d'un nom court (le reste est coupé proprement, avec « … »). */
@@ -38,6 +38,9 @@ export function montantDepense(t) {
   return contributionDepense(t);
 }
 
+/** Paiement Apple Pay au montant provisoire (station, péage, hôtel…) pas encore vérifié avec le relevé. */
+export function aVerifier(t) { return !!t?.applePay?.provisoire && !t.applePay.verifieLe; }
+
 const PREFIXES = /^(PRLV( SEPA)?|CB|CARTE|PAIEMENT( PAR)? CB|ACHAT( CB)?|VIR( SEPA)?( INST)?|VIREMENT( SEPA)?|PRELEVEMENT)\s+/i;
 const DATE_FIN = /\s+\d{2}[/.]\d{2}([/.]\d{2,4})?$/;
 
@@ -69,13 +72,13 @@ const ordre = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.creeLe 
 
 /**
  * Les jours d'une période, du plus récent au plus ancien, avec leurs lignes (les plus récentes d'abord).
- * @returns {Array<{ date, titre, lignes: Array<{ tx, nature, nom, montantCentimes }> }>}
+ * @returns {Array<{ date, titre, lignes: Array<{ tx, nature, nom, montantCentimes, aVerifier }> }>}
  */
 export function joursDepenses(etat, debut, fin, auj) {
   const parJour = new Map();
   for (const t of [...(etat.transactions || [])].filter((x) => x.date >= debut && x.date <= fin && estVisible(x)).sort(ordre)) {
     if (!parJour.has(t.date)) parJour.set(t.date, []);
-    parJour.get(t.date).push({ tx: t, nature: natureLigne(t), nom: nomCourt(t), montantCentimes: t.montantCentimes });
+    parJour.get(t.date).push({ tx: t, nature: natureLigne(t), nom: nomCourt(t), montantCentimes: t.montantCentimes, aVerifier: aVerifier(t) });
   }
   return [...parJour.entries()].map(([date, lignes]) => ({ date, titre: titreJour(date, auj), lignes }));
 }
@@ -112,4 +115,68 @@ export function depuisSalaire(etat, auj) {
   const phrase = total <= 0 ? 'Depuis le salaire : rien de dépensé pour l’instant.'
     : `Depuis le salaire : ${eur(total)}${duMois > 0 && duMois < total ? `, dont ${eur(duMois)} du mois` : duMois >= total ? ', seulement des charges du mois' : ''}.`;
   return { periode, totalCentimes: total, duMoisCentimes: duMois, quotidienCentimes: quotidien, phrase };
+}
+
+// ---------------------------------------------------------------------------
+// Paiements Apple Pay (fichier du Raccourci) : les phrases de la feuille « Récupérer mes paiements »
+// ---------------------------------------------------------------------------
+
+const pl = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs : un}`;
+
+/** Jours de budget depuis la dernière lecture du fichier (meta.applePayDernier.le), ou null si jamais. */
+export function joursDepuisApplePay(meta, auj) {
+  const lu = meta?.applePayDernier?.le ? jourBudgetDeHorodatage(meta.applePayDernier.le) : null;
+  return lu ? Math.max(0, diffJours(lu.date, auj)) : null;
+}
+
+/** « dernière fois : il y a 3 jours », « dernière fois : hier », « jamais encore ». */
+export function phraseDerniereFois(meta, auj) {
+  const n = joursDepuisApplePay(meta, auj);
+  if (n === null) return 'jamais encore';
+  if (n === 0) return 'dernière fois : aujourd’hui';
+  if (n === 1) return 'dernière fois : hier';
+  return `dernière fois : il y a ${n} jours`;
+}
+
+/**
+ * Bilan d'une lecture (plan de planifierApplePay) en une phrase :
+ * « 6 paiements lus : 4 nouveaux, 1 déjà noté ?, 1 déjà dans l’app ».
+ * rienDeNouveau : aucune question à poser (rien à ajouter, confirmer ni compléter).
+ */
+export function bilanApplePay(plan) {
+  const nouveaux = plan?.aAjouter?.length || 0;
+  const aConfirmer = plan?.aConfirmer?.length || 0;
+  const aCompleter = plan?.aCompleter?.length || 0;
+  const dejaLa = (plan?.dejaLa?.length || 0) + (plan?.ignorees?.dejaVues || 0);
+  const avant = plan?.ignorees?.avantDebut || 0;
+  const total = nouveaux + aConfirmer + aCompleter + dejaLa + avant;
+  const parts = [
+    nouveaux ? pl(nouveaux, 'nouveau', 'nouveaux') : null,
+    aConfirmer ? pl(aConfirmer, 'déjà noté ?', 'déjà notés ?') : null,
+    aCompleter ? `${aCompleter} à compléter` : null,
+    dejaLa ? `${dejaLa} déjà dans l’app` : null,
+    avant ? `${avant} avant ta date de départ` : null,
+  ].filter(Boolean);
+  const phrase = total ? `${pl(total, 'paiement lu', 'paiements lus')} : ${parts.join(', ')}` : 'Aucun paiement dans ce fichier.';
+  return { total, nouveaux, aConfirmer, aCompleter, dejaLa, avant, phrase, rienDeNouveau: !nouveaux && !aConfirmer && !aCompleter };
+}
+
+/** Lignes du fichier laissées de côté (comptes d'analyserFichier) : phrases discrètes, vides si tout va bien. */
+export function notesFichierApplePay(comptes = {}) {
+  const res = [];
+  if (comptes.cassees) res.push(`${pl(comptes.cassees, 'ligne illisible ignorée', 'lignes illisibles ignorées')}.`);
+  if (comptes.formatRecent) res.push(`${pl(comptes.formatRecent, 'ligne vient', 'lignes viennent')} d’un Raccourci plus récent : mets l’app à jour.`);
+  return res;
+}
+
+/** Carte de fin (totaux d'enregistrerApplePay) : un titre court et au plus trois lignes. */
+export function finApplePay(t = {}) {
+  const ajoutees = t.ajoutees || 0; const fusionnees = t.fusionnees || 0; const enAttente = t.enAttente || 0; const ignorees = t.ignorees || 0;
+  const sous = ajoutees ? pl(ajoutees, 'paiement ajouté', 'paiements ajoutés') : fusionnees ? pl(fusionnees, 'saisie complétée', 'saisies complétées') : 'Rien de nouveau';
+  const lignes = [
+    ajoutees && fusionnees ? `${pl(fusionnees, 'saisie complétée', 'saisies complétées')} par Apple Pay.` : null,
+    enAttente ? `${pl(enAttente, 'paiement attend', 'paiements attendent')} ta réponse : ${enAttente > 1 ? 'ils reviendront' : 'il reviendra'} la prochaine fois.` : null,
+    ignorees ? `${pl(ignorees, 'paiement laissé', 'paiements laissés')} de côté.` : null,
+  ].filter(Boolean);
+  return { sous, lignes };
 }

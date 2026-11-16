@@ -8,6 +8,7 @@ prive/
 !tests/fixtures/*-synthetique*.pdf
 !tests/fixtures/*-synthetique*.csv
 budget-sauvegarde-*.json
+applepay*.txt
 
 # Divers
 node_modules/

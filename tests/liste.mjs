@@ -31,4 +31,5 @@ export const CAS = [
   ['v200-stats', () => import('./cas/v200-stats.mjs')],
   ['v200', () => import('./cas/v200.mjs')],
   ['sauvegarde-synthetique', () => import('./cas/sauvegarde-synthetique.mjs')],
+  ['applepay', () => import('./cas/applepay.mjs')],
 ];

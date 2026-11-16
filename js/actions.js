@@ -4,7 +4,8 @@ import { fluxEnvies, retenueAvance, repartirRetenue, repartirReste, partsReste }
 import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, nouvelId, reinitialiserJauge, ecrireMeta } from './store.js';
 import { cloturerJours } from './restes.js';
 import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, REGLES_DEFAUT, normaliserTexte } from './rules.js';
-import { categoriser, empreinte, traiterImport, detecterChargesFixes, rattacherChargesFixes, recalculerAjustement } from './import/pipeline.js';
+import { categoriser, empreinte, traiterImport, detecterChargesFixes, rattacherChargesFixes, recalculerAjustement, fusionnerRapprochement } from './import/pipeline.js';
+import { fusionnerPaiementDansSaisie } from './import/applepay.js';
 import { aujourdhui, dateDuMois, ajouterJours, moisDe } from './dates.js';
 import { cagnotteEnAttente, repartirVersement, soldePoche, recalculerPlan } from './epargne.js';
 import { revenusDuMois, chargesFixesPeriode, dettesPeriode, periodeBudget, cagnotteArrondis } from './calculs.js';
@@ -43,12 +44,20 @@ export function categoriesFrequentes(sens = 'debit', toutes) {
   return [...toutes].sort((a, b) => (n.get(b) || 0) - (n.get(a) || 0));
 }
 
-export async function ajouterTransaction(tx, { auj = aujourdhui() } = {}) {
-  // Rattachement à une charge fixe connue (ex. abonnement saisi à la main)
+/**
+ * Prépare une dépense avant de l'enregistrer (modifie tx et le renvoie) : rattachement à une charge fixe connue
+ * (ex. abonnement saisi à la main), sinon reconnaissance d'une dépense obligatoire (loyer, facture, abonnement) :
+ * comptée dans le mois, pas dans la part du jour (obligatoires.js).
+ */
+export function preparerAjout(tx, auj = aujourdhui()) {
   const cf = etat.chargesFixes.find((c) => c.actif && c.motifDetection === normaliserTexte(tx.marchand) && (!c.montantDetection || c.montantDetection === tx.montantCentimes));
   if (cf && tx.sens === 'debit') tx.chargeFixeId = cf.id;
-  // Dépense obligatoire (loyer, facture, abonnement) : comptée dans le mois, pas dans la part du jour (obligatoires.js)
   if (tx.sens === 'debit' && !tx.chargeFixeId) appliquerObligatoire(tx, reconnaitreObligatoire(etat, tx, auj));
+  return tx;
+}
+
+export async function ajouterTransaction(tx, { auj = aujourdhui() } = {}) {
+  preparerAjout(tx, auj);
   await enregistrer('transactions', tx);
   return tx;
 }
@@ -306,12 +315,18 @@ export function preparerImport(resultats) {
 }
 
 /** Valide l'import après revue : écrit les transactions, met à jour charges fixes, ajustements, profil. */
-export async function validerImport(prep, { corrections = {} } = {}) {
+/**
+ * remplacements : identifiants (paiement Apple Pay ou ligne du relevé) dont le montant du relevé remplace le montant
+ * provisoire. Absent : tout rapprochement « montant différent » prend le montant du relevé (la banque fait foi).
+ */
+export async function validerImport(prep, { corrections = {}, remplacements = null } = {}) {
   const ops = [];
   for (const { compte } of prep.lots) ops.push({ collection: 'comptes', valeur: compte });
   const nouvelles = prep.nouvelles.map((t) => (corrections[t.id] ? { ...t, categorie: corrections[t.id], categorieVerrouillee: true, aQualifier: false } : t));
   // Rapprochements saisie manuelle ↔ relevé
-  for (const { existante, importee } of prep.rapprochees) ops.push({ collection: 'transactions', valeur: { ...existante, dateComptable: importee.dateComptable, libellePrincipal: importee.libellePrincipal, libelleBrut: importee.libelleBrut, importId: importee.importId, sourceInitiale: existante.source, source: 'import', empreinteDedoublonnage: importee.empreinteDedoublonnage } });
+  const choisis = remplacements ? new Set(remplacements) : null;
+  const remplace = (r) => (choisis ? choisis.has(r.existante.id) || choisis.has(r.importee.id) : true);
+  for (const r of prep.rapprochees) ops.push({ collection: 'transactions', valeur: fusionnerRapprochement(r.existante, r.importee, { remplacerMontant: !!r.montantDifferent && remplace(r) }) });
   for (const t of prep.transactionsMisesAJour) ops.push({ collection: 'transactions', valeur: t });
   // Charges fixes : détection sur l'ensemble, on n'ajoute que les nouvelles (par motif)
   const toutes = [...etat.transactions, ...nouvelles];
@@ -370,6 +385,115 @@ export async function declarerSolde(compteId, centimes, date = ajouterJours(aujo
   if (!c) return;
   await enregistrer('comptes', { ...c, soldeReference: { date, centimes } });
   await recalculerTousAjustements();
+}
+
+// ---------------------------------------------------------------------------
+// Paiements Apple Pay notés automatiquement (fichier du Raccourci, voir import/applepay.js)
+// ---------------------------------------------------------------------------
+
+const enSet = (x) => (x instanceof Set ? x : new Set(Array.isArray(x) ? x : Object.keys(x || {}).filter((k) => x[k])));
+
+/**
+ * Enregistre ce que tu as validé dans le plan (planifierApplePay).
+ * @param plan   { aAjouter, aConfirmer, dejaLa, aCompleter, ignorees }
+ * @param choix  {
+ *   ignorer:    ids des opérations du plan décochées (Set, liste ou { [id]: true }) : jamais ajoutées, plus reproposées ;
+ *   categories: { [txId]: categorieId } catégorie changée (une règle est mémorisée pour ce commerçant) ;
+ *   memes:      { [txId]: true|false } pour aConfirmer : true = c'est le même paiement, false = un autre paiement ;
+ *   montants:   { [txId]: centimes } montant en euros tapé pour aCompleter ;
+ *   cartes:     { [nomCarte]: compteId } compte choisi pour une carte (mémorisé) ;
+ *   depuis:     'AAAA-MM-JJ' ignorer les paiements avant cette date (mémorisé) ;
+ *   auj, maintenant : pour les tests (sinon aujourdhui() et l'heure réelle) }
+ * Sans réponse (aConfirmer) ou sans montant (aCompleter) : rien n'est écrit, le paiement reviendra à la prochaine lecture.
+ * @returns {{ ajoutees, fusionnees, ignorees, dejaLa, enAttente }}
+ */
+export async function enregistrerApplePay(plan, choix = {}) {
+  const auj = choix.auj || aujourdhui();
+  const maintenant = choix.maintenant || M();
+  const ignorer = enSet(choix.ignorer);
+  const categories = choix.categories || {};
+  const memes = choix.memes || {};
+  const montants = choix.montants || {};
+  const cartes = choix.cartes || {};
+  const vues = new Set(etat.meta.applePayVues || []);
+  const totaux = { ajoutees: 0, fusionnees: 0, ignorees: 0, dejaLa: 0, enAttente: 0 };
+  const ops = [];
+  const regles = new Map();
+  const vu = (tx) => { if (tx.applePay?.empreinte) vues.add(tx.applePay.empreinte); };
+  const ajouter = (tx) => {
+    if (ignorer.has(tx.id)) { vu(tx); totaux.ignorees += 1; return; }
+    const t = { ...tx, applePay: { ...tx.applePay }, creeLe: tx.creeLe || maintenant, modifieLe: maintenant };
+    if (cartes[t.applePay.carte] && etat.comptes.some((c) => c.id === cartes[t.applePay.carte])) t.compteId = cartes[t.applePay.carte];
+    const cat = categories[t.id];
+    if (cat && cat !== t.categorie) {
+      t.categorie = cat; t.categorieVerrouillee = true; t.aQualifier = false; t.applePay.classement = 'choix';
+      delete t.regleId;
+      regles.set(`${t.marchand}|${t.sens}`, { t, cat });
+    }
+    preparerAjout(t, auj);
+    ops.push({ collection: 'transactions', valeur: t });
+    vu(t); totaux.ajoutees += 1;
+  };
+  for (const tx of plan.aAjouter || []) ajouter(tx);
+  for (const { tx, existante, raison } of plan.aConfirmer || []) {
+    if (ignorer.has(tx.id)) { vu(tx); totaux.ignorees += 1; continue; }
+    const rep = memes[tx.id];
+    if (rep === undefined || rep === null) { totaux.enAttente += 1; continue; }
+    if (rep === false) { ajouter(tx); continue; }
+    vu(tx);
+    if (raison === 'saisie-main') {
+      const actuelle = etat.transactions.find((t) => t.id === existante.id) || existante;
+      ops.push({ collection: 'transactions', valeur: fusionnerPaiementDansSaisie(actuelle, { ...tx, modifieLe: maintenant }) });
+      totaux.fusionnees += 1;
+    } else totaux.dejaLa += 1; // le relevé a déjà cette opération : on note seulement le paiement comme vu
+  }
+  for (const { tx } of plan.dejaLa || []) { vu(tx); totaux.dejaLa += 1; }
+  for (const { tx } of plan.aCompleter || []) {
+    if (ignorer.has(tx.id)) { vu(tx); totaux.ignorees += 1; continue; }
+    const m = montants[tx.id];
+    if (!Number.isInteger(m) || m <= 0) { totaux.enAttente += 1; continue; }
+    const t = { ...tx, montantCentimes: m, applePay: { ...tx.applePay, montantSaisi: true } };
+    t.empreinteDedoublonnage = empreinte(t);
+    ajouter(t);
+  }
+  // Une catégorie corrigée = une règle mémorisée pour ce commerçant (comme à l'import d'un relevé)
+  for (const { t, cat } of regles.values()) {
+    const regle = regleDepuisCorrection(t, cat, nouvelId('regle'));
+    const existante = etat.reglesCategorie.find((r) => r.origine === 'utilisateur' && r.motif === regle.motif && r.sens === regle.sens);
+    ops.push({ collection: 'reglesCategorie', valeur: existante ? { ...existante, categorie: cat } : regle });
+  }
+  if (ops.length) {
+    await reinitialiserJauge();
+    await enregistrerLot(ops);
+  }
+  const listeVues = [...vues].sort();
+  if (JSON.stringify(listeVues) !== JSON.stringify(etat.meta.applePayVues || [])) await ecrireMeta('applePayVues', listeVues);
+  await ecrireMeta('applePayDernier', { le: maintenant, totaux: { ...totaux }, lues: plan.comptes?.lues ?? null });
+  const ancien = etat.profil.applePay || {};
+  const nouveau = { cartes: { ...(ancien.cartes || {}) }, depuis: ancien.depuis || null, motsProvisoires: ancien.motsProvisoires || [] };
+  for (const [carte, compteId] of Object.entries(cartes)) if (etat.comptes.some((c) => c.id === compteId)) nouveau.cartes[carte] = compteId;
+  if (choix.depuis !== undefined) nouveau.depuis = choix.depuis || null;
+  if (JSON.stringify(nouveau) !== JSON.stringify(ancien)) await majProfil({ applePay: nouveau });
+  return totaux;
+}
+
+/** Le relevé (ou le ticket) donne le vrai montant d'un paiement « à vérifier » : on le corrige et il est vérifié. */
+export async function corrigerMontantProvisoire(txId, centimes, { maintenant = M() } = {}) {
+  const tx = etat.transactions.find((t) => t.id === txId);
+  if (!tx || !Number.isInteger(centimes) || centimes <= 0) return null;
+  const maj = { ...tx, montantCentimes: centimes, applePay: { ...(tx.applePay || {}), verifieLe: maintenant }, modifieLe: maintenant };
+  if (tx.source !== 'import') maj.empreinteDedoublonnage = empreinte(maj);
+  await enregistrer('transactions', maj);
+  return maj;
+}
+
+/** Le montant d'un paiement « à vérifier » est le bon : il n'est plus signalé. */
+export async function confirmerMontant(txId, { maintenant = M() } = {}) {
+  const tx = etat.transactions.find((t) => t.id === txId);
+  if (!tx?.applePay) return null;
+  const maj = { ...tx, applePay: { ...tx.applePay, verifieLe: maintenant }, modifieLe: maintenant };
+  await enregistrer('transactions', maj);
+  return maj;
 }
 
 export { soldePoche, revenusDuMois, trierRegles, trouverRegle, REGLES_DEFAUT };

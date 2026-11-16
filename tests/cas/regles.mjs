@@ -1,5 +1,5 @@
 import { egal, vrai } from '../outils/assert.mjs';
-import { normaliserMarchand, trierRegles, trouverRegle, REGLES_DEFAUT, regleDepuisCorrection } from '../../js/rules.js';
+import { normaliserMarchand, trierRegles, trouverRegle, REGLES_DEFAUT, regleDepuisCorrection, marchandProche } from '../../js/rules.js';
 import { categoriser } from '../../js/import/pipeline.js';
 
 const cat = (lib, sens = 'debit', regles = []) => { const t = { libellePrincipal: lib, libelleBrut: lib, marchand: normaliserMarchand(lib), sens, montantCentimes: 100 }; categoriser([t], regles); return t; };
@@ -48,5 +48,13 @@ export default [
     const t = trouverRegle({ libellePrincipal: 'CB BOULANGERIE TEST', marchand: 'Boulangerie Test', sens: 'debit' }, [relue]);
     egal(t?.id, 'r1');
     vrai(!('_re' in r), 'la règle ne doit plus porter de cache');
+  } },
+  { nom: 'règles : deux noms du même commerçant (Apple Pay et relevé)', fn: () => {
+    vrai(marchandProche('BOULANGERIE TEST', 'CB BOULANGERIE TEST 16/11'));
+    vrai(marchandProche('Boulangerie Test', 'BOULANGERIE-TEST'));
+    vrai(marchandProche('LIBRAIRIE DU CENTRE TEST', 'CB LIBRAIRIE CENTRE'), 'mot commun de 4 lettres ou plus');
+    vrai(!marchandProche('BOULANGERIE TEST', 'CB LIBRAIRIE EXEMPLE'));
+    vrai(!marchandProche('CAFE PARIS', 'PHARMACIE PARIS'), '« Paris » ne suffit pas');
+    vrai(!marchandProche('', 'CB CAFE TEST')); vrai(!marchandProche('CB', 'CB CAFE TEST'), 'trop court');
   } },
 ];

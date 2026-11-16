@@ -130,3 +130,13 @@ export function confirmerPrivation(p, { annuler = null, etaitNote = false } = {}
     annuler, flamme: flammeAllumee(auj, etaitNote),
   });
 }
+
+/**
+ * Après « Récupérer mes paiements » Apple Pay (totaux d'enregistrerApplePay) : combien sont ajoutés,
+ * ce qui attend encore ta réponse, et ta journée si des paiements d'aujourd'hui ont été ajoutés.
+ */
+export function confirmerApplePay(totaux, { sous, lignes = [] }) {
+  const auj = aujourdhui();
+  const jour = totaux.ajoutees ? ligneJour(auj) : null;
+  return carte({ titre: totaux.ajoutees || totaux.fusionnees ? 'C’est noté !' : 'C’est à jour', sous, lignes: [...lignes.map((l) => ligne(l, 'discret')), jour].filter(Boolean) });
+}

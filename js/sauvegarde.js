@@ -9,10 +9,11 @@ const SECRETS = ['cleGemini', 'pinHash', 'pinSel', 'pinIterations', 'motDePasseS
 /**
  * L'historique gardé à part des listes (store « meta ») et exporté avec elles : sans lui, une restauration perdrait
  * les restes des journées passés à l'épargne, les journées sans dépense, la série de flammes, les points, etc.
- * Les clés techniques (instantané de la jauge, empreintes du fichier privé, migrations) ne sont pas exportées.
+ * Les clés techniques (instantané de la jauge, empreintes du fichier privé, migrations, dernière lecture Apple Pay)
+ * ne sont pas exportées. applePayVues : empreintes des paiements Apple Pay déjà lus (réunies à la fusion).
  */
 export const META_HISTORIQUE = ['restesJour', 'reliquats', 'sansDepense', 'jeu', 'joursVus', 'abonnementsResilies', 'effortsPartages',
-  'enviesAmorcees', 'saisiesNuitRecalees', 'pochesRangees', 'supportsEpargne', 'derniereVerification'];
+  'enviesAmorcees', 'saisiesNuitRecalees', 'pochesRangees', 'supportsEpargne', 'derniereVerification', 'applePayVues'];
 
 export function construireExport(etat, { maintenant = new Date().toISOString(), version = '1.0.0' } = {}) {
   for (const r of etat.reglesCategorie || []) delete r._re;

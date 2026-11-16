@@ -27,6 +27,35 @@ export function isoDepuisDate(d) {
 
 export function heureParis(d = new Date()) { return FMT_HEURE.format(d); }
 
+const RE_HORODATAGE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:[.,]\d+)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/i;
+
+/**
+ * Journée de budget (5 h – 5 h, heure de Paris) d'un horodatage « 2026-11-16T12:34:56+01:00 ».
+ * Avec décalage (ou « Z ») : l'instant exact est ramené à Paris. Sans décalage : l'heure est déjà celle de Paris.
+ * Avant 5 h du matin, c'est encore la veille.
+ * @returns {{ date: string, heure: string, instant: string|null, secondes: boolean }|null}
+ *   heure « HH:MM » à Paris ; instant ISO UTC (null sans décalage) ; secondes : les secondes étaient écrites.
+ */
+export function jourBudgetDeHorodatage(texte) {
+  const m = String(texte ?? '').trim().match(RE_HORODATAGE);
+  if (!m) return null;
+  const [, a, mo, j, h, mi, s, dec] = m;
+  const iso = `${a}-${mo}-${j}`;
+  if (!estIso(iso) || Number(h) > 23 || Number(mi) > 59 || (s !== undefined && Number(s) > 59)) return null;
+  if (!dec) {
+    return { date: Number(h) < HEURE_DEBUT_JOUR ? ajouterJours(iso, -1) : iso, heure: `${h}:${mi}`, instant: null, secondes: s !== undefined };
+  }
+  let decalageMin = 0;
+  if (dec.toUpperCase() !== 'Z') {
+    const d = dec.match(/^([+-])(\d{2}):?(\d{2})?$/);
+    const hh = Number(d[2]); const mm = Number(d[3] || 0);
+    if (hh > 14 || mm > 59) return null;
+    decalageMin = (d[1] === '-' ? -1 : 1) * (hh * 60 + mm);
+  }
+  const ms = Date.UTC(Number(a), Number(mo) - 1, Number(j), Number(h), Number(mi), Number(s || 0)) - decalageMin * 60000;
+  return { date: isoDepuisDate(new Date(ms - HEURE_DEBUT_JOUR * 3600 * 1000)), heure: heureParis(new Date(ms)), instant: new Date(ms).toISOString(), secondes: s !== undefined };
+}
+
 export function versUTC(iso) {
   const [a, m, j] = iso.split('-').map(Number);
   return new Date(Date.UTC(a, m - 1, j));

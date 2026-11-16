@@ -5,7 +5,9 @@
 //    une dépense peut-être obligatoire pose sa question oui / non sur la ligne ;
 //  - toucher une ligne ouvre la feuille de modification de l'app (pages/depenses.js, ouvrirDetail) ;
 //  - la période en cours d'abord, « Voir le mois d'avant » pour remonter ; lignes ajoutées par lots (fluide) ;
-//  - tout en bas, discret : « Ajouter une rentrée d'argent » (la feuille de saisie habituelle, sur « Entrée »).
+//  - tout en bas, discret : « Ajouter une rentrée d'argent » (la feuille de saisie habituelle, sur « Entrée ») ;
+//  - dans l'en-tête : « Récupérer Apple Pay » (pages/applepay.js) et depuis quand ; un paiement au montant provisoire
+//    porte « à vérifier » et une petite question pour le confirmer ou le corriger.
 // Les calculs sont dans js/v200/calculs/depenses.js (testés) ; ici, seulement l'affichage.
 
 import { h, icone, estMasque, annoncer } from '../../ui/dom.js';
@@ -15,7 +17,7 @@ import { formatEuros } from '../../money.js';
 import { nomCategorie } from '../../categories.js';
 import { confirmerObligatoire } from '../../actions.js';
 import { eur } from '../calculs/commun.js';
-import { joursDepenses, depuisSalaire, periodePrecedente, premiereDate } from '../calculs/depenses.js';
+import { joursDepenses, depuisSalaire, periodePrecedente, premiereDate, phraseDerniereFois } from '../calculs/depenses.js';
 import { emojiCategorie } from '../ui/tuiles.js';
 
 export const titre = 'Dépenses';
@@ -28,20 +30,27 @@ let pourAuj = null;
 
 const montant = (c) => (estMasque() ? '•••' : eur(c));
 const ETIQUETTES = { 'du-mois': 'du mois', probable: 'du mois ?', envie: 'envie', entree: 'rentrée' };
+const ouvrirAP = (fn) => async (...a) => { const m = await import('./applepay.js'); m[fn](...a); };
 
 function ligne(l) {
   const t = l.tx;
   const entree = l.nature === 'entree';
   const credit = t.sens === 'credit'; // rentrée d'argent ou remboursement d'un achat : « + », en vert
   const etiquette = ETIQUETTES[l.nature];
+  const verifier = l.aVerifier && !entree;
   const ouvrir = async () => { const { ouvrirDetail } = await import('../../pages/depenses.js'); ouvrirDetail(t); };
-  const aria = `${l.nom}, ${nomCategorie(t.categorie)}, ${entree ? 'rentrée de ' : credit ? 'remboursement de ' : ''}${formatEuros(t.montantCentimes)}${etiquette && !entree ? `, ${etiquette}` : ''}. Modifier`;
+  const aria = `${l.nom}, ${nomCategorie(t.categorie)}, ${entree ? 'rentrée de ' : credit ? 'remboursement de ' : ''}${formatEuros(t.montantCentimes)}${etiquette && !entree ? `, ${etiquette}` : ''}${verifier ? ', montant à vérifier' : ''}. Modifier`;
   const bouton = h('button', { type: 'button', class: 'v2-dep-ligne', onclick: ouvrir, 'aria-label': aria },
     h('span', { class: 'v2-dep-emoji', 'aria-hidden': 'true' }, entree ? '💶' : emojiCategorie(t.categorie)),
     h('span', { class: 'v2-dep-nom' }, l.nom),
     etiquette && !entree ? h('span', { class: `v2-dep-etiquette v2-dep-etiquette-${l.nature}`, 'aria-hidden': 'true' }, etiquette) : null,
+    verifier ? h('span', { class: 'v2-dep-etiquette v2-dep-etiquette-verifier', 'aria-hidden': 'true' }, 'à vérifier') : null,
     h('span', { class: `v2-dep-montant${credit ? ' v2-dep-montant-entree' : ''}${l.nature === 'du-mois' ? ' v2-dep-montant-du-mois' : ''}`, 'aria-hidden': 'true' }, `${credit ? '+' : ''}${montant(t.montantCentimes)}`));
-  if (l.nature !== 'probable') return h('li', { class: 'v2-dep-item' }, bouton);
+  // Montant provisoire (station, péage, hôtel…) : confirmer ou corriger, sous la ligne
+  const aVerifier = verifier ? h('div', { class: 'v2-dep-question', role: 'group', 'aria-label': `${l.nom} : montant à vérifier` },
+    h('span', { class: 'v2-dep-question-texte' }, 'Montant à vérifier'),
+    h('button', { type: 'button', class: 'v2-puce', 'aria-label': `Vérifier le montant de ${l.nom}`, onclick: () => ouvrirAP('ouvrirVerifierMontant')(t) }, 'Vérifier')) : null;
+  if (l.nature !== 'probable') return h('li', { class: `v2-dep-item${aVerifier ? ' avec-question' : ''}` }, bouton, aVerifier);
   // Question oui / non, sous la ligne (pas dans le bouton : deux boutons ne s'emboîtent pas)
   const repondre = async (oui, e) => {
     e.currentTarget.closest('.v2-dep-question')?.querySelectorAll('button').forEach((b) => { b.disabled = true; });
@@ -52,7 +61,7 @@ function ligne(l) {
     h('div', { class: 'v2-dep-question', role: 'group', 'aria-label': `${l.nom} : c’est une dépense obligatoire du mois ?` },
       h('span', { class: 'v2-dep-question-texte' }, 'Charge du mois ?'),
       h('button', { type: 'button', class: 'v2-puce', 'aria-label': `Oui, ${l.nom} est une dépense du mois`, onclick: (e) => repondre(true, e) }, 'Oui'),
-      h('button', { type: 'button', class: 'v2-puce', 'aria-label': `Non, ${l.nom} est une dépense du quotidien`, onclick: (e) => repondre(false, e) }, 'Non')));
+      h('button', { type: 'button', class: 'v2-puce', 'aria-label': `Non, ${l.nom} est une dépense du quotidien`, onclick: (e) => repondre(false, e) }, 'Non')), aVerifier);
 }
 
 function groupe(jour) {
@@ -81,7 +90,11 @@ export function rendre(vue) {
     h('h1', { class: 'v2-titre' }, 'Mes dépenses'),
     h('p', { class: 'v2-dep-resume' }, r.totalCentimes > 0
       ? [h('span', { class: 'v2-dep-resume-avant' }, 'Depuis le salaire', h('span', { class: 'sr' }, ' : ')), h('strong', { class: 'v2-dep-resume-montant' }, montant(r.totalCentimes)), dont ? h('span', { class: 'v2-dep-resume-dont' }, dont) : null]
-      : h('span', { class: 'v2-dep-resume-avant' }, r.phrase)));
+      : h('span', { class: 'v2-dep-resume-avant' }, r.phrase)),
+    h('div', { class: 'v2-dep-ap' },
+      h('button', { type: 'button', class: 'v2-dep-ap-bouton', onclick: ouvrirAP('ouvrirApplePay') },
+        h('span', { 'aria-hidden': 'true' }, '📲'), h('span', {}, 'Récupérer Apple Pay')),
+      h('span', { class: 'v2-dep-ap-quand' }, phraseDerniereFois(etat.meta, auj))));
 
   const liste = h('div', { class: 'v2-dep-jours' });
   const pied = h('div', { class: 'v2-dep-pied' },

@@ -251,6 +251,16 @@ export function genererSauvegarde({ aujourdhui = REFERENCE_DEFAUT, graine = GRAI
   saisie({ date: ajouterJours(auj, -61), libelle: 'Casque exemple', categorie: 'loisirs', montant: 6000, source: 'confirmation', depenseEtalee: true });
   saisie({ date: ajouterJours(auj, -70), libelle: 'Recharge téléphone exemple', categorie: 'telephonie', montant: 1000, source: 'confirmation' });
   saisie({ date: ajouterJours(auj, -71), libelle: 'Ticket exemple', categorie: 'transports', montant: 250, source: 'confirmation' });
+  // Paiements Apple Pay notés par le Raccourci (empreintes inventées) : deux saisies récentes deviennent des paiements
+  // Apple Pay, dont un « à vérifier » (mêmes montants et catégories : les calculs ne bougent pas)
+  const applePay = (libelle, empreinteAP, provisoire = false) => {
+    const t = transactions.find((x) => x.libelle === libelle);
+    t.source = 'applepay';
+    t.applePay = { empreinte: empreinteAP, horodatage: `${t.date}T${t.creeLe.slice(11, 16)}`, heure: t.creeLe.slice(11, 16), carte: 'Carte exemple', commercant: libelle.toUpperCase(),
+      montantInitialCentimes: t.montantCentimes, devise: 'EUR', provisoire, raisonProvisoire: provisoire ? 'mot-cle' : null, verifieLe: null, classement: 'defaut' };
+  };
+  applePay('Cinéma exemple', 'a1b2c3d4e5f6ab');
+  applePay('Divers exemple', 'b7c6d5e4f3a2bc', true);
   // Ajustements de solde
   for (const [k, compteId, montant, sens] of [[-44, 'lcl', 1234, 'credit'], [-44, 'revolut', 567, 'debit']]) {
     const date = ajouterJours(auj, k);
@@ -294,6 +304,7 @@ export function genererSauvegarde({ aujourdhui = REFERENCE_DEFAUT, graine = GRAI
     arrondi: { actif: true, frequence: 'hebdomadaire', jourVirement: 4, jourDuMois: 6, inclureChargesFixes: false, depuis: null, premierVirement: null, pocheId: 'partage' },
     regleRevolut: { actif: true, minCentimes: 1000, maxCentimes: 1800 }, emetteursSalaire: [], parametresPlan: {}, repartitionVoiturePret: 50,
     repasAuto: { actif: true, depuis: ajouterJours(auj, -40), repasParJour: 2 },
+    applePay: { cartes: { 'Carte exemple': 'lcl' }, depuis: ajouterJours(auj, -30), motsProvisoires: [] },
     modifieLe: horodatage(ajouterJours(auj, -1), 21), premierImportLe: horodatage(debutSuivi, 9), datesSalaire: dates, debutSuivi,
     envies: { depuis: ajouterJours(auj, -20), liste: [{ id: 'envie-jeu', nom: 'Jeu exemple', type: 'jeu', montantCentimes: 6999, sortieLe: ajouterJours(auj, 6), creeLe: ajouterJours(auj, -20),
       achat: { date: achatEnvie.date, montantCentimes: achatEnvie.montantCentimes, txId: achatEnvie.id, exception: true, retenues: [] } }] },
@@ -350,6 +361,7 @@ export function genererSauvegarde({ aujourdhui = REFERENCE_DEFAUT, graine = GRAI
     joursVus: [-5, -4, -3, -2, -1, 0].map((k) => ajouterJours(auj, k)),
     effortsPartages: s(ajouterJours(auj, -30)), enviesAmorcees: s(ajouterJours(auj, -20)), saisiesNuitRecalees: s(ajouterJours(auj, -15)),
     pochesRangees: s(ajouterJours(auj, -30)), supportsEpargne: s(ajouterJours(auj, -12)), derniereVerification: ajouterJours(auj, -1),
+    applePayVues: ['a1b2c3d4e5f6ab', 'b7c6d5e4f3a2bc', 'c0ffee0dd0beef'],
   };
 
   const contenu = {
