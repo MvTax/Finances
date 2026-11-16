@@ -409,7 +409,7 @@ export async function lancerDiagnostic(o = {}) {
     const debut = ajouterJours(auj, -90);
     const total = depensesVariables(etat, debut, auj);
     const fixes = (etat.transactions || []).filter((t) => t.chargeFixeId && t.date >= debut && t.date <= auj).reduce((s, t) => s + contributionDepense(t), 0)
-      + prelevementsHorsCharges(etat, debut, auj).reduce((s, c) => s + c.montantPrevuCentimes, 0); // abonnements et prélèvements non rattachés
+      + prelevementsHorsCharges(etat, debut, auj, { implicites: false }).reduce((s, c) => s + c.montantPrevuCentimes, 0); // abonnements et prélèvements non rattachés
     const parCatBrut = depensesParCategorie(etat, debut, auj, { inclureEtalees: false });
     const parCat = parCatBrut;
     const somme = (Array.isArray(parCat) ? parCat : Object.values(parCat)).reduce((t, c) => t + (c.montantCentimes ?? c ?? 0), 0);

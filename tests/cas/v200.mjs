@@ -7,14 +7,15 @@ import { categoriesFavorites, montantsRapides, montantDepart, CATEGORIES_REPLI }
 import { risqueDuMois, chargesAvantSalaire } from '../../js/v200/calculs/risques.js';
 import { resumeMois, resumeAnnee, preventions } from '../../js/v200/calculs/resume.js';
 import { eur, arrondi10 } from '../../js/v200/calculs/commun.js';
-import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, ligneCharge } from '../../js/v200/calculs/jour.js';
+import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, ligneCharge, resteDuMois } from '../../js/v200/calculs/jour.js';
 import { serieJours, flammesDesJours } from '../../js/jeu.js';
 import { montantParle } from '../../js/v200/ui/molette.js';
-import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX, aVerifier, joursDepuisApplePay, phraseDerniereFois, bilanApplePay, notesFichierApplePay, finApplePay } from '../../js/v200/calculs/depenses.js';
+import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX, aVerifier, joursDepuisApplePay, phraseDerniereFois, bilanApplePay, notesFichierApplePay, finApplePay, aPayerDuMois } from '../../js/v200/calculs/depenses.js';
 import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis } from '../../js/v200/calculs/pots.js';
 import { meteoDuMois, phrasesMois, phrasesAnnee, METEO } from '../../js/v200/calculs/resume.js';
 import { jourBudgetaire } from '../../js/restes.js';
 import { forcerAujourdhui, ajouterJours, jourSemaine } from '../../js/dates.js';
+import { jaugeDuJour } from '../../js/calculs.js';
 import { genererSauvegarde, REFERENCE_DEFAUT } from '../outils/generer-sauvegarde.mjs';
 
 const NIVEAUX_RISQUE = ['calme', 'attention', 'risque', 'pas-assez'];
@@ -566,4 +567,78 @@ export default [
     egalProfond(finApplePay({ fusionnees: 2 }), { sous: '2 saisies complétées', lignes: [] });
     egalProfond(finApplePay({ enAttente: 1 }), { sous: 'Rien de nouveau', lignes: ['1 paiement attend ta réponse : il reviendra la prochaine fois.'] });
   } },
+  { nom: 'Aujourd’hui : reste du mois en couleur (vert, orange épargne ou attention, rouge dépassé ou risque, pas assez de jours)', fn: () => {
+    // Revenus 1 200 €, 300 € pour la vie courante + 10 € de marge : 890 € d'épargne visée, 310 € pour le mois.
+    const salaire = tx({ date: '2026-11-05', montant: 120000, sens: 'credit', categorie: 'salaire', marchand: 'Salaire' });
+    const etatRythme = (montant) => etat({ revenusMensuels: [revenus('2026-11')], transactions: [salaire,
+      ...chaqueJour('2026-11-05', '2026-11-19', (d) => montant + (Number(d.slice(8)) % 2 ? 200 : -200))] });
+    const A = '2026-11-20';
+    avecDate(A, () => {
+      const vert = resteDuMois(etatRythme(500), A);
+      egal(vert.couleur, 'vert'); egal(vert.depasse, false); egal(vert.phrase, 'Ça tient jusqu’au salaire.');
+      egal(vert.joursRestants, 15); egal(vert.salaireLe, '2026-12-05');
+      egal(vert.montantCentimes, 31000 - 15 * 500 - 200, 'reste à dépenser de la période');
+      // La jauge déjà calculée est réutilisée (même montant)
+      const e = etatRythme(500);
+      egal(resteDuMois(e, A, jaugeDuJour(e, A, null)).montantCentimes, vert.montantCentimes);
+      const rouge = resteDuMois(etatRythme(1500), A);
+      egal(rouge.couleur, 'rouge'); egal(rouge.depasse, false); egal(rouge.phrase, 'Ça risque de coincer avant le salaire.');
+      let attention = null;
+      for (let m = 900; m <= 1300 && !attention; m += 10) { const ex = etatRythme(m); if (risqueDuMois(ex, A).niveau === 'attention') attention = ex; }
+      vrai(attention, 'un rythme donne « attention »');
+      const orange = resteDuMois(attention, A);
+      egal(orange.couleur, 'orange'); egal(orange.phrase, 'Attention : ça passe juste jusqu’au salaire.');
+    });
+    avecDate('2026-11-08', () => {
+      const D = '2026-11-08'; // 3 jours notés : pas assez pour prévoir
+      const peu = etat({ revenusMensuels: [revenus('2026-11')], transactions: [salaire, ...chaqueJour('2026-11-05', '2026-11-07', () => 6000)] });
+      egal(risqueDuMois(peu, D).niveau, 'pas-assez');
+      const r = resteDuMois(peu, D);
+      egal(r.couleur, 'vert', 'rythme élevé mais pas encore fiable : seuls le dépassement et l’épargne comptent');
+      // Épargne entamée (1 000 € dépensés : il ne reste que 20 € à épargner sur 890 €)
+      const gros = etat({ revenusMensuels: [revenus('2026-11')], transactions: [salaire, tx({ date: '2026-11-06', montant: 100000, categorie: 'loisirs', marchand: 'Magasin Exemple' })] });
+      const o = resteDuMois(gros, D);
+      egal(o.couleur, 'orange'); egal(o.depasse, false); egal(o.montantCentimes, 0); egal(o.phrase, 'Attention : ton épargne du mois est entamée.');
+      // Mois dépassé : 1 300 € dépensés
+      const trop = etat({ revenusMensuels: [revenus('2026-11')], transactions: [salaire, tx({ date: '2026-11-06', montant: 130000, categorie: 'loisirs', marchand: 'Magasin Exemple' })] });
+      const d = resteDuMois(trop, D);
+      egal(d.couleur, 'rouge'); egal(d.depasse, true); egal(d.montantCentimes, -10000);
+      egal(d.phrase, `Mois dépassé de ${eur(10000)}.`); phraseOk(d.phrase);
+    });
+  } },
+  { nom: 'Dépenses : à payer ce mois-ci (charges non payées, payées, payées sans être rattachées, échéances de crédit)', fn: () => avecDate('2026-11-12', () => {
+    const A = '2026-11-12';
+    const e = etat({
+      revenusMensuels: [revenus('2026-11')],
+      chargesFixes: [
+        { id: 'loyer', libelle: 'Loyer', montantCentimes: 50000, jourPrelevement: 8, actif: true, compteId: 'courant', categorie: 'logement', estLoyer: true },
+        { id: 'eau', libelle: 'Eau', montantCentimes: 2000, jourPrelevement: 12, actif: true, compteId: 'courant', categorie: 'energie' },
+        { id: 'forfait', libelle: 'Forfait', montantCentimes: 1500, jourPrelevement: 20, actif: true, compteId: 'courant', categorie: 'telephonie' },
+      ],
+      creditsBancaires: [
+        { id: 'cr1', libelle: 'Crédit un', type: 'instantane', actif: true, echeancier: [{ date: '2026-11-15', montantCentimes: 3000, payee: false }] },
+        { id: 'cr2', libelle: 'Crédit deux', type: 'instantane', actif: true, echeancier: [{ date: '2026-11-08', montantCentimes: 4000, payee: false }] },
+        { id: 'cr3', libelle: 'Crédit trois', type: 'instantane', actif: true, echeancier: [{ date: '2026-11-06', montantCentimes: 2500, payee: true }] },
+        { id: 'cr4', libelle: 'Crédit quatre', type: 'instantane', actif: true, echeancier: [{ date: '2026-11-10', montantCentimes: 1000, payee: false }] },
+      ],
+      prets: [{ id: 'p1', personneAlias: 'Proche', sens: 'empruntéParMoi', montantCentimes: 10000, echeancier: [{ date: '2026-11-15', montantCentimes: 5000, payee: false }] }],
+      transactions: [
+        tx({ id: 'tl', date: '2026-11-08', montant: 50000, categorie: 'logement', marchand: 'Loyer', chargeFixeId: 'loyer' }),
+        tx({ id: 'te', date: '2026-11-12', montant: 2050, categorie: 'energie', marchand: 'Eau Exemple', libellePrincipal: 'PRLV SEPA EAU EXEMPLE' }),
+        tx({ id: 'tc', date: '2026-11-09', montant: 4100, categorie: 'credits', marchand: 'Crédit instant' }),
+        tx({ id: 'tr', date: '2026-11-11', montant: 1000, categorie: 'credits', marchand: 'Échéance', extra: { creditId: 'cr4' } }),
+      ],
+    });
+    const { aPayer, payees } = aPayerDuMois(e, A);
+    egalProfond(aPayer.map((l) => [l.type, l.id, l.date, l.montantCentimes]), [['credit', 'cr1|2026-11-15', '2026-11-15', 3000], ['charge', 'forfait', '2026-11-20', 1500]], 'non payées, par date ; pas le prêt entre proches');
+    const p = Object.fromEntries(payees.map((l) => [l.id, l]));
+    egalProfond(payees.map((l) => l.id), ['cr3|2026-11-06', 'loyer', 'cr2|2026-11-08', 'cr4|2026-11-10', 'eau']);
+    egal(p.loyer.implicite, false); egal(p.loyer.transactionId, null); egal(p.loyer.estLoyer, true);
+    egal(p.eau.implicite, true); egal(p.eau.transactionId, 'te'); egal(p.eau.montantCentimes, 2050, 'montant réel');
+    egal(p['cr2|2026-11-08'].transactionId, 'tc', 'opération « Crédits » à 10 % et 7 jours'); egal(p['cr2|2026-11-08'].creditId, 'cr2');
+    egal(p['cr4|2026-11-10'].transactionId, 'tr', 'opération rattachée au crédit');
+    egal(p['cr3|2026-11-06'].transactionId, null, 'marquée payée');
+    // Rien du tout : deux listes vides
+    egalProfond(aPayerDuMois(etat(), A), { aPayer: [], payees: [] });
+  }) },
 ];

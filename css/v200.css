@@ -334,7 +334,7 @@
 :root[data-app="v200"] .v2-dep-resume-dont { flex-basis: 100%; font-size: 14.5px; font-weight: 700; color: var(--texte-2); }
 
 :root[data-app="v200"] .v2-dep-jours { display: flex; flex-direction: column; gap: 14px; }
-:root[data-app="v200"] .v2-dep-jour-titre { font-family: var(--police-titres); font-weight: 600; font-size: 17px; color: var(--texte-2); margin: 0 6px 6px; }
+:root[data-app="v200"] .v2-dep-jour-titre, :root[data-app="v200"] .v2-payer-titre { font-family: var(--police-titres); font-weight: 600; font-size: 17px; color: var(--texte-2); margin: 0 6px 6px; }
 :root[data-app="v200"] .v2-dep-liste { list-style: none; margin: 0; padding: 4px; border-radius: 22px; background: var(--surface); box-shadow: var(--ombre); }
 :root[data-app="v200"] .v2-dep-item + .v2-dep-item { border-top: 1px solid #F1E9DA; }
 :root[data-app="v200"] .v2-dep-ligne {
@@ -548,7 +548,7 @@
 :root[data-app="v200"] .v2-ap-etapes li::marker { font-weight: 800; color: var(--accent); }
 :root[data-app="v200"] .v2-ap-code {
   display: inline-block; max-width: 100%; padding: 1px 7px; border-radius: 8px; background: var(--surface-2); color: var(--texte);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 600; overflow-wrap: anywhere;
 }
 
 /* Liste des nouveaux paiements : une case à cocher, puis la ligne (toucher = changer la catégorie) */
@@ -616,3 +616,39 @@
 :root[data-app="v200"] .v2-ap-mot-retirer .ic { width: 18px; height: 18px; }
 :root[data-app="v200"] .v2-ap-mot-ajout { display: flex; gap: 8px; align-items: center; }
 :root[data-app="v200"] .v2-ap-mot-ajout .input { flex: 1; min-width: 0; min-height: 44px; background-color: var(--surface); box-shadow: var(--ombre); }
+
+/* ---------- 1.44 : pastille « Reste du mois » (Aujourd'hui) et « À payer ce mois-ci » (Dépenses) ---------- */
+:root[data-app="v200"] .v2-tete-texte { flex: 1; min-width: 0; }
+:root[data-app="v200"] .v2-tete:has(.v2-reste-mois) { gap: 8px; }
+:root[data-app="v200"] .v2-tete-texte .v2-titre { overflow-wrap: anywhere; }
+:root[data-app="v200"] .v2-reste-mois {
+  flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  min-height: 46px; min-width: 44px; max-width: 128px; padding: 4px 10px; border-radius: 16px; text-decoration: none; text-align: center;
+  background: var(--vert-doux); color: var(--vert); box-shadow: inset 0 0 0 1.5px rgb(46 122 75 / 22%);
+  transition: transform .1s ease;
+}
+:root[data-app="v200"] .v2-reste-mois:active { transform: scale(.95); }
+:root[data-app="v200"] .v2-reste-mois-libelle { font-size: 11px; font-weight: 800; line-height: 1.15; color: var(--texte-2); }
+:root[data-app="v200"] .v2-reste-mois-montant { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; font-size: 15.5px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+:root[data-app="v200"] .v2-reste-mois.orange { background: var(--orange-doux); color: var(--orange); box-shadow: inset 0 0 0 1.5px rgb(154 88 0 / 24%); }
+:root[data-app="v200"] .v2-reste-mois.rouge { background: var(--rouge-doux); color: var(--rouge); box-shadow: inset 0 0 0 1.5px rgb(179 38 30 / 24%); }
+
+:root[data-app="v200"] .v2-payer { display: flex; flex-direction: column; }
+:root[data-app="v200"] .v2-payer-item { display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 8px 8px 8px 8px; }
+:root[data-app="v200"] .v2-payer-liste .v2-payer-item + .v2-payer-item, :root[data-app="v200"] .v2-payer-liste-payees .v2-payer-item + .v2-payer-item { border-top: 1px solid #F1E9DA; }
+:root[data-app="v200"] .v2-payer-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+:root[data-app="v200"] .v2-payer-sous { font-size: 14px; font-weight: 700; color: var(--texte-2); }
+:root[data-app="v200"] .v2-payer-montant { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; font-weight: 800; color: var(--texte); }
+:root[data-app="v200"] .v2-payer-bouton { flex: none; min-width: 76px; background: var(--accent-doux); color: var(--accent-fort); }
+:root[data-app="v200"] .v2-payer-bouton:disabled { opacity: .5; }
+:root[data-app="v200"] .v2-payer-payees { margin-top: 8px; border-radius: 20px; background: var(--surface); box-shadow: var(--ombre); }
+:root[data-app="v200"] .v2-payer-payees > summary {
+  display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 16px; cursor: pointer; list-style: none;
+  font-size: 15.5px; font-weight: 800; color: var(--vert);
+}
+:root[data-app="v200"] .v2-payer-payees > summary::-webkit-details-marker { display: none; }
+:root[data-app="v200"] .v2-payer-payees > summary::before { display: none; }
+:root[data-app="v200"] .v2-payer-payees > summary::after { content: "›"; margin-left: auto; font-size: 22px; color: var(--texte-2); transition: transform .2s ease; }
+:root[data-app="v200"] .v2-payer-payees[open] > summary::after { transform: rotate(90deg); }
+:root[data-app="v200"] .v2-payer-liste-payees { list-style: none; margin: 0; padding: 0 4px 6px; }
+:root[data-app="v200"] .v2-payer-item-payee .v2-dep-nom { color: var(--texte-2); }

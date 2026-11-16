@@ -3,6 +3,8 @@
 // Les chiffres viennent des calculs communs (jaugeDuJour, preventions, partage du reste) : rien n'est recalculé autrement.
 
 import { jaugeDuJour } from '../../calculs.js';
+import { ajouterJours } from '../../dates.js';
+import { risqueDuMois } from './risques.js';
 import { serieJours, estSaisie } from '../../jeu.js';
 import { partageDuReste } from './explications.js';
 import { preventions } from './resume.js';
@@ -25,6 +27,33 @@ export function bulleDuJour(etat, auj) {
   if (dispo < 0) return { etat: 'jour-depasse', montantCentimes: -dispo, part: 0, parJourCentimes: j.parJourCentimes, jauge: j };
   const part = j.parJourCentimes > 0 ? Math.min(1, dispo / j.parJourCentimes) : 0;
   return { etat: 'ok', montantCentimes: dispo, part, parJourCentimes: j.parJourCentimes, jauge: j };
+}
+
+/**
+ * Le reste du mois jusqu'au salaire, avec une couleur et une phrase courte.
+ * Montant : le reste à dépenser de la période (resteADepenser), celui de la jauge si elle est donnée.
+ * Couleur : rouge si le mois est dépassé ou si le risque du mois est « risque » ; orange si « attention » ou si
+ * l'épargne visée du mois est entamée ; sinon vert. Pas assez de jours notés : seuls le dépassement et l'épargne
+ * entamée comptent (le risque n'est pas encore fiable).
+ * @param jauge  jaugeDuJour(etat, auj, …) déjà calculée (sinon calculée ici)
+ * @returns {{ montantCentimes, couleur: 'vert'|'orange'|'rouge', depasse, joursRestants, salaireLe, phrase }}
+ */
+export function resteDuMois(etat, auj, jauge = null) {
+  const j = jauge || jaugeDuJour(etat, auj, etat.meta?.jauge || null);
+  const r = j.reste;
+  const montant = r.resteCentimes;
+  const depasse = montant < 0;
+  const niveau = risqueDuMois(etat, auj).niveau;
+  const fiable = niveau !== 'pas-assez';
+  const epargneEntamee = r.epargneCibleCentimes < r.epargneViseeCentimes;
+  const salaireLe = r.periode.salaireAttenduLe || ajouterJours(r.periode.fin, 1);
+  let couleur = 'vert';
+  let phrase = 'Ça tient jusqu’au salaire.';
+  if (depasse) { couleur = 'rouge'; phrase = `Mois dépassé de ${eur(-montant)}.`; }
+  else if (fiable && niveau === 'risque') { couleur = 'rouge'; phrase = 'Ça risque de coincer avant le salaire.'; }
+  else if (epargneEntamee) { couleur = 'orange'; phrase = 'Attention : ton épargne du mois est entamée.'; }
+  else if (fiable && niveau === 'attention') { couleur = 'orange'; phrase = 'Attention : ça passe juste jusqu’au salaire.'; }
+  return { montantCentimes: montant, couleur, depasse, joursRestants: j.joursRestants, salaireLe, phrase };
 }
 
 /**

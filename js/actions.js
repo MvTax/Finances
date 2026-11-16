@@ -3,13 +3,13 @@
 import { fluxEnvies, retenueAvance, repartirRetenue, repartirReste, partsReste } from './envies.js';
 import { etat, enregistrer, enregistrerLot, supprimerObjet, majProfil, nouvelId, reinitialiserJauge, ecrireMeta } from './store.js';
 import { cloturerJours } from './restes.js';
-import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, REGLES_DEFAUT, normaliserTexte } from './rules.js';
-import { categoriser, empreinte, traiterImport, detecterChargesFixes, rattacherChargesFixes, recalculerAjustement, fusionnerRapprochement } from './import/pipeline.js';
+import { normaliserMarchand, regleDepuisCorrection, trierRegles, trouverRegle, REGLES_DEFAUT } from './rules.js';
+import { categoriser, empreinte, traiterImport, detecterChargesFixes, rattacherChargesFixes, recalculerAjustement, fusionnerRapprochement, chargeDuLibelle } from './import/pipeline.js';
 import { fusionnerPaiementDansSaisie } from './import/applepay.js';
 import { aujourdhui, dateDuMois, ajouterJours, moisDe } from './dates.js';
 import { cagnotteEnAttente, repartirVersement, soldePoche, recalculerPlan } from './epargne.js';
 import { revenusDuMois, chargesFixesPeriode, dettesPeriode, periodeBudget, cagnotteArrondis } from './calculs.js';
-import { reconnaitreObligatoire, appliquerObligatoire, reponseObligatoire } from './obligatoires.js';
+import { reconnaitreObligatoire, appliquerObligatoire, reponseObligatoire, relierFusionnee, transactionPaiementCharge } from './obligatoires.js';
 
 const M = () => new Date().toISOString();
 
@@ -50,8 +50,9 @@ export function categoriesFrequentes(sens = 'debit', toutes) {
  * comptée dans le mois, pas dans la part du jour (obligatoires.js).
  */
 export function preparerAjout(tx, auj = aujourdhui()) {
-  const cf = etat.chargesFixes.find((c) => c.actif && c.motifDetection === normaliserTexte(tx.marchand) && (!c.montantDetection || c.montantDetection === tx.montantCentimes));
-  if (cf && tx.sens === 'debit') tx.chargeFixeId = cf.id;
+  // Nom de la charge = marchand, ou retrouvé dans le libellé (« PRLV SEPA BAILLEUR EXEMPLE… ») au montant de la charge
+  const cf = tx.sens === 'debit' && !tx.chargeFixeId ? chargeDuLibelle(tx, etat.chargesFixes.filter((c) => c.actif)) : null;
+  if (cf) tx.chargeFixeId = cf.id;
   if (tx.sens === 'debit' && !tx.chargeFixeId) appliquerObligatoire(tx, reconnaitreObligatoire(etat, tx, auj));
   return tx;
 }
@@ -69,6 +70,20 @@ export async function confirmerObligatoire(txId, oui) {
   const maj = { ...reponseObligatoire(tx, oui), modifieLe: M() };
   await enregistrer('transactions', maj);
   return maj;
+}
+
+/**
+ * Bouton « Payé » d'une charge fixe : enregistre la dépense au montant prévu (transactionPaiementCharge), rattachée
+ * à la charge. Le relevé la complétera plus tard (la banque fait foi pour le montant).
+ * @returns {{ transaction, annuler }} ou null si la charge est déjà payée (ou introuvable)
+ */
+export async function payerChargeFixe(chargeId, { auj = aujourdhui() } = {}) {
+  const tx = transactionPaiementCharge(etat, chargeId, auj, { id: nouvelId('tx'), maintenant: M() });
+  if (!tx) return null;
+  if (!tx.compteId) tx.compteId = compteCourant()?.id || null;
+  tx.empreinteDedoublonnage = empreinte(tx);
+  await enregistrer('transactions', tx);
+  return { transaction: tx, annuler: async () => supprimerObjet('transactions', tx.id) };
 }
 
 export async function supprimerTransaction(tx) {
@@ -260,6 +275,7 @@ export async function enregistrerReprise(tx, pocheId = 'poche-coussin', motif = 
 // Dettes : échéances payées
 // ---------------------------------------------------------------------------
 
+/** Bouton « Payé » d'une échéance de crédit : la dépense « Crédits » rattachée au crédit, l'échéance marquée payée. */
 export async function payerEcheanceCredit(creditId, date) {
   const c = etat.creditsBancaires.find((x) => x.id === creditId);
   if (!c) return;
@@ -270,6 +286,8 @@ export async function payerEcheanceCredit(creditId, date) {
   const echeancier = (c.echeancier || []).map((x) => (x.date === date ? { ...x, payee: true, transactionId: tx.id } : x));
   const payees = c.echeancier?.length ? c.payees : [...(c.payees || []), date];
   await enregistrerLot([{ collection: 'transactions', valeur: tx }, { collection: 'creditsBancaires', valeur: { ...c, echeancier, payees } }]);
+  // De quoi annuler (comme supprimerTransaction) : la dépense retirée, le crédit remis comme avant
+  return { transaction: tx, annuler: async () => enregistrerLot([{ collection: 'transactions', valeur: tx, supprimer: true }, { collection: 'creditsBancaires', valeur: c }]) };
 }
 
 export async function payerEcheancePret(pretId, date) {
@@ -310,7 +328,7 @@ export function compteDuResultat(resultat) {
 /** Prépare un import (aucune écriture) : pipeline complet, pour l'écran de revue. */
 export function preparerImport(resultats) {
   const lots = resultats.map((r) => { const { compte } = compteDuResultat(r); return { resultat: r, compteId: compte.id, compte }; });
-  const res = traiterImport(lots, { transactions: etat.transactions, regles: etat.reglesCategorie, profil: etat.profil });
+  const res = traiterImport(lots, { transactions: etat.transactions, regles: etat.reglesCategorie, profil: etat.profil, chargesFixes: etat.chargesFixes });
   return { ...res, lots };
 }
 
@@ -326,14 +344,19 @@ export async function validerImport(prep, { corrections = {}, remplacements = nu
   // Rapprochements saisie manuelle ↔ relevé
   const choisis = remplacements ? new Set(remplacements) : null;
   const remplace = (r) => (choisis ? choisis.has(r.existante.id) || choisis.has(r.importee.id) : true);
-  for (const r of prep.rapprochees) ops.push({ collection: 'transactions', valeur: fusionnerRapprochement(r.existante, r.importee, { remplacerMontant: !!r.montantDifferent && remplace(r) }) });
-  for (const t of prep.transactionsMisesAJour) ops.push({ collection: 'transactions', valeur: t });
   // Charges fixes : détection sur l'ensemble, on n'ajoute que les nouvelles (par motif)
   const toutes = [...etat.transactions, ...nouvelles];
   const detectees = detecterChargesFixes(toutes);
   const connues = new Set(etat.chargesFixes.map((c) => `${c.motifDetection}|${c.montantDetection || ''}`));
   const ajout = detectees.filter((c) => !connues.has(`${c.motifDetection}|${c.montantDetection || ''}`)).map((c) => ({ ...c, aConfirmer: true }));
   const charges = [...etat.chargesFixes, ...ajout];
+  // Saisies complétées par le relevé : reliées à leur charge fixe (libellé bancaire) ou à une dépense obligatoire sûre
+  const auj = aujourdhui();
+  for (const r of prep.rapprochees) {
+    const f = fusionnerRapprochement(r.existante, r.importee, { remplacerMontant: !!r.montantDifferent && remplace(r) });
+    ops.push({ collection: 'transactions', valeur: relierFusionnee(etat, f, auj, charges) });
+  }
+  for (const t of prep.transactionsMisesAJour) ops.push({ collection: 'transactions', valeur: t });
   rattacherChargesFixes(nouvelles, charges);
   for (const c of ajout) ops.push({ collection: 'chargesFixes', valeur: c });
   for (const t of nouvelles) ops.push({ collection: 'transactions', valeur: t });

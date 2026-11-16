@@ -12,6 +12,8 @@
 
 import { COLLECTIONS } from './sauvegarde.js';
 import { dedoublonner, fusionnerRapprochement } from './import/pipeline.js';
+import { relierFusionnee } from './obligatoires.js';
+import { aujourdhui } from './dates.js';
 
 const CLE_COLLECTIONS = { revenusMensuels: 'mois', planMensuel: 'mois', joursSansDepense: 'date', checkins: 'date' };
 // Collections propres à l'usage de l'app (jamais remplacées par le fichier)
@@ -157,9 +159,17 @@ export function planifierMiseAJour(local, contenu, o = {}) {
 
     // Opérations nouvelles : rapprochées des saisies manuelles et des imports faits dans l'app
     if (ajoutsTx.length) {
-      const dd = dedoublonner(ajoutsTx, locaux.filter((x) => !vus.has(x)));
+      const charges = local.chargesFixes || [];
+      const dd = dedoublonner(ajoutsTx, locaux.filter((x) => !vus.has(x)), { charges });
       for (const t of dd.nouvelles) { ecritures.push({ collection, valeur: t }); r.ajouts++; }
-      for (const { existante, importee } of dd.rapprochees) { ecritures.push({ collection, valeur: { ...fusionnerRapprochement(existante, importee), modifieLe: existante.modifieLe } }); r.rapprochements++; vus.add(existante); }
+      // Comme à l'import d'un relevé : la saisie complétée est reliée à sa charge fixe (libellé bancaire) ou à une
+      // dépense obligatoire sûre (seulement quand l'état complet est connu) ; « Payé » : le montant du relevé fait foi.
+      const auj = o.auj || aujourdhui();
+      for (const { existante, importee, montantDifferent } of dd.rapprochees) {
+        let f = fusionnerRapprochement(existante, importee, { remplacerMontant: !!montantDifferent && existante.source === 'confirmation' });
+        f = relierFusionnee(local, f, auj, charges, { avecReconnaissance: !!local.profil });
+        ecritures.push({ collection, valeur: { ...f, modifieLe: existante.modifieLe } }); r.rapprochements++; vus.add(existante);
+      }
       r.ignores += dd.doublons.length;
     }
 

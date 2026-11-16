@@ -134,13 +134,12 @@ Chaque fois que tu paies avec Apple Pay, ton iPhone écrit une ligne dans un fic
 
 ### Créer le Raccourci (une seule fois)
 
-1. Ouvre **Raccourcis › Automatisation › +**, puis choisis **Transaction**.
-2. Coche **tes cartes**, puis **Exécuter immédiatement**.
-3. Choisis **Nouveau raccourci vide**, puis ajoute ces trois actions :
-   - **Formater la date** : Date actuelle, format **Personnalisé** `yyyy-MM-dd'T'HH:mm:ssZZZZZ`, Format d'heure **Aucun**.
-   - **Texte** : `AP1|Date formatée|Montant|Carte|Nom|Commerçant`. Remplace chaque mot par la variable de **Entrée du raccourci** (Montant, Carte, Nom, Commerçant), et la date par la **Date formatée**. Le commerçant reste en dernier.
-   - **Ajouter au fichier texte** : le texte ci-dessus, dans `Budget/applepay.txt`, avec **Créer une nouvelle ligne** activé.
-4. Le fichier se trouve ensuite dans **Fichiers › iCloud Drive › Raccourcis › Budget**.
+1. Ouvre **Raccourcis › Automatisation › +**, puis touche le bouton **Automatisation**.
+2. Déclencheur **Cartes** : « Lorsque n'importe quelle carte est présentée ». Laisse **Automatisation** activé et **Notifier** désactivé.
+3. Ajoute **Formater la date** : Date actuelle, **Personnalisé**, `yyyy-MM-dd'T'HH:mm:ssZZZZZ`.
+4. Ajoute **Texte** : `AP1|Date formatée|Montant|Carte ou billet|Nom|Commerçant`. Chaque mot est une variable : touche **Entrée de raccourci**, Type = **Transaction**. Le commerçant reste en dernier.
+5. Ajoute **Ajouter au fichier texte** : chemin `/applepay.txt`, avec **Créer une nouvelle ligne** activé.
+6. Le fichier se trouve ensuite dans **Fichiers › iCloud Drive › Raccourcis**. Dans l'app, choisis `applepay.txt` à cet endroit.
 
 Ne teste pas avec le bouton ▶ : il n'y a pas de paiement, donc la ligne serait vide. Fais plutôt un petit achat.
 
@@ -192,6 +191,13 @@ La journée va de 5 h à 5 h, à l'heure de Paris, même si tu voyages : un paie
 - Les paiements en ligne ou dans une app ne passent pas par Apple Pay en magasin : ils ne sont pas notés.
 - Le fichier ne se vide jamais, il grossit. Ce n'est pas grave : aucune ligne n'est comptée deux fois.
 - Hors réseau, le fichier iCloud peut ne pas être téléchargé : ouvre Fichiers, touche le fichier pour le télécharger, puis recommence.
+
+## Version 1.44 : le mois en couleur, et « Payé »
+
+- **Reste du mois en couleur** : sur Aujourd'hui, en haut à droite, une petite pastille montre ce qui reste jusqu'au salaire. Verte si ça tient, orange si ça passe juste (ou si ton épargne du mois est entamée), rouge si ça risque de coincer ou si le mois est dépassé. Touche-la pour voir le Résumé.
+- **À payer ce mois-ci** : dans Dépenses, sous « Depuis le salaire », la liste des charges et des échéances de crédit pas encore payées. Le bouton **Payé** les note (comptées dans le mois, pas dans ta journée) ; « Annuler » juste après si tu t'es trompé. Celles déjà payées sont repliées.
+- **Jamais comptées deux fois** : une dépense du mois déjà reconnue dans tes dépenses (relevé, Apple Pay, saisie) n'est plus proposée à payer.
+- L'aide du Raccourci Apple Pay suit maintenant les écrans d'iOS récents (déclencheur « Cartes », fichier `applepay.txt` dans iCloud Drive › Raccourcis).
 
 ## Mettre à jour l'app
 

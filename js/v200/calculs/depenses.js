@@ -2,7 +2,8 @@
 // Chaque ligne dit seulement : quoi (emoji de catégorie + nom court), combien, et si c'est une charge « du mois ».
 // Fonctions pures : l'état et la journée de budget (aujourdhui(), de 5 h à 5 h) sont passés en paramètres.
 
-import { periodeBudget, estDepenseQuotidienne } from '../../calculs.js';
+import { periodeBudget, estDepenseQuotidienne, chargesFixesPeriode } from '../../calculs.js';
+import { echeancesCreditPeriode } from '../../obligatoires.js';
 import { natureTransaction, contributionDepense, nomCategorie } from '../../categories.js';
 import { diffJours, jourSemaine, ajouterJours, jourBudgetDeHorodatage, JOURS_LONGS, MOIS_LONGS } from '../../dates.js';
 import { eur } from './commun.js';
@@ -179,4 +180,28 @@ export function finApplePay(t = {}) {
     ignorees ? `${pl(ignorees, 'paiement laissé', 'paiements laissés')} de côté.` : null,
   ].filter(Boolean);
   return { sous, lignes };
+}
+
+/**
+ * Ce qu'il y a à payer ce mois-ci (du salaire au suivant) : charges fixes et échéances de crédits (pas les prêts
+ * entre proches). Une charge est payée si une opération y est rattachée ou la paie sans y être rattachée
+ * (paiementsImplicites) ; une échéance, si elle est marquée payée, ou qu'une opération est rattachée au crédit,
+ * ou qu'une opération « Crédits » a le même montant à 10 % près, à 7 jours près.
+ * @returns {{ aPayer: Array<Ligne>, payees: Array<Ligne> }} triées par date, avec
+ *   Ligne = { type: 'charge'|'credit', id, libelle, categorie, date, montantCentimes, payee, implicite,
+ *             chargeFixeId?, creditId?, transactionId?, estLoyer? }
+ */
+export function aPayerDuMois(etat, auj) {
+  const periode = periodeBudget(auj, etat.profil || {}, { reference: auj });
+  const lignes = [];
+  for (const c of chargesFixesPeriode(etat, periode)) {
+    lignes.push({ type: 'charge', id: c.id, chargeFixeId: c.id, libelle: c.libelle, categorie: c.categorie, date: c.date, montantCentimes: c.montantPrevuCentimes,
+      payee: !!c.payee, implicite: !!c.payeeImplicite, transactionId: c.transactionId || null, estLoyer: !!c.estLoyer });
+  }
+  for (const e of echeancesCreditPeriode(etat, periode)) {
+    lignes.push({ type: 'credit', id: `${e.creditId}|${e.date}`, creditId: e.creditId, libelle: e.libelle, categorie: 'credits', date: e.date, montantCentimes: e.montantCentimes,
+      payee: !!e.payee, implicite: false, transactionId: e.transactionId || null });
+  }
+  lignes.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return { aPayer: lignes.filter((l) => !l.payee), payees: lignes.filter((l) => l.payee) };
 }

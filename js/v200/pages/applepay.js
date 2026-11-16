@@ -1,5 +1,5 @@
 // applepay.js (v200) — « Récupérer mes paiements » Apple Pay.
-// Un Raccourci iOS ajoute une ligne par paiement dans un fichier d'iCloud Drive (Budget/applepay.txt). Une app web ne
+// Un Raccourci iOS ajoute une ligne par paiement dans un fichier d'iCloud Drive (Raccourcis/applepay.txt). Une app web ne
 // peut pas lire iCloud seule : on choisit le fichier (sélecteur de fichiers), l'app le lit sur l'iPhone et propose
 // d'ajouter ce qui manque. Rien n'est envoyé.
 //  - feuille ouvrirApplePay : bouton « Récupérer mes paiements », première fois : aide du Raccourci + date de départ ;
@@ -34,15 +34,15 @@ const pl = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs : un}`;
 const MSG_ICLOUD = 'S’il est dans iCloud, ouvre-le une fois dans Fichiers pour qu’il se télécharge.';
 
 // ------------------------------------------------------------------ Aide : créer le Raccourci
-const code = (t) => h('code', { class: 'v2-ap-code' }, t);
+// Coupure possible après chaque « | » (<wbr>, rien n'est ajouté au texte copié)
+const code = (t) => h('code', { class: 'v2-ap-code' }, t.split('|').flatMap((m, i) => (i ? ['|', h('wbr'), m] : [m])));
 const ETAPES = () => [
-  ['Ouvre ', h('strong', {}, 'Raccourcis'), ', onglet ', h('strong', {}, 'Automatisation'), ', puis ', h('strong', {}, '+'), '.'],
-  ['Choisis ', h('strong', {}, 'Transaction'), ', coche tes cartes, puis ', h('strong', {}, 'Exécuter immédiatement'), '.'],
-  ['Touche ', h('strong', {}, 'Nouveau raccourci vide'), '.'],
-  ['Ajoute ', h('strong', {}, 'Formater la date'), ' : Date actuelle, format Personnalisé : ', code('yyyy-MM-dd\'T\'HH:mm:ssZZZZZ')],
-  ['Ajoute ', h('strong', {}, 'Texte'), ' et écris : ', code('AP1|Date formatée|Montant|Carte|Nom|Commerçant'), ' Chaque mot est une variable à toucher : «\u00A0Date formatée\u00A0», puis Montant, Carte, Nom et Commerçant de «\u00A0Entrée du raccourci\u00A0».'],
-  ['Ajoute ', h('strong', {}, 'Ajouter au fichier texte'), ' : ', code('Budget/applepay.txt'), ', avec « Créer une nouvelle ligne » activé.'],
-  ['C’est tout. Le fichier est dans Fichiers › iCloud Drive › Raccourcis › Budget.'],
+  ['Ouvre ', h('strong', {}, 'Raccourcis'), ' › ', h('strong', {}, 'Automatisation'), ' › ', h('strong', {}, '+'), ', puis touche le bouton ', h('strong', {}, 'Automatisation'), '.'],
+  ['Choisis ', h('strong', {}, 'Cartes'), ' : « Lorsque n’importe quelle carte est présentée ». Laisse ', h('strong', {}, 'Automatisation'), ' activé et ', h('strong', {}, 'Notifier'), ' désactivé.'],
+  ['Ajoute ', h('strong', {}, 'Formater la date'), ' : Date actuelle, Personnalisé, ', code('yyyy-MM-dd\'T\'HH:mm:ssZZZZZ')],
+  ['Ajoute ', h('strong', {}, 'Texte'), ' et écris : ', code('AP1|Date formatée|Montant|Carte ou billet|Nom|Commerçant'), ' Chaque mot est une variable : touche ', h('strong', {}, 'Entrée de raccourci'), ', Type = ', h('strong', {}, 'Transaction'), '.'],
+  ['Ajoute ', h('strong', {}, 'Ajouter au fichier texte'), ' : chemin ', code('/applepay.txt'), ', avec « Créer une nouvelle ligne » activé.'],
+  ['C’est tout. Le fichier est dans Fichiers › iCloud Drive › Raccourcis.'],
 ];
 
 /** « Comment créer le Raccourci », replié. */
@@ -150,7 +150,7 @@ export function ouvrirApplePay() {
       message,
       h('button', { type: 'button', class: 'btn btn-principal btn-large v2-ap-bouton', onclick: () => input.click() },
         icone('telecharger'), h('span', {}, 'Récupérer mes paiements')),
-      h('p', { class: 'v2-ap-sous-texte v2-ap-centre' }, 'Choisis applepay.txt dans iCloud Drive › Raccourcis › Budget.'),
+      h('p', { class: 'v2-ap-sous-texte v2-ap-centre' }, 'Choisis applepay.txt dans iCloud Drive › Raccourcis.'),
       premiere ? null : aideRaccourci(),
       input));
   };

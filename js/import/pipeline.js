@@ -7,6 +7,7 @@
 import { normaliserMarchand, normaliserTexte, trierRegles, trouverRegle, REGLES_DEFAUT, marchandProche } from '../rules.js';
 import { natureTransaction, montantSigne } from '../categories.js';
 import { diffJours, moisDe, ajouterJours } from '../dates.js';
+import { montantProche, motifDansLibelle, SANS_CATEGORIE, TOLERANCE_JOURS } from '../correspondance.js';
 
 export const ORIGINE_IMPORT = 'import';
 const CIVILITES = /^(MR OU MME|M OU MME|M ET MME|MR ET MME|MADEMOISELLE|MADAME|MONSIEUR|MLLE|MLE|MME|MR|M)\b\.?\s*/;
@@ -117,9 +118,12 @@ const procheDe = (existante, importee) => marchandProche(nomApplePay(existante),
  * en dernier recours, un autre compte est accepté (la carte a pu être rattachée au mauvais compte) ;
  * un paiement « à vérifier » (station, péage, hôtel…) est rapproché même si le montant diffère
  * (même sens, 0 à 7 jours après, nom proche) : { montantDifferent: true }.
+ * Charge fixe marquée « Payé » dans l'app (source 'confirmation', rattachée à la charge, pas encore importée) :
+ * la ligne du relevé reliée à la même charge par son libellé, à 7 jours près, la complète (la banque fait foi).
+ * @param options.charges  charges fixes connues (pour reconnaître la ligne d'une charge)
  * @returns {{ nouvelles: Array, doublons: Array, rapprochees: Array<{ existante, importee, montantDifferent? }> }}
  */
-export function dedoublonner(entrantes, existantes) {
+export function dedoublonner(entrantes, existantes, { charges = [] } = {}) {
   const parCle = new Map();
   for (const e of existantes) {
     if (e.ajustement || estApplePay(e)) continue;
@@ -146,6 +150,12 @@ export function dedoublonner(entrantes, existantes) {
       // Dernier recours : un paiement Apple Pay rattaché à un autre compte, au nom proche
       || manuelles.filter((m) => estApplePay(m) && m.compteId !== t.compteId && memeOperation(m) && procheDe(m, t)).sort(parEcart(t))[0];
     if (manuelle) { utilisees.add(manuelle.id); rapprochees.push({ existante: manuelle, importee: t }); continue; }
+    // Charge marquée « Payé » dans l'app (montant prévu) : la ligne du relevé de cette charge la complète
+    const charge = t.sens === 'debit' && charges.length ? chargeDuLibelle(t, charges) : null;
+    const payee = charge && manuelles
+      .filter((m) => !utilisees.has(m.id) && m.source === 'confirmation' && !m.importId && m.chargeFixeId === charge.id && m.sens === t.sens && Math.abs(diffJours(m.date, t.date)) <= TOLERANCE_JOURS)
+      .sort(parEcart(t))[0];
+    if (payee) { utilisees.add(payee.id); rapprochees.push({ existante: payee, importee: t, montantDifferent: payee.montantCentimes !== t.montantCentimes }); continue; }
     const provisoire = provisoires
       .filter((e) => !utilisees.has(e.id) && e.sens === t.sens && diffJours(e.date, t.date) >= 0 && diffJours(e.date, t.date) <= 7 && procheDe(e, t))
       .sort(parEcart(t))[0];
@@ -156,7 +166,8 @@ export function dedoublonner(entrantes, existantes) {
 }
 
 /**
- * Fusionne une ligne importée dans la saisie manuelle correspondante (la catégorie choisie est conservée).
+ * Fusionne une ligne importée dans la saisie manuelle correspondante (la catégorie choisie est conservée ;
+ * une saisie en « Autres » ou sans catégorie, jamais corrigée, prend celle du relevé).
  * Paiement Apple Pay : la banque fait foi pour le compte, et le paiement est marqué vérifié ;
  * remplacerMontant : le montant du relevé remplace le montant provisoire (station, péage…).
  */
@@ -173,10 +184,16 @@ export function fusionnerRapprochement(existante, importee, { remplacerMontant =
     source: 'import',
     modifieLe: importee.modifieLe,
   };
+  // Saisie sans vraie catégorie (« Autres » ou vide) jamais corrigée par toi : la catégorie du relevé est plus juste
+  if (SANS_CATEGORIE.has(existante.categorie) && !existante.categorieVerrouillee && importee.categorie && !SANS_CATEGORIE.has(importee.categorie)) {
+    res.categorie = importee.categorie;
+    if (importee.regleId) res.regleId = importee.regleId;
+  }
+  // Le relevé donne le vrai montant (paiement « à vérifier », charge marquée « Payé » au montant prévu)
+  if (remplacerMontant) res.montantCentimes = importee.montantCentimes;
   if (existante.applePay) {
     const verifie = remplacerMontant || existante.montantCentimes === importee.montantCentimes;
     res.compteId = importee.compteId;
-    if (remplacerMontant) res.montantCentimes = importee.montantCentimes;
     res.applePay = { ...existante.applePay, verifieLe: verifie ? (importee.modifieLe || existante.applePay.verifieLe || null) : (existante.applePay.verifieLe || null) };
   }
   return res;
@@ -486,12 +503,34 @@ export function detecterChargesFixes(transactions, { dateReference } = {}) {
   return charges.sort((a, b) => a.jourPrelevement - b.jourPrelevement);
 }
 
+/** Le montant d'une opération retrouvée par son libellé est-il celui de la charge ? (10 % près, ou entre ses montants connus) */
+function montantDeLaCharge(t, c) {
+  if (c.montantDetection) return c.montantDetection === t.montantCentimes;
+  if (montantProche(t.montantCentimes, c.montantCentimes)) return true;
+  return c.montantMinCentimes > 0 && c.montantMaxCentimes > 0
+    && t.montantCentimes * 100 >= c.montantMinCentimes * 90 && t.montantCentimes * 100 <= c.montantMaxCentimes * 110;
+}
+
+/**
+ * La charge fixe dont c'est le paiement, d'après le nom : marchand identique au motif de la charge (comme avant),
+ * sinon motif retrouvé dans le libellé bancaire (« PRLV SEPA BAILLEUR EXEMPLE … ») au montant de la charge.
+ * Les charges actives d'abord. Montant de détection : montant exact.
+ * @returns la charge, ou null
+ */
+export function chargeDuLibelle(t, charges = []) {
+  if (!t || t.sens !== 'debit') return null;
+  const marchand = normaliserTexte(t.marchand || '');
+  const parNom = (c) => !!c.motifDetection && marchand === c.motifDetection && (!c.montantDetection || c.montantDetection === t.montantCentimes);
+  const parLibelle = (c) => !!c.motifDetection && motifDansLibelle(c.motifDetection, t) && montantDeLaCharge(t, c);
+  const actives = charges.filter((c) => c.actif !== false);
+  return actives.find(parNom) || charges.find(parNom) || actives.find(parLibelle) || charges.find(parLibelle) || null;
+}
+
 /** Rattache chaque transaction à la charge fixe active correspondante (évite le double comptage). */
 export function rattacherChargesFixes(transactions, charges) {
   for (const t of transactions) {
     if (t.sens !== 'debit' || t.chargeFixeId) continue;
-    const c = charges.find((c) => c.actif !== false && normaliserTexte(t.marchand) === c.motifDetection && (!c.montantDetection || c.montantDetection === t.montantCentimes))
-      || charges.find((c) => normaliserTexte(t.marchand) === c.motifDetection && (!c.montantDetection || c.montantDetection === t.montantCentimes));
+    const c = chargeDuLibelle(t, charges);
     if (c) t.chargeFixeId = c.id;
   }
 }
@@ -562,7 +601,7 @@ export function traiterImport(resultats, etat, options = {}) {
   const ctx = { jetons: choisirJetons(resultats, etat.profil?.nomTitulaire) || [] };
   let entrantes = [];
   for (const { resultat, compteId } of resultats) entrantes = entrantes.concat(operationsVersTransactions(resultat, { compteId, importId, maintenant }));
-  const { nouvelles, doublons, rapprochees } = dedoublonner(entrantes, etat.transactions || []);
+  const { nouvelles, doublons, rapprochees } = dedoublonner(entrantes, etat.transactions || [], { charges: etat.chargesFixes || [] });
   // On classe sur l'ensemble (existantes + nouvelles) pour pouvoir apparier avec des opérations déjà en base
   const existantes = (etat.transactions || []).map((t) => ({ ...t, virementInterne: { ...(t.virementInterne || {}) } }));
   for (const t of nouvelles) classerStructure(t, ctx);
@@ -572,6 +611,8 @@ export function traiterImport(resultats, etat, options = {}) {
   appliquerRegleRevolut(nouvelles, etat.profil?.regleRevolut);
   appairerRemboursements(tout);
   const inconnues = categoriser(nouvelles, etat.regles || []);
+  // Lignes qui complètent une saisie : catégorisées aussi (une saisie en « Autres » prendra la catégorie du relevé)
+  categoriser(rapprochees.map((r) => r.importee), etat.regles || []);
   return {
     importId,
     nouvelles,

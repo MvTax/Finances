@@ -1,5 +1,7 @@
 // depenses.js (v200) — l'onglet Dépenses, très simple :
 //  - en haut, UNE phrase : « Depuis le salaire : X » (période budgétaire, d'un salaire au suivant) ;
+//  - dessous, s'il en reste : « À payer ce mois-ci » (charges fixes, échéances de crédit) avec un bouton « Payé » ;
+//    celles déjà payées sont repliées (« 2 déjà payées ✓ ») ;
 //  - une liste par jour (« Aujourd'hui », « Hier », « mardi 10 ») : emoji de catégorie, nom court, montant ;
 //    les charges du mois ont une petite étiquette « du mois » (jamais en rouge) ;
 //    une dépense peut-être obligatoire pose sa question oui / non sur la ligne ;
@@ -12,12 +14,13 @@
 
 import { h, icone, estMasque, annoncer } from '../../ui/dom.js';
 import { etat } from '../../store.js';
-import { aujourdhui } from '../../dates.js';
+import { aujourdhui, MOIS_LONGS } from '../../dates.js';
 import { formatEuros } from '../../money.js';
 import { nomCategorie } from '../../categories.js';
-import { confirmerObligatoire } from '../../actions.js';
+import { confirmerObligatoire, payerChargeFixe, payerEcheanceCredit } from '../../actions.js';
+import { toast, toastErreur } from '../../ui/toast.js';
 import { eur } from '../calculs/commun.js';
-import { joursDepenses, depuisSalaire, periodePrecedente, premiereDate, phraseDerniereFois } from '../calculs/depenses.js';
+import { joursDepenses, depuisSalaire, periodePrecedente, premiereDate, phraseDerniereFois, aPayerDuMois } from '../calculs/depenses.js';
 import { emojiCategorie } from '../ui/tuiles.js';
 
 export const titre = 'Dépenses';
@@ -64,6 +67,56 @@ function ligne(l) {
       h('button', { type: 'button', class: 'v2-puce', 'aria-label': `Non, ${l.nom} est une dépense du quotidien`, onclick: (e) => repondre(false, e) }, 'Non')), aVerifier);
 }
 
+// ------------------------------------------------------------------ À payer ce mois-ci
+/** « le 19 », « le 1er » ; avec le mois quand ce n'est pas celui d'aujourd'hui (« le 2 décembre »). */
+function leJour(iso, auj = aujourdhui()) {
+  const n = Number(String(iso).slice(8, 10));
+  const mois = iso.slice(0, 7) !== auj.slice(0, 7) ? ` ${MOIS_LONGS[Number(iso.slice(5, 7)) - 1]}` : '';
+  return `le ${n === 1 ? '1er' : n}${mois}`;
+}
+
+async function marquerPaye(l, bouton) {
+  bouton.disabled = true;
+  let r = null;
+  try { r = l.type === 'credit' ? await payerEcheanceCredit(l.creditId, l.date) : await payerChargeFixe(l.chargeFixeId, { auj: aujourdhui() }); } catch { r = null; }
+  if (!r) { bouton.disabled = false; toastErreur('Je n’ai pas pu le noter. Réessaie.'); return; }
+  // La page se redessine seule (changement dans le store) : la ligne passe dans « déjà payées »
+  toast('Noté : compté dans le mois, pas dans ta journée.', { type: 'succes', action: { libelle: 'Annuler', fn: async () => { await r.annuler(); annoncer('Annulé.'); } } });
+}
+
+function lignePayer(l) {
+  const bouton = h('button', { type: 'button', class: 'v2-puce v2-payer-bouton', 'aria-label': `${l.libelle}, ${formatEuros(l.montantCentimes)}, ${leJour(l.date)} : marquer payé`,
+    onclick: (e) => marquerPaye(l, e.currentTarget) }, 'Payé');
+  return h('li', { class: 'v2-payer-item' },
+    h('span', { class: 'v2-dep-emoji', 'aria-hidden': 'true' }, emojiCategorie(l.categorie)),
+    h('span', { class: 'v2-payer-texte', 'aria-hidden': 'true' },
+      h('span', { class: 'v2-dep-nom' }, l.libelle),
+      h('span', { class: 'v2-payer-sous' }, h('span', { class: 'v2-payer-montant' }, montant(l.montantCentimes)), ` · ${leJour(l.date)}`)),
+    bouton);
+}
+
+function lignePayee(l) {
+  const comment = l.implicite ? 'reconnu dans tes dépenses' : 'payé';
+  return h('li', { class: 'v2-payer-item v2-payer-item-payee' },
+    h('span', { class: 'v2-dep-emoji', 'aria-hidden': 'true' }, emojiCategorie(l.categorie)),
+    h('span', { class: 'v2-payer-texte' },
+      h('span', { class: 'v2-dep-nom' }, l.libelle),
+      h('span', { class: 'v2-payer-sous' }, h('span', { class: 'v2-payer-montant' }, montant(l.montantCentimes)), ` · ${comment}`)));
+}
+
+/** La section « À payer ce mois-ci », seulement s'il reste quelque chose à payer. */
+function sectionAPayer(etatApp, auj) {
+  const { aPayer, payees } = aPayerDuMois(etatApp, auj);
+  if (!aPayer.length) return null;
+  const n = payees.length;
+  return h('section', { class: 'v2-payer', 'aria-labelledby': 'v2-payer-t' },
+    h('h2', { class: 'v2-payer-titre', id: 'v2-payer-t' }, 'À payer ce mois-ci'),
+    h('ul', { class: 'v2-dep-liste v2-payer-liste', role: 'list' }, aPayer.map(lignePayer)),
+    n ? h('details', { class: 'v2-payer-payees' },
+      h('summary', {}, h('span', {}, `${n} déjà payée${n > 1 ? 's' : ''}`), h('span', { 'aria-hidden': 'true' }, ' ✓')),
+      h('ul', { class: 'v2-payer-liste-payees', role: 'list' }, payees.map(lignePayee))) : null);
+}
+
 function groupe(jour) {
   const id = `v2-jour-${jour.date}`;
   return h('section', { class: 'v2-dep-jour', 'aria-labelledby': id },
@@ -107,7 +160,7 @@ export function rendre(vue) {
     h('p', {}, etat.transactions.length ? 'Rien de noté depuis le salaire.' : 'Aucune dépense pour l’instant.'),
     h('p', { class: 'v2-dep-vide-aide' }, 'Touche le + en bas pour noter ta première dépense.')) : null;
 
-  vue.replaceChildren(h('div', { class: 'v2-dep' }, entete, vide, liste, pied));
+  vue.replaceChildren(h('div', { class: 'v2-dep' }, entete, sectionAPayer(etat, auj), vide, liste, pied));
 
   // Rendu par lots : une première fournée tout de suite, la suite quand on approche du bas
   let i = 0;

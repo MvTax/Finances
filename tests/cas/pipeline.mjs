@@ -3,7 +3,7 @@ import { lireFixture } from '../outils/env.mjs';
 import { extrairePages } from '../../js/import/pdf-loader.js';
 import { parserLCL } from '../../js/import/lcl-pdf.js';
 import { parserRevolut } from '../../js/import/revolut-pdf.js';
-import { traiterImport, dedoublonner, recalculerAjustement, soldeCompte, detecterChargesFixes, jetonsTitulaire, designeTitulaire, fusionnerRapprochement, empreinte } from '../../js/import/pipeline.js';
+import { traiterImport, dedoublonner, recalculerAjustement, soldeCompte, detecterChargesFixes, jetonsTitulaire, designeTitulaire, fusionnerRapprochement, empreinte, chargeDuLibelle, rattacherChargesFixes } from '../../js/import/pipeline.js';
 import { natureTransaction } from '../../js/categories.js';
 
 let res = null;
@@ -128,6 +128,56 @@ export default [
     egal(dedoublonner([{ ...l, date: '2026-11-24' }], [station]).nouvelles.length, 1);
     egal(dedoublonner([l], [{ ...station, applePay: { ...station.applePay, provisoire: false } }]).nouvelles.length, 1);
     egal(dedoublonner([l], [{ ...station, applePay: { ...station.applePay, verifieLe: '2026-11-17T08:00:00Z' } }]).nouvelles.length, 1, 'déjà vérifié');
+  } },
+  { nom: 'charges fixes : nom de la charge retrouvé dans le libellé bancaire (mots entiers, au montant de la charge)', fn: () => {
+    const loyer = { id: 'loyer', libelle: 'Loyer', motifDetection: 'BAILLEUR EXEMPLE', montantCentimes: 50000, actif: true };
+    const abo = { id: 'abo', libelle: 'Service (9,99 €)', motifDetection: 'SERVICE EXEMPLE', montantCentimes: 999, montantDetection: 999, actif: true };
+    const ligne = (montant, lib, marchand = 'Loyer') => ({ id: `l${montant}`, sens: 'debit', montantCentimes: montant, marchand, libellePrincipal: lib, libelleBrut: lib });
+    egal(chargeDuLibelle(ligne(50000, 'PRLV SEPA BAILLEUR EXEMPLE ECH NOV'), [loyer])?.id, 'loyer', 'marchand « Loyer », motif dans le libellé');
+    egal(chargeDuLibelle(ligne(52000, 'PRLV SEPA BAILLEUR EXEMPLE'), [loyer])?.id, 'loyer', 'à 10 % près');
+    egal(chargeDuLibelle(ligne(100000, 'PRLV SEPA BAILLEUR EXEMPLE'), [loyer]), null, 'montant ×2');
+    egal(chargeDuLibelle(ligne(50000, 'PRLV SEPA BAILLEUR EXEMPLES'), [loyer]), null, 'mot entier seulement');
+    egal(chargeDuLibelle(ligne(999, 'CB SERVICE EXEMPLE 03/11'), [abo])?.id, 'abo');
+    egal(chargeDuLibelle(ligne(1099, 'CB SERVICE EXEMPLE 03/11'), [abo]), null, 'montant de détection : exact');
+    egal(chargeDuLibelle(ligne(70000, 'X', 'Bailleur Exemple'), [loyer])?.id, 'loyer', 'marchand identique au motif : comme avant, sans condition de montant');
+    egal(chargeDuLibelle({ ...ligne(50000, 'PRLV SEPA BAILLEUR EXEMPLE'), sens: 'credit' }, [loyer]), null, 'une entrée');
+    const inactive = { ...loyer, id: 'ancien', actif: false };
+    egal(chargeDuLibelle(ligne(50000, 'PRLV SEPA BAILLEUR EXEMPLE'), [inactive, loyer])?.id, 'loyer', 'les charges actives d’abord');
+    const txs = [ligne(50000, 'PRLV SEPA BAILLEUR EXEMPLE'), { ...ligne(999, 'CB SERVICE EXEMPLE'), chargeFixeId: 'deja' }];
+    rattacherChargesFixes(txs, [loyer, abo]);
+    egal(txs[0].chargeFixeId, 'loyer'); egal(txs[1].chargeFixeId, 'deja', 'déjà rattachée : gardée');
+  } },
+  { nom: 'rapprochement : une saisie en « Autres » prend la catégorie du relevé, sauf si tu l’as choisie', fn: () => {
+    const saisie = { id: 's', compteId: 'c', sens: 'debit', montantCentimes: 12000, marchand: 'Dépense', categorie: 'autres', date: '2026-11-09', source: 'texte' };
+    const ligne = { id: 'i', compteId: 'c', sens: 'debit', montantCentimes: 12000, marchand: 'Crédit instant', libellePrincipal: 'CREDIT INSTANT ECH 0911', libelleBrut: 'CREDIT INSTANT ECH 0911', categorie: 'credits', date: '2026-11-10', importId: 'imp', source: 'import' };
+    egal(fusionnerRapprochement(saisie, ligne).categorie, 'credits');
+    egal(fusionnerRapprochement({ ...saisie, categorie: null }, ligne).categorie, 'credits', 'sans catégorie');
+    egal(fusionnerRapprochement({ ...saisie, categorieVerrouillee: true }, ligne).categorie, 'autres', 'choisie par toi : gardée');
+    egal(fusionnerRapprochement({ ...saisie, categorie: 'courses' }, ligne).categorie, 'courses', 'vraie catégorie : gardée');
+    egal(fusionnerRapprochement(saisie, { ...ligne, categorie: 'autres' }).categorie, 'autres');
+    egal(fusionnerRapprochement(saisie, ligne).montantCentimes, 12000, 'montant inchangé sans remplacement');
+    // L'import catégorise aussi la ligne qui complète la saisie
+    const resultat = { banque: 'lcl', operations: [{ date: '2026-11-10', montantCentimes: 12000, sens: 'debit', libellePrincipal: 'CREDIT INSTANT ECH 0911' }] };
+    const r = traiterImport([{ resultat, compteId: 'c' }], { transactions: [saisie], regles: [], profil: {} }, { maintenant: '2026-11-10T08:00:00Z', importId: 'imp' });
+    egal(r.rapprochees.length, 1); egal(r.rapprochees[0].importee.categorie, 'credits');
+    egal(fusionnerRapprochement(r.rapprochees[0].existante, r.rapprochees[0].importee).categorie, 'credits');
+  } },
+  { nom: 'rapprochement : charge marquée « Payé » puis ligne du relevé à un autre montant → la banque fait foi', fn: () => {
+    const charges = [{ id: 'loyer', libelle: 'Loyer', motifDetection: 'BAILLEUR EXEMPLE', montantCentimes: 50000, actif: true }];
+    const paye = { id: 'p', compteId: 'c', sens: 'debit', montantCentimes: 50000, marchand: 'Loyer', libellePrincipal: 'Loyer', categorie: 'logement', chargeFixeId: 'loyer', date: '2026-11-08', source: 'confirmation', importId: null };
+    paye.empreinteDedoublonnage = empreinte(paye);
+    const ligne = { id: 'i', compteId: 'c', sens: 'debit', montantCentimes: 51250, marchand: 'Bailleur Exemple', libellePrincipal: 'PRLV SEPA BAILLEUR EXEMPLE', libelleBrut: 'PRLV SEPA BAILLEUR EXEMPLE', date: '2026-11-10', importId: 'imp', source: 'import' };
+    ligne.empreinteDedoublonnage = empreinte(ligne);
+    const d = dedoublonner([ligne], [paye], { charges });
+    egal(d.nouvelles.length, 0); egal(d.rapprochees.length, 1); egal(d.rapprochees[0].montantDifferent, true);
+    const f = fusionnerRapprochement(d.rapprochees[0].existante, d.rapprochees[0].importee, { remplacerMontant: true });
+    egal(f.montantCentimes, 51250); egal(f.chargeFixeId, 'loyer'); egal(f.source, 'import'); egal(f.importId, 'imp');
+    // Sans les charges, trop loin, déjà complétée, ou une autre charge : nouvelle opération
+    egal(dedoublonner([ligne], [paye]).nouvelles.length, 1, 'charges inconnues');
+    egal(dedoublonner([{ ...ligne, date: '2026-11-20' }], [paye], { charges }).nouvelles.length, 1, '12 jours après');
+    egal(dedoublonner([ligne], [{ ...paye, importId: 'avant' }], { charges }).nouvelles.length, 1, 'déjà complétée par un relevé');
+    egal(dedoublonner([ligne], [{ ...paye, chargeFixeId: 'autre' }], { charges }).nouvelles.length, 1, 'autre charge');
+    egal(dedoublonner([ligne], [{ ...paye, source: 'texte' }], { charges }).nouvelles.length, 1, 'pas un « Payé »');
   } },
 ];
 

@@ -9,6 +9,7 @@ import { divArrondiBancaire } from './money.js';
 import { listerAbonnements } from './abonnements.js';
 import { normaliserTexte } from './rules.js';
 import { montantsHabituels } from './privations.js';
+import { TOLERANCE_JOURS, montantProche, categorieVoisine, motifDansLibelle } from './correspondance.js';
 
 export const HEURES_MENSUELLES_DEFAUT = 151.67;
 export const COMMISSION_INTERVENTION_CENTIMES = 800; // tarif courant d'une commission d'intervention (paramétrable)
@@ -115,8 +116,8 @@ export function equivalentTravail(centimes, tauxHoraireCentimes) {
   return m ? `${h} h ${String(m).padStart(2, '0')}` : `${h} h`;
 }
 
-/** Charges fixes de la période, avec date d'échéance et statut payé (montant réel si payé). */
-export function chargesFixesPeriode(etat, periode) {
+/** Charges fixes de la période avec leur date d'échéance, payées seulement par les opérations qui y sont rattachées. */
+function chargesRattachees(etat, periode) {
   const res = [];
   const loyer = etat.profil?.loyerAPayerCentimes;
   for (const c of etat.chargesFixes || []) {
@@ -130,7 +131,60 @@ export function chargesFixesPeriode(etat, periode) {
     if (paiements.length) montant = paiements.reduce((s, t) => s + t.montantCentimes, 0);
     res.push({ ...c, date, montantPrevuCentimes: montant, payee: paiements.length > 0 });
   }
-  return res.sort((a, b) => (a.date < b.date ? -1 : 1));
+  return res;
+}
+
+/**
+ * Une opération qui paie une charge fixe sans y être rattachée (ex. loyer noté à la main avant que l'app sache
+ * rattacher, puis complété par la ligne « PRLV … » du relevé). Calcul à la volée : rien n'est écrit.
+ * Une opération candidate : un débit sans charge rattachée, ni ajustement ni envie, une dépense ou une dette,
+ * déjà hors de ta part du jour (prélèvement PRLV, abonnement, dépense obligatoire reconnue) — jamais si tu as
+ * répondu « non » (horsPartDuJour === false) ; dans la période, au montant de la charge à 10 % près, à 7 jours de
+ * son échéance, et de la même catégorie (ou voisine) ou avec le nom de la charge dans son libellé bancaire
+ * (montant exact si la charge a un montant de détection). Une charge, une opération au plus (la plus proche en
+ * montant, puis en date).
+ * @param charges  charges de la période (chargesRattachees), pour ne pas les recalculer
+ * @returns [{ chargeFixeId, transactionId, montantCentimes, date }]
+ */
+export function paiementsImplicites(etat, periode, charges = chargesRattachees(etat, periode)) {
+  const aPayer = charges.filter((c) => !c.payee);
+  if (!aPayer.length) return [];
+  const candidates = (etat.transactions || []).filter((t) => t.sens === 'debit' && !t.chargeFixeId && !t.ajustement && !t.envieId
+    && t.horsPartDuJour !== false && t.montantCentimes > 0 && t.date >= periode.debut && t.date <= periode.fin
+    && !estDepenseQuotidienne(t) && ['depense', 'dette'].includes(natureTransaction(t)));
+  const paires = [];
+  for (const c of aPayer) {
+    for (const t of candidates) {
+      const jours = Math.abs(diffJours(c.date, t.date));
+      if (jours > TOLERANCE_JOURS) continue;
+      if (!montantProche(t.montantCentimes, c.montantPrevuCentimes) && !montantProche(t.montantCentimes, c.montantCentimes)) continue;
+      if (c.montantDetection && c.montantDetection !== t.montantCentimes) continue;
+      if (!categorieVoisine(c.categorie, t.categorie) && !motifDansLibelle(c.motifDetection, t)) continue;
+      const ecart = Math.min(Math.abs(t.montantCentimes - c.montantPrevuCentimes), Math.abs(t.montantCentimes - c.montantCentimes));
+      paires.push({ c, t, ecart, jours });
+    }
+  }
+  paires.sort((a, b) => a.ecart - b.ecart || a.jours - b.jours || (a.t.date < b.t.date ? -1 : a.t.date > b.t.date ? 1 : 0));
+  const prisesC = new Set(); const prisesT = new Set(); const res = [];
+  for (const { c, t } of paires) {
+    if (prisesC.has(c.id) || prisesT.has(t.id)) continue;
+    prisesC.add(c.id); prisesT.add(t.id);
+    res.push({ chargeFixeId: c.id, transactionId: t.id, montantCentimes: t.montantCentimes, date: t.date });
+  }
+  return res;
+}
+
+/**
+ * Charges fixes de la période, avec date d'échéance et statut payé (montant réel si payé).
+ * Payée : une opération rattachée (chargeFixeId), ou une opération qui la paie sans y être rattachée
+ * (paiementsImplicites : payeeImplicite, transactionId).
+ */
+export function chargesFixesPeriode(etat, periode) {
+  const charges = chargesRattachees(etat, periode);
+  const implicites = new Map(paiementsImplicites(etat, periode, charges).map((p) => [p.chargeFixeId, p]));
+  return charges
+    .map((c) => { const p = implicites.get(c.id); return p ? { ...c, montantPrevuCentimes: p.montantCentimes, payee: true, payeeImplicite: true, transactionId: p.transactionId } : c; })
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
 /** Charge à périodicité fixe (ex. tous les 28 jours) : première occurrence dans la période, ou null. */
@@ -167,11 +221,16 @@ export function estDepenseQuotidienne(t) {
   return true;
 }
 
-/** Abonnements et prélèvements payés dans la période sans charge fixe correspondante : comptés avec les charges. */
-export function prelevementsHorsCharges(etat, debut, fin) {
+/**
+ * Abonnements et prélèvements payés dans la période sans charge fixe correspondante : comptés avec les charges.
+ * Ceux qui paient une charge fixe sans y être rattachés (paiementsImplicites) sont déjà comptés avec la charge.
+ * @param options.implicites  false : ne pas les retirer (période quelconque, ex. contrôle sur 90 jours)
+ */
+export function prelevementsHorsCharges(etat, debut, fin, { implicites = true } = {}) {
   const res = [];
+  const dejaComptes = implicites ? new Set(paiementsImplicites(etat, { debut, fin }).map((p) => p.transactionId)) : new Set();
   for (const t of etat.transactions || []) {
-    if (t.date < debut || t.date > fin || t.ajustement || estDepenseQuotidienne(t) || t.chargeFixeId || t.envieId) continue;
+    if (t.date < debut || t.date > fin || t.ajustement || estDepenseQuotidienne(t) || t.chargeFixeId || t.envieId || dejaComptes.has(t.id)) continue;
     const v = contributionDepense(t);
     if (v) res.push({ id: `tx-${t.id}`, libelle: t.libelle || t.marchand, categorie: t.categorie, date: t.date, montantPrevuCentimes: v, paye: true, transactionId: t.id, horsCharges: true });
   }
