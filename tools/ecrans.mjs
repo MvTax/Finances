@@ -38,7 +38,7 @@ const AUJ = valeur('--aujourdhui', REFERENCE_DEFAUT);
 const simplifier = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const CAPTURES = new Set(args.flatMap((a, i) => (args[i - 1] === '--capture' ? a.split(',') : [])).map(simplifier));
 if (V200) for (const c of ['v200-aujourdhui', 'v200-saisie', 'v200-saisie-montant', 'v200-confirmation', 'v200-vide', 'v200-privation', 'v200-toutes', 'v200-question', 'v200-privation-montant',
-  'v200-depenses', 'v200-depenses-bas', 'v200-detail-depense', 'v200-rentree', 'v200-epargne', 'v200-pot', 'v200-virement', 'v200-resume', 'v200-resume-annee', 'v200-resume-bas',
+  'v200-depenses', 'v200-depenses-bas', 'v200-detail-depense', 'v200-rentree', 'v200-epargne', 'v200-pot', 'v200-virement', 'v200-historique-cagnotte', 'v200-resume', 'v200-resume-annee', 'v200-resume-bas',
   'v200-reglages', 'v200-reglages-avance', 'v200-reglages-apparence', 'v200-reglages-sauvegarde', 'v200-reglages-epargne', 'v200-reglages-revenus', 'v200-import', 'v200-historique', 'v200-saisie-clavier']) CAPTURES.add(c);
 const DOSSIER = mkdtempSync(path.join(os.tmpdir(), 'ecrans-'));
 const LARGEUR = 390; const HAUTEUR = 844;
@@ -591,6 +591,17 @@ async function pagesV200(page) {
     await page.locator('.v2-virer').click();
     await verifierFeuille(page, 'v200-virement', 'v200 → Épargne : « À virer » ouvre le virement', { fermer: 'bouton', extra: async () => page.evaluate(() => [[...document.querySelectorAll('.feuille-racine')].pop().textContent.includes('J’ai viré') ? null : 'bouton « J’ai viré » absent']) });
   } else console.log('  rien à virer aujourd’hui : pas de bouton « À virer »');
+  // « Recalculer l'épargne » : message après le redessin ; « Détail » ouvre l'historique de la cagnotte
+  await page.locator('.v2-recalcul-bouton').click();
+  const msgRecalcul = await page.waitForFunction(() => document.querySelector('.v2-recalcul-message')?.textContent || '', null, { timeout: 6000 }).then((x) => x.jsonValue()).catch(() => '');
+  console.log(`  recalcul : ${msgRecalcul || '(pas de message)'}`);
+  rapport('v200 → Épargne : « Recalculer l’épargne »', [/^(Mis à jour|Déjà à jour) : .* à virer\.$/.test(msgRecalcul) ? null : `message inattendu : « ${msgRecalcul} »`,
+    await page.evaluate(() => document.activeElement?.classList.contains('v2-recalcul-bouton') ? null : 'le bouton n’a pas gardé le focus'), ...viderErreurs(page)].filter(Boolean));
+  await page.locator('.v2-recalcul-detail').click();
+  await verifierFeuille(page, 'v200-historique-cagnotte', 'v200 → Épargne : « Détail » ouvre l’historique de la cagnotte', { fermer: 'bouton', extra: async () => page.evaluate(() => {
+    const t = [...document.querySelectorAll('.feuille-racine')].pop().textContent;
+    return [/Arrondis/.test(t) ? null : 'arrondis absents', /Privations?/.test(t) ? null : 'privations absentes'];
+  }) });
 
   // ---- Résumé : météo, bascule mois / année, préventions, « Voir le détail »
   await aller(page, '#resume');

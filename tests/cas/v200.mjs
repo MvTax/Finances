@@ -11,7 +11,7 @@ import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, lig
 import { serieJours, flammesDesJours } from '../../js/jeu.js';
 import { montantParle } from '../../js/v200/ui/molette.js';
 import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX, aVerifier, joursDepuisApplePay, phraseDerniereFois, bilanApplePay, notesFichierApplePay, finApplePay, aPayerDuMois } from '../../js/v200/calculs/depenses.js';
-import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis } from '../../js/v200/calculs/pots.js';
+import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis, phraseRecalcul } from '../../js/v200/calculs/pots.js';
 import { meteoDuMois, phrasesMois, phrasesAnnee, METEO } from '../../js/v200/calculs/resume.js';
 import { jourBudgetaire } from '../../js/restes.js';
 import { forcerAujourdhui, ajouterJours, jourSemaine } from '../../js/dates.js';
@@ -410,6 +410,16 @@ export default [
     egalProfond([ar.actif, ar.centimes, sp(ar.phrase)], [true, 70, 'Tes arrondis ce mois-ci : 0,70 € mis de côté sans y penser.'], 'seulement depuis le salaire');
     e.transactions = [];
     egal(phraseArrondis(e, A).phrase, 'Pas encore d’arrondi ce mois-ci : il viendra avec tes prochaines dépenses.');
+  }) },
+  { nom: 'Épargne : phrase après « Recalculer l’épargne » (hausse, baisse, identique, zéro, masqué)', fn: () => avecDate('2026-11-12', () => {
+    egal(sp(phraseRecalcul(1240, 1410)), 'Mis à jour : 12,40 € → 14,10 € à virer.', 'hausse');
+    egal(sp(phraseRecalcul(1410, 900)), 'Mis à jour : 14,10 € → 9 € à virer.', 'baisse');
+    egal(sp(phraseRecalcul(1240, 1240)), 'Déjà à jour : 12,40 € à virer.', 'identique');
+    egal(phraseRecalcul(0, 0), 'Déjà à jour : rien à virer.', 'zéro des deux côtés');
+    egal(sp(phraseRecalcul(0, 350)), 'Mis à jour : 0 € → 3,50 € à virer.', 'depuis zéro');
+    egal(sp(phraseRecalcul(500, 0)), 'Mis à jour : 5 € → rien à virer.', 'vers zéro');
+    egal(phraseRecalcul(1240, 1410, { masque: true }), 'Mis à jour : ••• à virer.', 'masqué');
+    egal(phraseRecalcul(1240, 1240, { masque: true }), 'Déjà à jour : ••• à virer.');
   }) },
   { nom: 'Résumé : météo et phrases courtes du mois et de l’année', fn: () => {
     egalProfond(['calme', 'attention', 'risque', 'pas-assez'].map((n) => meteoDuMois({ niveau: n, phrase: 'x' }).dessin), ['soleil', 'nuage', 'orage', 'voile']);

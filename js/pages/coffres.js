@@ -156,6 +156,7 @@ const SOURCES = {
   privation: { icone: 'tirelire', nom: 'Privation', total: 'Privations' },
   reste: { icone: 'sablier', nom: 'Reste du jour', total: 'Restes du jour' },
   mois: { icone: 'calendrier', nom: 'Épargne du mois', total: 'Épargne du mois' },
+  avance: { icone: 'fleches', nom: 'Avance d’une envie', total: 'Avance d’une envie reprise' },
 };
 
 /** Historique de la cagnotte : chaque ajout du mois, sa source, et s'il est déjà viré. */
@@ -174,7 +175,7 @@ export function feuilleHistorique() {
       items.push(h('div', { class: `histo-ligne histo-${l.source}${l.enCours ? ' en-cours' : ''}` },
         h('span', { class: 'histo-icone', 'aria-hidden': 'true' }, icone(src.icone)),
         h('span', { class: 'histo-texte' }, h('strong', {}, l.libelle), h('small', {}, l.libelle === src.nom ? l.detail : `${src.nom} · ${l.detail}`)),
-        h('span', { class: 'histo-droite' }, h('span', { class: `histo-montant ${l.montantCentimes ? '' : 'nul'}` }, l.enCours ? '≈ ' : '', l.montantCentimes ? '+' : '', mt(l.montantCentimes)),
+        h('span', { class: 'histo-droite' }, h('span', { class: `histo-montant ${l.montantCentimes ? '' : 'nul'}` }, l.enCours ? '≈ ' : '', l.montantCentimes > 0 ? '+' : '', mt(l.montantCentimes)),
           h('small', { class: l.enCours ? 'histo-encours' : l.vireLe ? 'histo-vire' : l.montantCentimes ? 'histo-attente' : 'histo-vire' }, l.enCours ? 'à 5 h' : l.vireLe ? `viré le ${formatDateCourte(l.vireLe)}` : l.montantCentimes ? 'à virer' : 'rien à virer'))));
     }
     liste.replaceChildren(...(items.length ? items : [h('p', { class: 'petit' }, 'Rien pour l’instant.')]));

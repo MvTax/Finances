@@ -131,6 +131,22 @@ export function phraseArrondis(etat, auj) {
 }
 
 /**
+ * Phrase après « Recalculer l'épargne » : le total à virer avant et après le recalcul.
+ * « Mis à jour : 12,40 € → 14,10 € à virer » si ça a changé, sinon « Déjà à jour : X à virer ».
+ * @param {number} avantCentimes  total à virer lu juste avant le recalcul
+ * @param {number} apresCentimes  total à virer après le recalcul
+ * @param {{ masque?: boolean }} o  masque : montants remplacés par •••
+ */
+export function phraseRecalcul(avantCentimes, apresCentimes, { masque = false } = {}) {
+  const a = Math.max(0, Math.trunc(avantCentimes || 0));
+  const b = Math.max(0, Math.trunc(apresCentimes || 0));
+  const m = (c) => (masque ? '•••' : eur(c));
+  if (a === b) return b > 0 ? `Déjà à jour : ${m(b)} à virer.` : 'Déjà à jour : rien à virer.';
+  if (masque) return 'Mis à jour : ••• à virer.';
+  return b > 0 ? `Mis à jour : ${m(a)} → ${m(b)} à virer.` : `Mis à jour : ${m(a)} → rien à virer.`;
+}
+
+/**
  * Les trois pots, dans l'ordre Sécurité, Prêt, Envie (un pot sans poche n'est pas montré ; l'Envie l'est toujours).
  * @returns {{ pots: Array<pot>, virement, arrondis }}
  */

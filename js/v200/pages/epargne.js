@@ -1,6 +1,8 @@
 // epargne.js (v200) — l'onglet Épargne en trois pots illustrés qui se remplissent : Sécurité, Prêt, Envie.
 //  - toucher un pot ouvre une petite feuille : 2 ou 3 phrases (combien, ce qui manque, à quel rythme) ;
 //  - « À virer : X » quand un virement vers l'épargne est à faire : il ouvre le flux habituel (coffres.js, feuilleVirement) ;
+//  - « Recalculer l'épargne » : refait les restes du jour pas encore virés, redessine, et dit ce qui a changé ;
+//    à côté, « Détail » ouvre l'historique de la cagnotte (arrondis, restes, repas, privations) ;
 //  - une phrase sur les arrondis du mois.
 // Pas de tableau. Les calculs sont dans js/v200/calculs/pots.js (testés) ; ici, seulement l'affichage.
 // Les anciens sous-écrans (#epargne/plan, #epargne/dettes…) restent ceux de l'app d'origine.
@@ -11,7 +13,7 @@ import { etat } from '../../store.js';
 import { aujourdhui } from '../../dates.js';
 import { formatEuros } from '../../money.js';
 import { eur } from '../calculs/commun.js';
-import { potsEpargne } from '../calculs/pots.js';
+import { potsEpargne, phraseRecalcul } from '../calculs/pots.js';
 import { pot as dessinPot } from '../ui/dessins.js';
 
 export const titre = 'Épargne';
@@ -51,6 +53,48 @@ function carte(p) {
       p.envie ? h('span', { class: 'v2-pot-envie-nom', 'aria-hidden': 'true' }, p.envie.nom) : null));
 }
 
+// Message du dernier recalcul : gardé ici pour survivre au redessin de la page, puis oublié.
+let messageRecalcul = null;
+let recalculEnCours = false;
+
+async function recalculer(vue, bouton) {
+  if (recalculEnCours) return;
+  recalculEnCours = true;
+  bouton.disabled = true;
+  bouton.setAttribute('aria-busy', 'true');
+  let msg;
+  try {
+    const avant = potsEpargne(etat, aujourdhui()).virement.montantCentimes;
+    const { cloturerJoursPasses } = await import('../../actions.js');
+    await cloturerJoursPasses();
+    const apres = potsEpargne(etat, aujourdhui()).virement.montantCentimes;
+    msg = phraseRecalcul(avant, apres, { masque: estMasque() });
+  } catch (e) {
+    console.warn('Recalcul de l’épargne', e?.message);
+    msg = 'Le calcul n’a pas marché. Réessaie dans un instant.';
+  }
+  messageRecalcul = msg;
+  try { await rendre(vue); } finally { recalculEnCours = false; }
+}
+
+function blocRecalcul(vue) {
+  const message = h('p', { class: 'v2-recalcul-message', role: 'status', 'aria-live': 'polite' });
+  const bouton = h('button', { type: 'button', class: 'v2-recalcul-bouton', onclick: () => recalculer(vue, bouton) },
+    h('span', { class: 'v2-recalcul-icone', 'aria-hidden': 'true' }, icone('boucle')), h('span', {}, 'Recalculer l’épargne'));
+  const detail = h('button', { type: 'button', class: 'v2-recalcul-detail', 'aria-label': 'Voir le détail des arrondis et des privations',
+    onclick: async () => { const { feuilleHistorique } = await import('../../pages/coffres.js'); feuilleHistorique()?.element?.classList.add('v2-feuille'); } },
+    h('span', { class: 'v2-recalcul-detail-pastille', 'aria-hidden': 'true' }, icone('liste')));
+  const bloc = h('div', { class: 'v2-recalcul' }, h('div', { class: 'v2-recalcul-ligne' }, bouton, detail), message);
+  if (messageRecalcul) {
+    const texte = messageRecalcul;
+    messageRecalcul = null;
+    // Écrit un peu après l'affichage : la zone existe déjà, le lecteur d'écran l'annonce
+    setTimeout(() => { message.textContent = texte; }, 60);
+    setTimeout(() => bouton.focus({ preventScroll: true }), 0);
+  }
+  return bloc;
+}
+
 export async function rendre(vue, params = []) {
   // Sous-écrans de l'app d'origine (Mon plan, Mes dettes, simulateur) : inchangés
   if (params[0]) { const m = await import('../../pages/epargne.js'); m.rendre(vue, params); return; }
@@ -76,5 +120,6 @@ export async function rendre(vue, params = []) {
     entete,
     h('ul', { class: 'v2-pots', role: 'list' }, pots.map(carte)),
     virer,
+    blocRecalcul(vue),
     h('p', { class: 'v2-phrase v2-phrase-arrondis' }, h('span', { class: 'v2-phrase-emoji', 'aria-hidden': 'true' }, '🪙'), h('span', {}, estMasque() && arrondis.centimes ? 'Tes arrondis ce mois-ci : •••' : arrondis.phrase))));
 }

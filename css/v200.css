@@ -417,6 +417,31 @@
 :root[data-app="v200"] .v2-virer-quand { font-size: 14.5px; font-weight: 700; color: #FBE3D8; }
 :root[data-app="v200"] .v2-virer > .ic { flex: none; width: 22px; height: 22px; stroke-width: 2.6; }
 
+/* « Recalculer l'épargne » et le petit bouton « Détail » */
+:root[data-app="v200"] .v2-recalcul { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: -4px; }
+:root[data-app="v200"] .v2-recalcul-ligne { display: flex; align-items: center; justify-content: center; gap: 4px; }
+:root[data-app="v200"] .v2-recalcul-bouton {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px 0 8px;
+  border: 1.5px solid var(--separateur); border-radius: 999px; background: var(--surface); color: var(--accent);
+  font-family: var(--police); font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: var(--ombre);
+}
+:root[data-app="v200"] .v2-recalcul-icone { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-doux); }
+:root[data-app="v200"] .v2-recalcul-icone .ic { width: 18px; height: 18px; stroke-width: 2.6; }
+:root[data-app="v200"] .v2-recalcul-bouton:active { transform: scale(.97); }
+:root[data-app="v200"] .v2-recalcul-bouton:disabled { opacity: .6; cursor: progress; }
+:root[data-app="v200"] .v2-recalcul-bouton:disabled .v2-recalcul-icone .ic { animation: v2-tourne 1s linear infinite; }
+@keyframes v2-tourne { to { transform: rotate(360deg); } }
+:root[data-app="v200"] .v2-recalcul-detail {
+  flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent;
+  display: grid; place-items: center; color: var(--texte-2); cursor: pointer;
+}
+:root[data-app="v200"] .v2-recalcul-detail-pastille { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); }
+:root[data-app="v200"] .v2-recalcul-detail-pastille .ic { width: 15px; height: 15px; stroke-width: 2.6; }
+:root[data-app="v200"] .v2-recalcul-detail:active .v2-recalcul-detail-pastille { background: var(--accent-doux); }
+:root[data-app="v200"] .v2-recalcul-message { margin: 0; min-height: 1.35em; padding: 0 12px; text-align: center; font-size: 14.5px; font-weight: 700; color: var(--texte-2); font-variant-numeric: tabular-nums; }
+:root[data-app="v200"] .v2-recalcul-message:empty { min-height: 0; }
+@media (prefers-reduced-motion: reduce) { :root[data-app="v200"] .v2-recalcul-bouton:disabled .v2-recalcul-icone .ic { animation: none; } }
+
 /* Feuille d'un pot */
 :root[data-app="v200"] .v2-pot-fiche { display: flex; flex-direction: column; gap: 16px; padding-bottom: 6px; }
 :root[data-app="v200"] .v2-pot-fiche-dessin {

@@ -14,6 +14,7 @@
 - 1.43.0 : paiements Apple Pay récupérés depuis un fichier iCloud écrit par un Raccourci (classement, doublons, montants à vérifier).
 - 1.44.0 (branche, pas en ligne) : pastille « Reste du mois » en couleur sur Aujourd'hui (→ Résumé) ; « À payer ce mois-ci » dans Dépenses avec bouton « Payé » et « Annuler » ; dépenses du mois jamais comptées deux fois ; aide du Raccourci Apple Pay mise à jour (déclencheur « Cartes », `/applepay.txt` dans iCloud Drive › Raccourcis).
 - 1.45.0 : la pastille d'Aujourd'hui devient « Sur mes comptes » (solde courant + néobanque, `soldeComptesDepense` dans `js/v200/calculs/jour.js`, couleur du mois, rouge si négatif) ; Résumé › Mois : « Voir toutes (N) » / « Réduire » déplie toutes les catégories (`resumeMois(...).toutes`).
+- 1.46.0 (branche, pas en ligne) : Épargne › bouton « Recalculer l’épargne » (refait les restes du jour pas encore virés, puis « Mis à jour : X → Y à virer » ou « Déjà à jour », `phraseRecalcul` dans `js/v200/calculs/pots.js`) et petit bouton « Détail » qui ouvre l’historique de la cagnotte (corrigé : la ligne « Avance d’une envie reprise » la faisait planter). Le Détail montre maintenant le même « À virer » que la page (ligne « Arrondis d’avant le salaire » : arrondis pas encore virés d’avant le salaire, `historiqueCagnotte`).
 
 ## Reste à faire
 - Retour de l'utilisateur sur l'iPhone (1.42.0 à 1.45.0 : pastille « Sur mes comptes », « Payé », « Voir toutes », nouvelle aide du Raccourci).

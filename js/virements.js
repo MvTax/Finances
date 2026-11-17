@@ -12,7 +12,7 @@ import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrond
 import { formatEuros } from './money.js';
 import { jourBudgetaire, resteDuJourPasse } from './restes.js';
 import { bilanPrivations } from './privations.js';
-import { ajouterJours } from './dates.js';
+import { ajouterJours, formatDateCourte } from './dates.js';
 
 /** Valeur du réglage « arrondis, repas et privations » qui les partage entre les épargnes (comme l'épargne du mois). */
 export const PARTAGE = 'partage';
@@ -156,6 +156,8 @@ export function compteEpargne(poche) {
 /**
  * Historique de la cagnotte du mois : chaque ajout, d'où il vient, et s'il est viré.
  * Sources : arrondi d'une sortie du compte, repas à la maison, privation, épargne du mois.
+ * Les arrondis d'avant le salaire pas encore virés (repris par le virement) forment une seule ligne.
+ * Total à virer = semaineCentimes de aVirerEpargne (le virement en cours), pas totalCentimes (tout le mois).
  * @returns {{ lignes: Array<{ date, source, libelle, detail, montantCentimes, vireLe }>, aVirerCentimes, vireCentimes, periode }}
  */
 export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
@@ -173,6 +175,14 @@ export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
       const a = arrondiTransaction(t, ar);
       if (!a) continue;
       lignes.push({ date: t.date, source: 'arrondi', libelle: t.marchand || t.libelle || 'Dépense', detail: `${formatEuros(t.montantCentimes)} arrondi à ${formatEuros(t.montantCentimes + a)}`, montantCentimes: a, vireLe: vires.get(t.id) || null });
+    }
+    // Arrondis d'avant le salaire pas encore virés : le virement les reprend (cagnotteArrondis), une seule ligne pour eux
+    const avant = cagnotteArrondis(etat, dateIso).lignes.filter((l) => l.date < per.debut);
+    if (avant.length) {
+      const dates = avant.map((l) => l.date).sort();
+      const total = avant.reduce((s, l) => s + l.montantCentimes, 0);
+      const n = avant.length;
+      lignes.push({ date: dates[dates.length - 1], source: 'arrondi', libelle: 'Arrondis d’avant le salaire', detail: `${n} arrondi${n > 1 ? 's' : ''} du ${formatDateCourte(dates[0])} au ${formatDateCourte(dates[n - 1])}, pas encore virés`, montantCentimes: total, vireLe: null, avantSalaire: true });
     }
   }
   // Repas à la maison (automatiques) et privations
