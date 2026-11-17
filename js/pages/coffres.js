@@ -11,7 +11,7 @@ import { paliersPoche } from '../paliers.js';
 import { aVirerEpargne, historiqueCagnotte, compteEpargne, pocheDesEfforts, libelleVirement, JOURS_PAR_VIREMENT } from '../virements.js';
 import { projectionDecouvert } from '../calculs.js';
 import { virerSemaine } from '../actions.js';
-import { aujourdhui, formatDateCourte, formatJourLong, ajouterJours } from '../dates.js';
+import { aujourdhui, formatDateCourte, formatJourLong, ajouterJours, formatMois, jourSemaine, JOURS_COURTS } from '../dates.js';
 import { ajouterAuCalendrier } from '../ics.js';
 import { formatEuros } from '../money.js';
 import { aide } from '../ui/aide.js';
@@ -164,19 +164,38 @@ export function feuilleHistorique() {
   const hst = historiqueCagnotte(etat, aujourdhui());
   let filtre = 'tout';
   const liste = h('div', { class: 'histo-liste' });
-  const parSource = (src) => hst.lignes.filter((l) => l.source === src && !l.enCours).reduce((s, l) => s + l.montantCentimes, 0);
+  const parSource = (src) => hst.lignes.filter((l) => l.source === src && !l.enCours && !l.depart).reduce((s, l) => s + l.montantCentimes, 0);
+  // App joyeuse (v200) : liste comme celle de la banque (date à gauche, une ligne par opération, titre de mois),
+  // avec le salaire et la CAF en « début du mois ». L'app d'origine garde sa liste par jour, sans ces lignes.
+  const banque = document.documentElement.dataset.app === 'v200';
+  const statut = (l) => h('small', { class: l.enCours ? 'histo-encours' : l.vireLe ? 'histo-vire' : l.montantCentimes ? 'histo-attente' : 'histo-vire' }, l.enCours ? 'à 5 h' : l.vireLe ? `viré le ${formatDateCourte(l.vireLe)}` : l.montantCentimes ? 'à virer' : 'rien à virer');
+  const montant = (l) => h('span', { class: `histo-montant ${l.montantCentimes ? '' : 'nul'}` }, l.enCours ? '≈ ' : '', l.montantCentimes > 0 ? '+' : '', mt(l.montantCentimes));
+  const ligneBanque = (l) => {
+    const src = SOURCES[l.source];
+    return h('div', { class: `histo-ligne histo-op histo-${l.source}${l.enCours ? ' en-cours' : ''}` },
+      h('span', { class: 'histo-date', 'aria-hidden': 'true' }, h('strong', {}, String(Number(l.date.slice(8, 10)))), h('small', {}, JOURS_COURTS[jourSemaine(l.date) - 1].replace('.', '').toUpperCase())),
+      h('span', { class: 'histo-texte' }, h('strong', {}, l.libelle),
+        l.depart ? h('small', {}, h('span', { class: 'histo-etiquette' }, 'début du mois'), ` ${l.detail}`) : h('small', {}, l.libelle === src.nom ? l.detail : `${src.nom} · ${l.detail}`)),
+      h('span', { class: 'histo-droite' }, montant(l), l.depart ? h('small', { class: 'histo-vire' }, 'pas à virer') : statut(l)),
+      h('span', { class: 'sr' }, formatJourLong(l.date)));
+  };
   const dessiner = () => {
-    const lignes = hst.lignes.filter((l) => filtre === 'tout' || l.source === filtre);
-    let jour = null;
+    const lignes = hst.lignes.filter((l) => (filtre === 'tout' ? banque || !l.depart : l.source === filtre));
+    let groupe = null;
     const items = [];
     for (const l of lignes) {
-      if (l.date !== jour) { jour = l.date; items.push(h('h3', { class: 'histo-jour' }, l.date === aujourdhui() ? 'Aujourd’hui' : formatJourLong(l.date))); }
+      if (banque) {
+        const m = l.date.slice(0, 7);
+        if (m !== groupe) { groupe = m; const t = formatMois(m); items.push(h('h3', { class: 'histo-mois-titre' }, t[0].toUpperCase() + t.slice(1))); }
+        items.push(ligneBanque(l));
+        continue;
+      }
+      if (l.date !== groupe) { groupe = l.date; items.push(h('h3', { class: 'histo-jour' }, l.date === aujourdhui() ? 'Aujourd’hui' : formatJourLong(l.date))); }
       const src = SOURCES[l.source];
       items.push(h('div', { class: `histo-ligne histo-${l.source}${l.enCours ? ' en-cours' : ''}` },
         h('span', { class: 'histo-icone', 'aria-hidden': 'true' }, icone(src.icone)),
         h('span', { class: 'histo-texte' }, h('strong', {}, l.libelle), h('small', {}, l.libelle === src.nom ? l.detail : `${src.nom} · ${l.detail}`)),
-        h('span', { class: 'histo-droite' }, h('span', { class: `histo-montant ${l.montantCentimes ? '' : 'nul'}` }, l.enCours ? '≈ ' : '', l.montantCentimes > 0 ? '+' : '', mt(l.montantCentimes)),
-          h('small', { class: l.enCours ? 'histo-encours' : l.vireLe ? 'histo-vire' : l.montantCentimes ? 'histo-attente' : 'histo-vire' }, l.enCours ? 'à 5 h' : l.vireLe ? `viré le ${formatDateCourte(l.vireLe)}` : l.montantCentimes ? 'à virer' : 'rien à virer'))));
+        h('span', { class: 'histo-droite' }, montant(l), statut(l))));
     }
     liste.replaceChildren(...(items.length ? items : [h('p', { class: 'petit' }, 'Rien pour l’instant.')]));
   };

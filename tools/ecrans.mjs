@@ -600,7 +600,8 @@ async function pagesV200(page) {
   await page.locator('.v2-recalcul-detail').click();
   await verifierFeuille(page, 'v200-historique-cagnotte', 'v200 → Épargne : « Détail » ouvre l’historique de la cagnotte', { fermer: 'bouton', extra: async () => page.evaluate(() => {
     const t = [...document.querySelectorAll('.feuille-racine')].pop().textContent;
-    return [/Arrondis/.test(t) ? null : 'arrondis absents', /Privations?/.test(t) ? null : 'privations absentes'];
+    const f = [...document.querySelectorAll('.feuille-racine')].pop();
+    return [/Arrondis/.test(t) ? null : 'arrondis absents', /Privations?/.test(t) ? null : 'privations absentes', f.querySelector('.histo-op .histo-date strong') ? null : 'date à gauche des lignes absente', f.querySelector('.histo-mois-titre') ? null : 'titre du mois absent'];
   }) });
 
   // ---- Résumé : météo, bascule mois / année, préventions, « Voir le détail »

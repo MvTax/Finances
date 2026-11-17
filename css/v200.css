@@ -442,6 +442,17 @@
 :root[data-app="v200"] .v2-recalcul-message:empty { min-height: 0; }
 @media (prefers-reduced-motion: reduce) { :root[data-app="v200"] .v2-recalcul-bouton:disabled .v2-recalcul-icone .ic { animation: none; } }
 
+/* Détail de l'épargne : liste comme celle de la banque (date à gauche, titre de mois, un trait entre les lignes) */
+:root[data-app="v200"] .histo-mois-titre { margin: 18px 0 2px; font-size: 15px; font-weight: 800; color: var(--texte); }
+:root[data-app="v200"] .histo-mois-titre:first-child { margin-top: 0; }
+:root[data-app="v200"] .histo-op { align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--separateur); }
+:root[data-app="v200"] .histo-date { flex: none; width: 38px; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+:root[data-app="v200"] .histo-date strong { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 800; color: var(--texte); }
+:root[data-app="v200"] .histo-date small { font-size: 11.5px; font-weight: 800; letter-spacing: .04em; color: var(--texte-2); }
+:root[data-app="v200"] .histo-op .histo-texte small { color: var(--texte-2); }
+:root[data-app="v200"] .histo-etiquette { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-texte, #fff); font-size: 11.5px; font-weight: 800; }
+:root[data-app="v200"] .histo-depart .histo-montant { color: var(--vert); }
+
 /* Feuille d'un pot */
 :root[data-app="v200"] .v2-pot-fiche { display: flex; flex-direction: column; gap: 16px; padding-bottom: 6px; }
 :root[data-app="v200"] .v2-pot-fiche-dessin {

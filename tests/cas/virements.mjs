@@ -3,6 +3,7 @@ import { egal, vrai } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
 import { aVirerEpargne, historiqueCagnotte, compteEpargne } from '../../js/virements.js';
 import * as store from '../../js/store.js';
+import { formatEuros } from '../../js/money.js';
 import { resteADepenser, jaugeDuJour } from '../../js/calculs.js';
 
 const revenus = (mois, c) => ({ mois, salaireCentimes: c, primeActiviteCentimes: 0, autresEntrees: [], statut: 'confirme' });
@@ -116,8 +117,8 @@ export default [
     egal(hst.lignes.filter((l) => l.source === 'mois').length, 1);
     egal(hst.lignes[0].date, '2026-11-10', 'le plus récent d’abord');
   } },
-  { nom: 'historique de la cagnotte : les arrondis d’avant le salaire pas encore virés ont leur ligne, la somme à virer = le virement', fn: () => {
-    const e = etat({ transactions: [tx({ date: '2026-10-28', montant: 420 }), tx({ date: '2026-11-03', montant: 910 }), tx({ id: 'vire', date: '2026-11-02', montant: 150 }),
+  { nom: 'historique de la cagnotte : arrondis d’avant le salaire une ligne chacun, à leur date ; la somme à virer = le virement', fn: () => {
+    const e = etat({ transactions: [tx({ date: '2026-10-28', montant: 420, marchand: 'BOUTIQUE TEST' }), tx({ date: '2026-11-03', montant: 910 }), tx({ id: 'vire', date: '2026-11-02', montant: 150 }),
       tx({ date: '2026-11-09', montant: 340 })],
       privations: [{ id: 'p', date: '2026-11-09', libelle: 'Menu', montantCentimes: 1000, vireLe: null }] });
     e.profil.debutSuivi = '2026-10-20';
@@ -125,13 +126,40 @@ export default [
     const v = aVirerEpargne(e, '2026-11-10');
     egal(v.arrondisCentimes, 80 + 90 + 60, 'arrondis d’octobre et début novembre non virés + celui du 09/11');
     const hst = historiqueCagnotte(e, '2026-11-10', new Date('2026-11-10T20:00:00+01:00'));
-    const avant = hst.lignes.filter((l) => l.avantSalaire);
-    egal(avant.length, 1); egal(avant[0].montantCentimes, 170); egal(avant[0].source, 'arrondi'); egal(avant[0].date, '2026-11-03');
-    vrai(/2 arrondis du 28\/10 au 03\/11/.test(avant[0].detail), avant[0].detail);
+    egal(hst.lignes.filter((l) => l.avantSalaire).length, 0, 'plus de ligne groupée');
+    const avant = hst.lignes.filter((l) => l.source === 'arrondi' && l.date < hst.periode.debut);
+    egal(avant.map((l) => `${l.date}:${l.montantCentimes}`).join(' '), '2026-11-03:90 2026-10-28:80', 'une ligne par arrondi, le plus récent d’abord');
+    egal(avant[1].libelle, 'BOUTIQUE TEST'); egal(avant[1].detail, `${formatEuros(420)} arrondi à ${formatEuros(500)}`, 'même détail que les arrondis du mois');
+    vrai(avant.every((l) => !l.vireLe), 'à virer');
+    egal(hst.lignes.filter((l) => l.date === '2026-11-02').length, 0, 'l’arrondi déjà viré d’avant le salaire n’y est pas');
     const aVirer = hst.lignes.filter((l) => !l.vireLe && !l.enCours).reduce((s, l) => s + l.montantCentimes, 0);
     egal(aVirer, v.semaineCentimes, 'somme des lignes à virer = montant à virer de la page');
     egal(hst.aVirerCentimes, v.semaineCentimes);
     vrai(v.totalCentimes > v.semaineCentimes, 'le total du mois n’est pas le virement en cours');
+  } },
+  { nom: 'historique de la cagnotte : salaire et CAF en « début du mois », affichés mais jamais comptés', fn: () => {
+    const base = () => [tx({ date: '2026-10-28', montant: 420 }), tx({ date: '2026-11-09', montant: 340 })];
+    const sans = etat({ transactions: base() });
+    sans.profil.debutSuivi = '2026-10-20';
+    const avec = etat({ transactions: [...base(),
+      tx({ id: 'sal', date: '2026-11-05', montant: 150000, sens: 'credit', categorie: 'salaire', marchand: 'SALAIRE TEST' }),
+      tx({ id: 'caf', date: '2026-11-04', montant: 12300, sens: 'credit', categorie: 'prime-activite', marchand: 'CAF TEST' }),
+      tx({ id: 'loin', date: '2026-10-20', montant: 5000, sens: 'credit', categorie: 'prime-activite', marchand: 'CAF TEST' })] });
+    avec.profil.debutSuivi = '2026-10-20';
+    const instant = new Date('2026-11-10T20:00:00+01:00');
+    const h0 = historiqueCagnotte(sans, '2026-11-10', instant);
+    const h1 = historiqueCagnotte(avec, '2026-11-10', instant);
+    egal(h1.periode.debut, '2026-11-05');
+    const dep = h1.lignes.filter((l) => l.depart);
+    egal(dep.map((l) => `${l.type}:${l.date}:${l.libelle}:${l.montantCentimes}`).join(' '), 'salaire:2026-11-05:SALAIRE TEST:150000 caf:2026-11-04:CAF TEST:12300', 'salaire puis CAF, la CAF trop loin du salaire n’y est pas');
+    vrai(dep.every((l) => l.source === 'depart' && !l.vireLe), 'source à part, rien de viré');
+    egal(h1.aVirerCentimes, h0.aVirerCentimes, 'les lignes de départ ne changent pas « À virer »');
+    egal(h1.aVirerCentimes, aVirerEpargne(avec, '2026-11-10').semaineCentimes);
+    egal(h1.vireCentimes, h0.vireCentimes);
+    const i = (f) => h1.lignes.findIndex(f);
+    vrai(i((l) => l.type === 'salaire') < i((l) => l.date === '2026-10-28'), 'les arrondis d’avant le salaire sont rangés sous le salaire');
+    vrai(i((l) => l.date === '2026-11-09') < i((l) => l.type === 'salaire'), 'les opérations du mois au-dessus');
+    egal(historiqueCagnotte(avec, '2026-11-04', instant).lignes.filter((l) => l.depart && l.type === 'salaire').length, 0, 'pas de salaire futur affiché');
   } },
   { nom: 'épargnes rangées : Sécurité sur Revolut, prêt sur le Livret A LCL (une fois, si les deux banques sont là)', fn: () => {
     store.etat.meta = {};

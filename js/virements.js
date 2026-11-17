@@ -12,7 +12,7 @@ import { epargneNettePeriode, repartirVersement, arrondiTransaction, debutArrond
 import { formatEuros } from './money.js';
 import { jourBudgetaire, resteDuJourPasse } from './restes.js';
 import { bilanPrivations } from './privations.js';
-import { ajouterJours, formatDateCourte } from './dates.js';
+import { ajouterJours } from './dates.js';
 
 /** Valeur du réglage « arrondis, repas et privations » qui les partage entre les épargnes (comme l'épargne du mois). */
 export const PARTAGE = 'partage';
@@ -156,10 +156,32 @@ export function compteEpargne(poche) {
 /**
  * Historique de la cagnotte du mois : chaque ajout, d'où il vient, et s'il est viré.
  * Sources : arrondi d'une sortie du compte, repas à la maison, privation, épargne du mois.
- * Les arrondis d'avant le salaire pas encore virés (repris par le virement) forment une seule ligne.
+ * Les arrondis d'avant le salaire pas encore virés (repris par le virement) ont chacun leur ligne, à leur date.
+ * Le salaire et la CAF du début du mois sont des lignes « départ » (depart: true) : affichées, jamais comptées.
  * Total à virer = semaineCentimes de aVirerEpargne (le virement en cours), pas totalCentimes (tout le mois).
  * @returns {{ lignes: Array<{ date, source, libelle, detail, montantCentimes, vireLe }>, aVirerCentimes, vireCentimes, periode }}
  */
+/** Jours autour du début de période où le virement de la CAF compte comme « début du mois ». */
+const JOURS_AUTOUR_CAF = 7;
+
+/**
+ * Crédits qui ouvrent le mois : le salaire reçu le jour du début de période, et le virement de la CAF
+ * (catégorie prime d'activité ou marchand « CAF ») reçu jusqu'à 7 jours avant ou après. Jamais après dateIso.
+ */
+export function creditsDeDepart(etat, per, dateIso) {
+  const de = ajouterJours(per.debut, -JOURS_AUTOUR_CAF);
+  const a = ajouterJours(per.debut, JOURS_AUTOUR_CAF);
+  const out = [];
+  for (const t of etat.transactions || []) {
+    if (t.sens !== 'credit' || t.date > dateIso || t.date > per.fin) continue;
+    const salaire = t.categorie === 'salaire' && t.date === per.debut;
+    const caf = !salaire && (t.categorie === 'prime-activite' || /\bCAF\b/i.test(t.marchand || '')) && t.date >= de && t.date <= a;
+    if (!salaire && !caf) continue;
+    out.push({ date: t.date, source: 'depart', depart: true, type: salaire ? 'salaire' : 'caf', libelle: t.marchand || t.libelle || (salaire ? 'Salaire' : 'CAF'), detail: salaire ? 'Salaire' : 'Virement de la CAF', montantCentimes: t.montantCentimes, vireLe: null });
+  }
+  return out;
+}
+
 export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
   const r = resteADepenser(etat, dateIso);
   const per = r.periode;
@@ -176,15 +198,16 @@ export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
       if (!a) continue;
       lignes.push({ date: t.date, source: 'arrondi', libelle: t.marchand || t.libelle || 'Dépense', detail: `${formatEuros(t.montantCentimes)} arrondi à ${formatEuros(t.montantCentimes + a)}`, montantCentimes: a, vireLe: vires.get(t.id) || null });
     }
-    // Arrondis d'avant le salaire pas encore virés : le virement les reprend (cagnotteArrondis), une seule ligne pour eux
-    const avant = cagnotteArrondis(etat, dateIso).lignes.filter((l) => l.date < per.debut);
-    if (avant.length) {
-      const dates = avant.map((l) => l.date).sort();
-      const total = avant.reduce((s, l) => s + l.montantCentimes, 0);
-      const n = avant.length;
-      lignes.push({ date: dates[dates.length - 1], source: 'arrondi', libelle: 'Arrondis d’avant le salaire', detail: `${n} arrondi${n > 1 ? 's' : ''} du ${formatDateCourte(dates[0])} au ${formatDateCourte(dates[n - 1])}, pas encore virés`, montantCentimes: total, vireLe: null, avantSalaire: true });
+    // Arrondis d'avant le salaire pas encore virés : le virement les reprend (cagnotteArrondis), chacun à sa date
+    const parId = new Map((etat.transactions || []).map((t) => [t.id, t]));
+    for (const l of cagnotteArrondis(etat, dateIso).lignes) {
+      if (l.date >= per.debut) continue;
+      const t = parId.get(l.transactionId);
+      lignes.push({ date: l.date, source: 'arrondi', libelle: t?.marchand || t?.libelle || 'Dépense', detail: t ? `${formatEuros(t.montantCentimes)} arrondi à ${formatEuros(t.montantCentimes + l.montantCentimes)}` : 'arrondi pas encore viré', montantCentimes: l.montantCentimes, vireLe: null });
     }
   }
+  // Top départ : salaire et virement de la CAF qui ouvrent le mois (affichés, jamais comptés dans « À virer »)
+  for (const d of creditsDeDepart(etat, per, dateIso)) lignes.push(d);
   // Repas à la maison (automatiques) et privations
   for (const p of [...(etat.privations || []).filter((x) => x.date >= per.debut && x.date <= per.fin), ...(r.privationsAuto || [])]) {
     if (p.source === 'resteJour') {
@@ -224,7 +247,8 @@ export function historiqueCagnotte(etat, dateIso, instant = new Date()) {
       lignes.push({ date: ouvert, source: 'reste', libelle: 'Reste du jour', detail: `ajouté à 5 h ${quand}. Si la journée s’arrêtait maintenant : ${formatEuros(estime)}`, montantCentimes: estime, vireLe: null, enCours: true, aHeure: '5 h' });
     }
   }
-  lignes.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.enCours ? 1 : 0) - (a.enCours ? 1 : 0) || (a.vireLe ? 1 : 0) - (b.vireLe ? 1 : 0)));
+  lignes.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.depart ? 1 : 0) - (b.depart ? 1 : 0) || (b.enCours ? 1 : 0) - (a.enCours ? 1 : 0) || (a.vireLe ? 1 : 0) - (b.vireLe ? 1 : 0)));
   const somme = (l) => l.reduce((s, x) => s + x.montantCentimes, 0);
-  return { lignes, aVirerCentimes: somme(lignes.filter((x) => !x.vireLe && !x.enCours)), vireCentimes: somme(lignes.filter((x) => x.vireLe)), periode: per };
+  const comptees = lignes.filter((x) => !x.depart);
+  return { lignes, aVirerCentimes: somme(comptees.filter((x) => !x.vireLe && !x.enCours)), vireCentimes: somme(comptees.filter((x) => x.vireLe)), periode: per };
 }
