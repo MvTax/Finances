@@ -1,6 +1,6 @@
 # État du projet
 
-- **En ligne (`main`)** : 1.45.0 (solde des comptes en haut à droite, toutes les catégories du mois dans le Résumé), mise en ligne le 2026-11-16
+- **En ligne (`main`)** : 1.46.1 (Épargne : « Recalculer l’épargne », « Détail » rangé comme la banque), mise en ligne le 2026-11-17
 - **Branche de travail** : `v100-simple` (à ramener au niveau de `main` avant la prochaine version) ; la 1.43.0, la 1.44.0 et la 1.45.0 ont été faites sur `claude/apple-pay-icloud-automation-bka5am`
 
 ## Dernières livraisons (en ligne jusqu'à la 1.43.0)
