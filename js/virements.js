@@ -133,9 +133,10 @@ const MOIS_COURTS = ['jan', 'fev', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout',
 
 /**
  * Libellé du virement pour l'appli bancaire, sans accents (accepté partout) : « Epargne 5/6/7 nov »,
- * « Epargne 30 nov/1/2 dec » à cheval sur deux mois ; suivi du nom court de l'épargne (« Pret », « Securite »).
+ * « Epargne 30 nov/1/2 dec » à cheval sur deux mois. Depuis la 1.47, un seul virement pour toute l'épargne :
+ * plus de suffixe par épargne. Le second paramètre (ancienne poche) est accepté et ignoré.
  */
-export function libelleVirement(jours, poche = null) {
+export function libelleVirement(jours, _poche = null) {
   const parMois = [];
   for (const d of jours) {
     const m = MOIS_COURTS[Number(d.slice(5, 7)) - 1];
@@ -143,14 +144,54 @@ export function libelleVirement(jours, poche = null) {
     if (dernier && dernier.m === m) dernier.j.push(Number(d.slice(8))); else parMois.push({ m, j: [Number(d.slice(8))] });
   }
   const dates = parMois.map((x) => `${x.j.join('/')} ${x.m}`).join('/');
-  const suffixe = !poche ? '' : poche.type === 'remboursementAnticipe' ? ' Pret' : poche.type === 'coussin' ? ' Securite' : ` ${String(poche.nom).normalize('NFD').replace(/[\u0300-\u036f]/g, '').slice(0, 12)}`;
-  return `Epargne ${dates}${suffixe}`;
+  return `Epargne ${dates}`;
 }
 
-/** Compte où se trouve une épargne, en clair (« Revolut », « Livret A LCL »), ou null. */
+/** Compte où se trouve une épargne, en clair (« Livret A LCL »), ou null. */
 export function compteEpargne(poche) {
   const c = poche?.compteSupport;
   return c && !/^compte épargne sans intérêts$/i.test(c) ? c : null;
+}
+
+/** Le compte où vont les deux épargnes (prêt et sécurité) : celui du prêt, sinon celui de la sécurité, ou null. */
+export function compteDesEpargnes(etat) {
+  const actives = (etat.poches || []).filter((p) => p.actif !== false);
+  return compteEpargne(actives.find((p) => p.type === 'remboursementAnticipe')) || compteEpargne(actives.find((p) => p.type === 'coussin')) || null;
+}
+
+/** « ton Livret A LCL » (« ton » devant un livret), ou le nom du compte tel quel. */
+export const nomCompteEpargne = (c) => (c ? `${/^livret/i.test(c) ? 'ton ' : ''}${c}` : null);
+
+/**
+ * Le virement unique vers l'épargne : un seul montant (semaineCentimes), un seul compte, et la part de chaque épargne
+ * (prise dans parPoche, sans rien recalculer). autresCentimes : part d'une autre poche (rare), comptée à part.
+ * @param {object} v  résultat de aVirerEpargne
+ * @returns {{ montantCentimes, compte: string|null, pretCentimes, securiteCentimes, autresCentimes }}
+ */
+export function virementUnique(etat, v) {
+  const type = new Map((etat.poches || []).map((p) => [p.id, p.type]));
+  let pret = 0; let secu = 0; let autres = 0;
+  for (const x of v?.parPoche || []) {
+    const c = Math.trunc(x.montantCentimes || 0);
+    if (c <= 0) continue;
+    const t = type.get(x.pocheId);
+    if (t === 'remboursementAnticipe') pret += c; else if (t === 'coussin') secu += c; else autres += c;
+  }
+  return { montantCentimes: Math.trunc(v?.semaineCentimes || 0), compte: compteDesEpargnes(etat), pretCentimes: pret, securiteCentimes: secu, autresCentimes: autres };
+}
+
+/**
+ * Sous le montant du virement : « dont 6,00 € pour le prêt, 4,00 € pour la sécurité ».
+ * Une seule épargne concernée : « tout pour le prêt ». Rien à virer : null.
+ */
+export function phraseDontVirement(u) {
+  const morceaux = [];
+  if (u.pretCentimes > 0) morceaux.push(['le prêt', u.pretCentimes]);
+  if (u.securiteCentimes > 0) morceaux.push(['la sécurité', u.securiteCentimes]);
+  if (u.autresCentimes > 0) morceaux.push(['une autre épargne', u.autresCentimes]);
+  if (!morceaux.length) return null;
+  if (morceaux.length === 1) return `tout pour ${morceaux[0][0]}`;
+  return `dont ${morceaux.map(([n, c]) => `${formatEuros(c)} pour ${n}`).join(', ')}`;
 }
 
 /**

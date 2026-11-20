@@ -13,7 +13,7 @@ import { etat } from '../../store.js';
 import { aujourdhui } from '../../dates.js';
 import { formatEuros } from '../../money.js';
 import { eur } from '../calculs/commun.js';
-import { potsEpargne, phraseRecalcul } from '../calculs/pots.js';
+import { potsEpargne, phraseRecalcul, repartitionEpargnes } from '../calculs/pots.js';
 import { pot as dessinPot } from '../ui/dessins.js';
 
 export const titre = 'Épargne';
@@ -101,6 +101,7 @@ export async function rendre(vue, params = []) {
   const auj = aujourdhui();
   const { pots, virement: v, arrondis } = potsEpargne(etat, auj);
   const total = pots.reduce((s, p) => s + (p.id === 'envie' ? 0 : p.soldeCentimes), 0);
+  const repartition = repartitionEpargnes(etat, pots, { masque: estMasque() });
 
   const entete = h('header', { class: 'v2-ep-tete' },
     h('h1', { class: 'v2-titre' }, 'Mon épargne'),
@@ -119,6 +120,7 @@ export async function rendre(vue, params = []) {
   vue.replaceChildren(h('div', { class: 'v2-ep' },
     entete,
     h('ul', { class: 'v2-pots', role: 'list' }, pots.map(carte)),
+    repartition ? h('p', { class: 'v2-phrase v2-phrase-compte' }, h('span', { class: 'v2-phrase-emoji', 'aria-hidden': 'true' }, '🏦'), h('span', {}, repartition.phrase)) : null,
     virer,
     blocRecalcul(vue),
     h('p', { class: 'v2-phrase v2-phrase-arrondis' }, h('span', { class: 'v2-phrase-emoji', 'aria-hidden': 'true' }, '🪙'), h('span', {}, estMasque() && arrondis.centimes ? 'Tes arrondis ce mois-ci : •••' : arrondis.phrase))));

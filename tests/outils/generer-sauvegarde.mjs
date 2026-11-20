@@ -289,7 +289,7 @@ export function genererSauvegarde({ aujourdhui = REFERENCE_DEFAUT, graine = GRAI
   const poches = [
     { id: 'poche-coussin', nom: 'Sécurité', type: 'coussin', cibleCentimes: 150000, priorite: 2, partRepartition: 50, soldeInitialCentimes: 0,
       mouvements: premierVersement ? [{ id: 'mvt-0001', date: premierVersement.date, montantCentimes: premierVersement.montantCentimes, sens: 'versement', motif: 'Virement vers Sécurité', transactionId: premierVersement.id }] : [],
-      compteSupport: 'Revolut', tauxAnnuel: 0, actif: true, creeLe: horodatage(debutSuivi), modifieLe: horodatage(debutSuivi) },
+      compteSupport: 'Livret A LCL', tauxAnnuel: 0, actif: true, creeLe: horodatage(debutSuivi), modifieLe: horodatage(debutSuivi) },
     { id: 'poche-pret', nom: 'Prêt 6 000 €', type: 'remboursementAnticipe', cibleCentimes: 600000, palierCentimes: 50000, priorite: 1, partRepartition: 50, soldeInitialCentimes: 0, mouvements: [],
       compteSupport: 'Livret A LCL', tauxAnnuel: 0, actif: true, creeLe: horodatage(debutSuivi), modifieLe: horodatage(debutSuivi), note: 'Exemple : pour rembourser le prêt plus tôt', creditId: 'credit-pret-perso' },
   ];
@@ -348,7 +348,7 @@ export function genererSauvegarde({ aujourdhui = REFERENCE_DEFAUT, graine = GRAI
     { creeLe: horodatage(debutSuivi, 9), modifieLe: horodatage(debutSuivi, 9), id: 'question-2', type: 'particulier', titre: 'Virement à un proche', texte: 'Est-ce un prêt ?', reponseProposee: { classement: 'pret' }, statut: 'ouverte', transactionIds: transactions.filter((t) => t.aQualifier).map((t) => t.id) },
   ];
   const virementsPrevus = [
-    { id: 'vp-epargne-1', mois, date: ajouterJours(auj, 2), rappelLe: ajouterJours(auj, 2), libelle: 'Virement Revolut vers Sécurité', montantCentimes: 5000, pocheId: 'poche-coussin', fait: false, type: 'epargne', creeLe: horodatage(debutPeriode), modifieLe: horodatage(debutPeriode) },
+    { id: 'vp-epargne-1', mois, date: ajouterJours(auj, 2), rappelLe: ajouterJours(auj, 2), libelle: 'Virement vers Sécurité', montantCentimes: 5000, pocheId: 'poche-coussin', fait: false, type: 'epargne', creeLe: horodatage(debutPeriode), modifieLe: horodatage(debutPeriode) },
     { creeLe: horodatage(debutPeriode), modifieLe: horodatage(debutPeriode), id: `vp-efforts-${mois}`, date: ajouterJours(auj, 1), libelle: 'Virement épargne (sécurité, prêt)', montantCentimes: 1800, pocheId: null, compteId: 'lcl', fait: false, rappelLe: ajouterJours(auj, 1), type: 'epargne' },
   ];
   const privations = [
@@ -360,7 +360,7 @@ export function genererSauvegarde({ aujourdhui = REFERENCE_DEFAUT, graine = GRAI
     jeu: { depuis: ajouterJours(auj, -20), niveauVu: 2 },
     joursVus: [-5, -4, -3, -2, -1, 0].map((k) => ajouterJours(auj, k)),
     effortsPartages: s(ajouterJours(auj, -30)), enviesAmorcees: s(ajouterJours(auj, -20)), saisiesNuitRecalees: s(ajouterJours(auj, -15)),
-    pochesRangees: s(ajouterJours(auj, -30)), supportsEpargne: s(ajouterJours(auj, -12)), derniereVerification: ajouterJours(auj, -1),
+    pochesRangees: s(ajouterJours(auj, -30)), supportsEpargne: s(ajouterJours(auj, -12)), epargneUniqueLcl: s(ajouterJours(auj, -2)), derniereVerification: ajouterJours(auj, -1),
     applePayVues: ['a1b2c3d4e5f6ab', 'b7c6d5e4f3a2bc', 'c0ffee0dd0beef'],
   };
 

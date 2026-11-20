@@ -5,7 +5,7 @@
 // recalculé autrement. Fonctions pures : l'état et la journée de budget sont passés en paramètres.
 
 import { soldePoche } from '../../epargne.js';
-import { aVirerEpargne } from '../../virements.js';
+import { aVirerEpargne, compteDesEpargnes, nomCompteEpargne } from '../../virements.js';
 import { fluxEnvies } from '../../envies.js';
 import { arrondisPeriode, periodeBudget } from '../../calculs.js';
 import { ajouterJours, diffJours, formatJourLong, formatMois, moisDe } from '../../dates.js';
@@ -147,6 +147,27 @@ export function phraseRecalcul(avantCentimes, apresCentimes, { masque = false } 
 }
 
 /**
+ * Une seule épargne sur un seul compte, suivie en deux parts : « Tout est sur ton Livret A LCL : 120 € pour l’épargne prêt
+ * (sur 8 000 €), 80 € pour l’épargne sécurité. » Montants = ceux des pots (déjà viré + part en attente).
+ * Sans compte renseigné : « Tes épargnes : … ». Aucun pot Prêt ni Sécurité : null.
+ * @param {Array} pots  pots de potsEpargne
+ * @param {{ masque?: boolean }} o  masque : montants remplacés par •••
+ * @returns {{ compte, pretCentimes, securiteCentimes, phrase } | null}
+ */
+export function repartitionEpargnes(etat, pots, { masque = false } = {}) {
+  const pret = pots.find((p) => p.id === 'pret');
+  const secu = pots.find((p) => p.id === 'securite');
+  if (!pret && !secu) return null;
+  const m = (c) => (masque ? '•••' : eur(c));
+  const compte = compteDesEpargnes(etat);
+  const parts = [];
+  if (pret) parts.push(`${m(pret.soldeCentimes)} pour l’épargne prêt${pret.cibleCentimes ? ` (sur ${eur(pret.cibleCentimes)})` : ''}`);
+  if (secu) parts.push(`${m(secu.soldeCentimes)} pour l’épargne sécurité`);
+  const debut = compte ? `Tout est sur ${nomCompteEpargne(compte)}` : 'Tes épargnes';
+  return { compte, pretCentimes: pret?.soldeCentimes || 0, securiteCentimes: secu?.soldeCentimes || 0, phrase: `${debut} : ${parts.join(', ')}.` };
+}
+
+/**
  * Les trois pots, dans l'ordre Sécurité, Prêt, Envie (un pot sans poche n'est pas montré ; l'Envie l'est toujours).
  * @returns {{ pots: Array<pot>, virement, arrondis }}
  */
@@ -161,5 +182,5 @@ export function potsEpargne(etat, auj) {
     pret ? potPoche('pret', 'Prêt', '🔑', pret, attente(pret.id), auj) : null,
     potEnvie(fluxEnvies(etat, { aujourdhuiIso: auj, auto: v.privationsAuto }), auj),
   ].filter(Boolean);
-  return { pots, virement: virementDuJour(etat, auj, v), arrondis: phraseArrondis(etat, auj) };
+  return { pots, virement: virementDuJour(etat, auj, v), arrondis: phraseArrondis(etat, auj), repartition: repartitionEpargnes(etat, pots) };
 }

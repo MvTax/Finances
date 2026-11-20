@@ -101,9 +101,11 @@ export default [
     egal(datesVirements(per).slice(0, 3).join(' '), '2026-12-08 2026-12-11 2026-12-14');
     egal(datesVirements(per).at(-1), '2027-01-04', 'le dernier tombe au plus tard la veille du salaire');
     egal(libelleVirement(joursDuVirement(per, 0)), 'Epargne 5/6/7 dec');
-    egal(libelleVirement(['2026-11-30', '2026-12-01', '2026-12-02'], { type: 'remboursementAnticipe' }), 'Epargne 30 nov/1/2 dec Pret');
-    egal(libelleVirement(['2026-11-05'], { type: 'coussin' }), 'Epargne 5 nov Securite');
-    vrai(libelleVirement(joursDuVirement(per, 0), { type: 'coussin' }).length <= 35, 'court pour l’appli bancaire');
+    egal(libelleVirement(['2026-11-30', '2026-12-01', '2026-12-02']), 'Epargne 30 nov/1/2 dec');
+    // Un seul virement pour toute l'épargne (1.47) : plus de suffixe, même si une poche est passée
+    egal(libelleVirement(['2026-11-30', '2026-12-01', '2026-12-02'], { type: 'remboursementAnticipe' }), 'Epargne 30 nov/1/2 dec');
+    egal(libelleVirement(['2026-11-05'], { type: 'coussin' }), 'Epargne 5 nov');
+    vrai(libelleVirement(joursDuVirement(per, 0)).length <= 35, 'court pour l’appli bancaire');
   } },
   { nom: '« Et si j’achète ? » : petit achat sans risque (pris sur le reste du jour), gros achat → après le salaire', fn: () => {
     const e = etat({ transactions: ['05', '06', '07', '08', '09', '10'].map((d) => tx({ date: `2026-11-${d}`, montant: 800, categorie: 'courses' })) });

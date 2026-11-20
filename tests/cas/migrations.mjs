@@ -2,6 +2,9 @@ import { egal, vrai } from '../outils/assert.mjs';
 import { SCHEMA_VERSION, migrerContenu, appliquerSchema, MIGRATIONS } from '../../js/migrations.js';
 import { construireExport, lireSauvegarde, fusionner, historiqueARestaurer, csvOperations, META_HISTORIQUE } from '../../js/sauvegarde.js';
 
+/** Mêmes clés (triées) dans deux objets. */
+function egalCles(a, b, m) { egal(Object.keys(a).sort().join(','), Object.keys(b).sort().join(','), m); }
+
 function fausseBase(existants = []) {
   const stores = new Map(existants.map((n) => [n, { indexNames: new Set(), createIndex(i) { this.indexNames.add(i); } }]));
   const db = { objectStoreNames: { contains: (n) => stores.has(n) }, createObjectStore(n) { const s = { indexNames: new Set(), createIndex(i) { this.indexNames.add(i); } }; s.indexNames.contains = (i) => s.indexNames.has(i); stores.set(n, s); return s; } };
@@ -107,5 +110,26 @@ export default [
     const vieille = construireExport({ profil: { cle: 'profil' }, parametres: {}, transactions: [{ id: 'b', date: '2026-01-01', montantCentimes: 100, sens: 'debit' }] });
     const lv = lireSauvegarde(JSON.parse(JSON.stringify(vieille)));
     vrai(lv.ok); egal(lv.contenu.meta.applePayVues, undefined); egal(lv.contenu.profil.applePay, undefined);
+  } },
+  { nom: 'sauvegarde : une seule épargne sur le Livret A LCL (clé epargneUniqueLcl) gardée à l’aller-retour, schéma et format inchangés', fn: () => {
+    egal(SCHEMA_VERSION, 4, 'pas de nouvelle version de base'); vrai(META_HISTORIQUE.includes('epargneUniqueLcl'));
+    const poches = [
+      { id: 's', nom: 'Sécurité', type: 'coussin', compteSupport: 'Livret A LCL', mouvements: [{ id: 'm1', date: '2026-11-08', montantCentimes: 1200, sens: 'versement' }], actif: true },
+      { id: 'p', nom: 'Prêt exemple', type: 'remboursementAnticipe', compteSupport: 'Livret A LCL', mouvements: [], actif: true },
+    ];
+    const etat = { profil: { cle: 'profil' }, parametres: { cle: 'parametres' }, poches, meta: { epargneUniqueLcl: '2026-11-18T06:00:00.000Z', supportsEpargne: '2026-10-01T06:00:00.000Z' } };
+    const exp = construireExport(etat, { maintenant: '2026-11-18T18:00:00Z' });
+    egal(exp.format, construireExport({}).format, 'format inchangé');
+    egalCles(exp.contenu, construireExport({}).contenu, 'structure de contenu inchangée');
+    const lu = lireSauvegarde(JSON.parse(JSON.stringify(exp)));
+    vrai(lu.ok); egal(lu.migrations.length, 0);
+    egal(lu.contenu.meta.epargneUniqueLcl, '2026-11-18T06:00:00.000Z');
+    egal(lu.contenu.poches.map((x) => x.compteSupport).join(','), 'Livret A LCL,Livret A LCL');
+    egal(JSON.stringify(lu.contenu.poches), JSON.stringify(poches), 'les poches reviennent à l’identique');
+    // Restauration complète : la clé revient ; une ancienne sauvegarde sans la clé reste valable (l'app range au chargement)
+    egal(Object.fromEntries(historiqueARestaurer({}, lu.contenu.meta, { remplacer: true })).epargneUniqueLcl, '2026-11-18T06:00:00.000Z');
+    const vieille = construireExport({ ...etat, meta: { supportsEpargne: '2026-10-01T06:00:00.000Z' }, poches: poches.map((x) => (x.type === 'coussin' ? { ...x, compteSupport: 'Revolut' } : x)) });
+    const lv = lireSauvegarde(JSON.parse(JSON.stringify(vieille)));
+    vrai(lv.ok); egal(lv.contenu.meta.epargneUniqueLcl, undefined); egal(lv.contenu.poches[0].compteSupport, 'Revolut');
   } },
 ];

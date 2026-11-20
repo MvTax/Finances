@@ -44,7 +44,7 @@ export default [
     const c = s.contenu;
     for (const k of COLLECTIONS) vrai(Array.isArray(c[k]), `collection « ${k} » présente`);
     for (const k of Object.keys(c.meta)) vrai(META_HISTORIQUE.includes(k), `meta « ${k} » exportable`);
-    for (const k of ['restesJour', 'effortsPartages', 'jeu', 'joursVus', 'supportsEpargne']) vrai(c.meta[k], `meta « ${k} »`);
+    for (const k of ['restesJour', 'effortsPartages', 'jeu', 'joursVus', 'supportsEpargne', 'epargneUniqueLcl']) vrai(c.meta[k], `meta « ${k} »`);
     // Profil comme le vrai : dates de salaire calculées comme l'app, arrondi, repas, envie de type jeu achetée en exception
     egalProfond(c.profil.datesSalaire, datesDeSalaire(c));
     vrai(c.profil.arrondi?.actif && c.profil.repasAuto?.actif && c.profil.debutSuivi && c.profil.jourSalaireHabituel === 5);

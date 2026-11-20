@@ -8,7 +8,7 @@ import { toast } from '../ui/toast.js';
 import { etat, ecrireMeta, surChangement } from '../store.js';
 import { recalculComplet } from '../recalcul.js';
 import { soldes } from '../calculs.js';
-import { aVirerEpargne, compteEpargne } from '../virements.js';
+import { aVirerEpargne, compteEpargne, nomCompteEpargne } from '../virements.js';
 import { fluxEnvies } from '../envies.js';
 import { declarerSolde, enregistrerVirementInterne } from '../actions.js';
 import { aujourdhui, ajouterJours, formatDateCourte } from '../dates.js';
@@ -36,6 +36,8 @@ export function feuilleRecalcul() {
     const auj = aujourdhui();
     const comptes = soldes(etat, auj).comptes.filter((c) => c.compte.type !== 'epargne' && c.compte.type !== 'especes').map((c) => c.compte);
     const poches = (etat.poches || []).filter((p) => p.actif !== false);
+    const comptesEp = [...new Set(poches.map((p) => compteEpargne(p)))];
+    const memeCompte = poches.length > 1 && comptesEp.length === 1 ? comptesEp[0] : null;
     const champ = (id, titre, sousTitre) => h('label', { class: 'recalcul-champ' },
       h('span', { class: 'recalcul-champ-titre' }, titre, sousTitre ? h('small', {}, sousTitre) : null),
       champMontant({ valeur: saisies[id] ?? null, label: `Solde ${titre} à la banque`, onValeur: (v) => { if (v === null) delete saisies[id]; else saisies[id] = v; } }));
@@ -44,6 +46,7 @@ export function feuilleRecalcul() {
       h('h3', { class: 'feuille-sous-titre' }, 'Tes comptes'),
       ...comptes.map((c) => champ(c.id, c.nom, c.type === 'courant' ? 'compte courant' : c.type === 'neobanque' ? 'néobanque' : 'compte')),
       poches.length ? h('h3', { class: 'feuille-sous-titre' }, 'Tes épargnes') : null,
+      memeCompte ? h('p', { class: 'petit' }, `Tes épargnes sont toutes sur ${nomCompteEpargne(memeCompte)} : ta banque montre le total. Si tu tapes les deux parts, leur somme doit faire ce total.`) : null,
       ...poches.map((p) => champ(p.id, p.type === 'remboursementAnticipe' ? 'Épargne prêt' : p.type === 'coussin' ? 'Épargne sécurité' : p.nom, compteEpargne(p) ? `sur ${compteEpargne(p)}` : null)),
       bouton('Tout recalculer', () => lancer(), { classe: 'btn-principal btn-large', icone: 'boucle' }));
   };

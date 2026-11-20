@@ -1,4 +1,4 @@
-// recalcul.js — « Recalcul complet » : tu tapes ce que chaque banque affiche (LCL, Revolut, Livret A, épargne Revolut),
+// recalcul.js — « Recalcul complet » : tu tapes ce que chaque banque affiche (LCL, Revolut, et ton Livret A LCL pour l’épargne),
 // l'app refait tout le calcul du mois en détail, compte par compte, et pour chaque écart propose des pistes classées :
 // prélèvement pas encore noté, dépense habituelle oubliée, virement d'épargne pas enregistré, virement entre comptes,
 // paiement pas encore débité, doublon, entrée non notée…

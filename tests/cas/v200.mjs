@@ -11,7 +11,7 @@ import { bulleDuJour, phraseDuJour, noteAujourdhui, texteBulle, ligneDuJour, lig
 import { serieJours, flammesDesJours } from '../../js/jeu.js';
 import { montantParle } from '../../js/v200/ui/molette.js';
 import { nomCourt, titreJour, natureLigne, estVisible, depuisSalaire, joursDepenses, periodePrecedente, premiereDate, NOM_COURT_MAX, aVerifier, joursDepuisApplePay, phraseDerniereFois, bilanApplePay, notesFichierApplePay, finApplePay, aPayerDuMois } from '../../js/v200/calculs/depenses.js';
-import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis, phraseRecalcul } from '../../js/v200/calculs/pots.js';
+import { potsEpargne, rythmePoche, finEstimee, rythmeEnvie, virementDuJour, phraseArrondis, phraseRecalcul, repartitionEpargnes } from '../../js/v200/calculs/pots.js';
 import { meteoDuMois, phrasesMois, phrasesAnnee, METEO } from '../../js/v200/calculs/resume.js';
 import { jourBudgetaire } from '../../js/restes.js';
 import { forcerAujourdhui, ajouterJours, jourSemaine } from '../../js/dates.js';
@@ -396,6 +396,30 @@ export default [
     egal(rythmeEnvie({ contributions: [{ date: '2026-11-01', montantCentimes: 600 }, { date: '2026-11-08', montantCentimes: 600 }] }, A), Math.round((1200 * 7) / 12));
     egal(rythmeEnvie({ contributions: [{ date: '2026-11-10', montantCentimes: 600 }] }, A), null, 'moins d’une semaine');
     egal(rythmeEnvie({ contributions: [] }, A), null);
+  }) },
+  { nom: 'Épargne : tout sur le Livret A LCL, avec la part prêt et la part sécurité (déjà viré + en attente)', fn: () => avecDate('2026-11-12', () => {
+    const A = '2026-11-12';
+    const mv = (date, montant) => ({ id: `mv-${date}-${montant}`, date, montantCentimes: montant, sens: 'versement' });
+    const secu = { id: 'p-secu', nom: 'Sécurité', type: 'coussin', cibleCentimes: 100000, priorite: 2, partRepartition: 50, soldeInitialCentimes: 0, actif: true, compteSupport: 'Livret A LCL', mouvements: [mv('2026-11-06', 8000)] };
+    const pret = { id: 'p-pret', nom: 'Prêt exemple', type: 'remboursementAnticipe', cibleCentimes: 300000, priorite: 1, partRepartition: 50, soldeInitialCentimes: 0, actif: true, compteSupport: 'Livret A LCL', mouvements: [mv('2026-11-06', 12000)] };
+    const e = etat({ revenusMensuels: [revenus('2026-11')], poches: [secu, pret], transactions: [tx({ date: '2026-11-08', montant: 1540, categorie: 'courses' })] });
+    e.profil.arrondi = { ...e.profil.arrondi, actif: true, pocheId: 'partage' };
+    const { pots, repartition } = potsEpargne(e, A);
+    const pPret = pots.find((p) => p.id === 'pret'); const pSecu = pots.find((p) => p.id === 'securite');
+    egal(repartition.compte, 'Livret A LCL');
+    egal(repartition.pretCentimes, pPret.soldeCentimes); egal(repartition.securiteCentimes, pSecu.soldeCentimes);
+    egal(pPret.soldeCentimes, 12000 + pPret.enAttenteCentimes, 'prêt : viré + sa part en attente');
+    egal(pSecu.soldeCentimes, 8000 + pSecu.enAttenteCentimes, 'sécurité : virée + sa part en attente');
+    egal(sp(repartition.phrase), `Tout est sur ton Livret A LCL : ${sp(eur(pPret.soldeCentimes))} pour l’épargne prêt (sur 3 000 €), ${sp(eur(pSecu.soldeCentimes))} pour l’épargne sécurité.`);
+    phraseOk(repartition.phrase);
+    // Valeurs fixes, sans part en attente
+    const fixe = [{ id: 'securite', soldeCentimes: 8000, cibleCentimes: 100000 }, { id: 'pret', soldeCentimes: 12000, cibleCentimes: 300000 }, { id: 'envie', soldeCentimes: 500 }];
+    egal(sp(repartitionEpargnes(e, fixe).phrase), 'Tout est sur ton Livret A LCL : 120 € pour l’épargne prêt (sur 3 000 €), 80 € pour l’épargne sécurité.');
+    egal(sp(repartitionEpargnes(e, fixe, { masque: true }).phrase), 'Tout est sur ton Livret A LCL : ••• pour l’épargne prêt (sur 3 000 €), ••• pour l’épargne sécurité.');
+    // Sans compte renseigné, sans objectif, ou sans pot Prêt ni Sécurité
+    const sans = etat({ poches: [{ ...pret, compteSupport: 'Compte épargne sans intérêts' }] });
+    egal(sp(repartitionEpargnes(sans, [{ id: 'pret', soldeCentimes: 0, cibleCentimes: null }]).phrase), 'Tes épargnes : 0 € pour l’épargne prêt.');
+    egal(repartitionEpargnes(e, [{ id: 'envie', soldeCentimes: 500 }]), null);
   }) },
   { nom: 'Épargne : virement à faire ou à jour, arrondis du mois', fn: () => avecDate('2026-11-12', () => {
     const A = '2026-11-12';

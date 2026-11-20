@@ -186,18 +186,21 @@ export function partagerEfforts() {
   return [{ store: 'profil', valeur: etat.profil }, { store: 'meta', valeur: { cle: 'effortsPartages', valeur: m } }];
 }
 
+/** Le seul compte d'épargne (depuis la 1.47) : la Sécurité et le prêt y sont tous les deux, suivis à part dans l'app. */
+export const COMPTE_EPARGNE_UNIQUE = 'Livret A LCL';
+
 /**
- * Une seule fois : où est rangée chaque épargne. Avec un compte LCL et un compte Revolut :
- * la Sécurité est sur le compte Revolut, la poche du prêt sur le Livret A LCL.
+ * Une seule fois : où est rangée chaque épargne. Avec un compte LCL : la Sécurité et la poche du prêt
+ * sont toutes les deux sur le Livret A LCL (un seul virement). Le compte Revolut sert seulement à payer.
  */
 export function placerEpargnes() {
   if (etat.meta.supportsEpargne) return [];
   const banques = new Set((etat.comptes || []).map((c) => c.banque || (/revolut/i.test(c.nom) ? 'revolut' : /lcl/i.test(c.nom) ? 'lcl' : null)));
-  if (!banques.has('lcl') || !banques.has('revolut')) return [];
+  if (!banques.has('lcl')) return [];
   const m = maintenant();
   const ops = [];
   etat.poches = etat.poches.map((p) => {
-    const support = p.actif === false ? null : p.type === 'coussin' ? 'Revolut' : p.type === 'remboursementAnticipe' ? 'Livret A LCL' : null;
+    const support = p.actif === false ? null : p.type === 'coussin' || p.type === 'remboursementAnticipe' ? COMPTE_EPARGNE_UNIQUE : null;
     if (!support || p.compteSupport === support) return p;
     const q = { ...p, compteSupport: support, tauxAnnuel: 0, modifieLe: m };
     ops.push({ store: 'poches', valeur: q });
@@ -205,6 +208,26 @@ export function placerEpargnes() {
   });
   etat.meta.supportsEpargne = m;
   ops.push({ store: 'meta', valeur: { cle: 'supportsEpargne', valeur: m } });
+  return ops;
+}
+
+/**
+ * Une seule fois (1.47) : toute l'épargne sur un seul compte. Les appareils où la Sécurité avait été rangée
+ * sur Revolut (placerEpargnes avant la 1.47) la remettent sur le Livret A LCL, comme le prêt.
+ * Seules les épargnes Sécurité et prêt actives notées « Revolut » changent ; le reste ne bouge pas.
+ */
+export function unifierEpargneLcl() {
+  if (etat.meta.epargneUniqueLcl) return [];
+  const m = maintenant();
+  const ops = [];
+  etat.poches = (etat.poches || []).map((p) => {
+    if (p.actif === false || (p.type !== 'coussin' && p.type !== 'remboursementAnticipe') || !/revolut/i.test(p.compteSupport || '')) return p;
+    const q = { ...p, compteSupport: COMPTE_EPARGNE_UNIQUE, tauxAnnuel: 0, modifieLe: m };
+    ops.push({ store: 'poches', valeur: q });
+    return q;
+  });
+  etat.meta.epargneUniqueLcl = m;
+  ops.push({ store: 'meta', valeur: { cle: 'epargneUniqueLcl', valeur: m } });
   return ops;
 }
 
@@ -269,6 +292,7 @@ export async function charger() {
   ops.push(...rangerPoches());
   ops.push(...partagerEfforts());
   ops.push(...placerEpargnes());
+  ops.push(...unifierEpargneLcl());
   ops.push(...amorcerEnvies());
   ops.push(...recalerSaisiesNuit());
   for (const r of abimees) ops.push({ store: 'reglesCategorie', valeur: r });
@@ -436,6 +460,8 @@ export async function remplacerTout(contenu) {
   for (const [k, v] of Object.entries({ baseProfil: contenu.profil || null, baseParametres: contenu.parametres || null, baseFichier: basesDepuisContenu(contenu), supprimes: {} })) { etat.meta[k] = v; ops.push({ store: 'meta', valeur: { cle: k, valeur: v } }); }
   await db.ecrireLot(ops);
   await restaurerHistorique(contenu.meta, { remplacer: true });
+  // Sauvegarde d'avant la 1.47 (Sécurité sur Revolut) : toute l'épargne revient sur le Livret A LCL
+  if (!contenu.meta?.epargneUniqueLcl) { delete etat.meta.epargneUniqueLcl; await db.ecrireLot(unifierEpargneLcl()); }
   notifier('restauration');
 }
 

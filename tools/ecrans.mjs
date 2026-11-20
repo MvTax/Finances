@@ -579,6 +579,8 @@ async function pagesV200(page) {
     if (document.querySelectorAll('.v2-pot-carte svg.v2-bocal').length !== 3) q.push('dessin de pot manquant');
     if (document.querySelector('#vue table')) q.push('un tableau sur la page Épargne');
     if (!/arrondi/i.test(document.querySelector('.v2-phrase-arrondis')?.textContent || '')) q.push('phrase des arrondis absente');
+    const compte = document.querySelector('.v2-phrase-compte')?.textContent || '';
+    if (!/^.*Tout est sur ton Livret A LCL : .+ pour l’épargne prêt.*, .+ pour l’épargne sécurité\.$/.test(compte)) q.push(`phrase « Tout est sur ton Livret A LCL » : « ${compte} »`);
     return { q, virer: !!document.querySelector('.v2-virer') };
   });
   await verifierPage(page, 'v200-epargne', 'v200 → Épargne : trois pots, arrondis', async () => [...ep.q, ...await zonesDeToucher(page, '.v2-ep')]);
@@ -589,7 +591,17 @@ async function pagesV200(page) {
   }) });
   if (ep.virer) {
     await page.locator('.v2-virer').click();
-    await verifierFeuille(page, 'v200-virement', 'v200 → Épargne : « À virer » ouvre le virement', { fermer: 'bouton', extra: async () => page.evaluate(() => [[...document.querySelectorAll('.feuille-racine')].pop().textContent.includes('J’ai viré') ? null : 'bouton « J’ai viré » absent']) });
+    await verifierFeuille(page, 'v200-virement', 'v200 → Épargne : « À virer » ouvre le virement', { fermer: 'bouton', extra: async () => page.evaluate(() => {
+      const f = [...document.querySelectorAll('.feuille-racine')].pop();
+      const lignes = f.querySelectorAll('.virement-ligne');
+      const libelle = f.querySelector('.virement-libelle')?.textContent || '';
+      const dont = f.querySelector('.virement-dont')?.textContent || '';
+      return [f.textContent.includes('J’ai viré') ? null : 'bouton « J’ai viré » absent',
+        lignes.length === 1 ? null : `${lignes.length} virements au lieu d’un seul`,
+        /sur ton Livret A LCL/.test(lignes[0]?.textContent || '') ? null : 'compte « ton Livret A LCL » absent',
+        /^Epargne [\d/]+ [a-z]+( [\d/]+ [a-z]+)*$/.test(libelle) && !/Pret|Securite/.test(libelle) ? null : `libellé « ${libelle} »`,
+        /^(dont .+ pour le prêt, .+ pour la sécurité|tout pour (le prêt|la sécurité))$/.test(dont) ? null : `part prêt / sécurité : « ${dont} »`];
+    }) });
   } else console.log('  rien à virer aujourd’hui : pas de bouton « À virer »');
   // « Recalculer l'épargne » : message après le redessin ; « Détail » ouvre l'historique de la cagnotte
   await page.locator('.v2-recalcul-bouton').click();

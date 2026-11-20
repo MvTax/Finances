@@ -13,7 +13,8 @@ const SECRETS = ['cleGemini', 'pinHash', 'pinSel', 'pinIterations', 'motDePasseS
  * ne sont pas exportées. applePayVues : empreintes des paiements Apple Pay déjà lus (réunies à la fusion).
  */
 export const META_HISTORIQUE = ['restesJour', 'reliquats', 'sansDepense', 'jeu', 'joursVus', 'abonnementsResilies', 'effortsPartages',
-  'enviesAmorcees', 'saisiesNuitRecalees', 'pochesRangees', 'supportsEpargne', 'derniereVerification', 'applePayVues'];
+  'enviesAmorcees', 'saisiesNuitRecalees', 'pochesRangees', 'supportsEpargne', 'derniereVerification', 'applePayVues',
+  'epargneUniqueLcl'];
 
 export function construireExport(etat, { maintenant = new Date().toISOString(), version = '1.0.0' } = {}) {
   for (const r of etat.reglesCategorie || []) delete r._re;

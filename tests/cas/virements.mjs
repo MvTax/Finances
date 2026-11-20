@@ -1,7 +1,7 @@
 // virements.mjs — « Reste à virer vers l'épargne » : un virement par semaine (épargne du mois + arrondis + privations).
 import { egal, vrai } from '../outils/assert.mjs';
 import { tx, etatBase } from '../outils/etat.mjs';
-import { aVirerEpargne, historiqueCagnotte, compteEpargne } from '../../js/virements.js';
+import { aVirerEpargne, historiqueCagnotte, compteEpargne, libelleVirement, virementUnique, phraseDontVirement, compteDesEpargnes, nomCompteEpargne } from '../../js/virements.js';
 import * as store from '../../js/store.js';
 import { formatEuros } from '../../js/money.js';
 import { resteADepenser, jaugeDuJour } from '../../js/calculs.js';
@@ -161,16 +161,64 @@ export default [
     vrai(i((l) => l.date === '2026-11-09') < i((l) => l.type === 'salaire'), 'les opérations du mois au-dessus');
     egal(historiqueCagnotte(avec, '2026-11-04', instant).lignes.filter((l) => l.depart && l.type === 'salaire').length, 0, 'pas de salaire futur affiché');
   } },
-  { nom: 'épargnes rangées : Sécurité sur Revolut, prêt sur le Livret A LCL (une fois, si les deux banques sont là)', fn: () => {
+  { nom: 'épargnes rangées : Sécurité et prêt sur le Livret A LCL (une fois, dès qu’un compte LCL est là ; Revolut reste pour payer)', fn: () => {
     store.etat.meta = {};
     store.etat.comptes = [{ id: 'lcl', nom: 'LCL', banque: 'lcl' }, { id: 'revolut', nom: 'Revolut', banque: 'revolut' }];
     store.etat.poches = poches();
     store.etat.poches.push({ id: 'old', type: 'projet', actif: false, compteSupport: 'Livret A' });
     vrai(store.placerEpargnes().length > 0);
-    egal(store.etat.poches.find((p) => p.id === 'secu').compteSupport, 'Revolut');
+    egal(store.etat.poches.find((p) => p.id === 'secu').compteSupport, 'Livret A LCL', 'plus de Revolut pour la Sécurité');
     egal(store.etat.poches.find((p) => p.id === 'pret').compteSupport, 'Livret A LCL');
     egal(store.etat.poches.find((p) => p.id === 'old').compteSupport, 'Livret A');
     egal(store.placerEpargnes().length, 0);
+    egal(store.etat.comptes.find((c) => c.id === 'revolut').banque, 'revolut', 'le compte Revolut pour payer ne change pas');
     egal(compteEpargne({ compteSupport: 'Compte épargne sans intérêts' }), null);
+    // Sans compte LCL : rien n'est rangé
+    store.etat.meta = {}; store.etat.comptes = [{ id: 'revolut', nom: 'Revolut', banque: 'revolut' }]; store.etat.poches = poches();
+    egal(store.placerEpargnes().length, 0); egal(store.etat.poches[0].compteSupport, undefined);
+  } },
+  { nom: 'migration une seule fois : la Sécurité rangée sur Revolut revient sur le Livret A LCL (clé meta epargneUniqueLcl)', fn: () => {
+    store.etat.meta = { supportsEpargne: '2026-10-01T06:00:00.000Z' };
+    store.etat.poches = poches().map((p) => ({ ...p, compteSupport: p.type === 'coussin' ? 'Revolut' : 'Livret A LCL' }));
+    store.etat.poches.push({ id: 'vieille', type: 'coussin', actif: false, compteSupport: 'Revolut' }, { id: 'projet', type: 'projet', actif: true, compteSupport: 'Revolut' });
+    const ops = store.unifierEpargneLcl();
+    egal(ops.filter((o) => o.store === 'poches').map((o) => o.valeur.id).join(','), 'secu', 'seule la Sécurité change');
+    egal(store.etat.poches.find((p) => p.id === 'secu').compteSupport, 'Livret A LCL');
+    egal(store.etat.poches.find((p) => p.id === 'secu').tauxAnnuel, 0, 'sans intérêts');
+    egal(store.etat.poches.find((p) => p.id === 'pret').compteSupport, 'Livret A LCL');
+    egal(store.etat.poches.find((p) => p.id === 'vieille').compteSupport, 'Revolut', 'une poche éteinte ne bouge pas');
+    egal(store.etat.poches.find((p) => p.id === 'projet').compteSupport, 'Revolut', 'un projet ne bouge pas');
+    vrai(store.etat.meta.epargneUniqueLcl, 'clé posée');
+    vrai(ops.some((o) => o.store === 'meta' && o.valeur.cle === 'epargneUniqueLcl'));
+    // Une seule fois : si tu remets Revolut à la main ensuite, l'app ne le change plus
+    store.etat.poches = store.etat.poches.map((p) => (p.id === 'secu' ? { ...p, compteSupport: 'Revolut' } : p));
+    egal(store.unifierEpargneLcl().length, 0);
+    egal(store.etat.poches.find((p) => p.id === 'secu').compteSupport, 'Revolut');
+  } },
+  { nom: 'un seul virement : un montant (= semaineCentimes), un compte « ton Livret A LCL », un libellé sans suffixe, et la part prêt / sécurité', fn: () => {
+    const lcl = poches().map((p) => ({ ...p, compteSupport: 'Livret A LCL' }));
+    const e = etat({ poches: lcl, transactions: [tx({ date: '2026-11-09', montant: 340 })], privations: [{ id: 'p', date: '2026-11-09', libelle: 'Menu', montantCentimes: 1000, vireLe: null }] });
+    e.profil.arrondi.pocheId = 'partage';
+    const v = aVirerEpargne(e, '2026-11-10');
+    const u = virementUnique(e, v);
+    egal(u.montantCentimes, v.semaineCentimes, 'un seul montant');
+    egal(u.compte, 'Livret A LCL'); egal(nomCompteEpargne(u.compte), 'ton Livret A LCL'); egal(compteDesEpargnes(e), 'Livret A LCL');
+    vrai(u.pretCentimes > 0 && u.securiteCentimes > 0, 'les deux épargnes reçoivent leur part');
+    egal(u.pretCentimes + u.securiteCentimes + u.autresCentimes, v.parPoche.reduce((s, x) => s + x.montantCentimes, 0), 'parts = répartition inchangée');
+    egal(u.pretCentimes + u.securiteCentimes, u.montantCentimes, 'les parts font le montant du virement');
+    egal(u.pretCentimes, v.parPoche.find((x) => x.pocheId === 'pret').montantCentimes);
+    egal(libelleVirement(v.joursCouverts), libelleVirement(v.joursCouverts, lcl[0]), 'même libellé, avec ou sans poche');
+    vrai(/^Epargne [\d/]+ nov$/.test(libelleVirement(v.joursCouverts)), libelleVirement(v.joursCouverts));
+    egal(phraseDontVirement(u), `dont ${formatEuros(u.pretCentimes)} pour le prêt, ${formatEuros(u.securiteCentimes)} pour la sécurité`);
+    // Valeurs fixes : phrase exacte
+    egal(phraseDontVirement({ pretCentimes: 600, securiteCentimes: 450, autresCentimes: 0 }).replace(/\u202f|\u00a0/g, ' '), 'dont 6,00 € pour le prêt, 4,50 € pour la sécurité');
+    egal(phraseDontVirement({ pretCentimes: 600, securiteCentimes: 0, autresCentimes: 0 }), 'tout pour le prêt');
+    egal(phraseDontVirement({ pretCentimes: 0, securiteCentimes: 0, autresCentimes: 0 }), null);
+    // Rien à virer, ou pas de compte renseigné
+    egal(virementUnique(e, { semaineCentimes: 0, parPoche: [] }).montantCentimes, 0);
+    egal(virementUnique(etat(), { semaineCentimes: 0, parPoche: [] }).compte, null);
+    egal(nomCompteEpargne(null), null); egal(nomCompteEpargne('Compte Exemple'), 'Compte Exemple');
+    // Un compte « sans intérêts » n'est pas un compte à nommer : on prend l'autre épargne
+    egal(compteDesEpargnes({ poches: [{ type: 'remboursementAnticipe', compteSupport: 'Compte épargne sans intérêts' }, { type: 'coussin', compteSupport: 'Livret A LCL' }] }), 'Livret A LCL');
   } },
 ];
